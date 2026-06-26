@@ -238,7 +238,6 @@ const HATC  = ["#8B0000","#1A237E","#2E7D32","#4A3728","#DDDDDD"];
 function FishSVG({ fish, W=100 }) {
   const H=W*0.56, cx=W*.42, cy=H*.50, id=fish.id+"_"+W;
   const body = fish.body || "oval";
-  // Body proportions vary by type
   let rx=W*.30, ry=H*.36, tailScale=1, finScale=1;
   if (body==="torpedo")  { rx=W*.34; ry=H*.26; tailScale=1.1; }
   else if (body==="chunky") { rx=W*.28; ry=H*.42; finScale=1.2; }
@@ -246,34 +245,87 @@ function FishSVG({ fish, W=100 }) {
   else if (body==="billfish"){ rx=W*.30; ry=H*.20; tailScale=1.2; }
   else if (body==="spiny")   { rx=W*.27; ry=H*.38; finScale=1.4; }
   else if (body==="shark")   { rx=W*.36; ry=H*.30; tailScale=1.3; }
+  const ss = W * 0.055; // scale cell size
+  const pid = "sc_" + id;
   return (
     <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{overflow:"visible",display:"block"}}>
       <defs>
         <radialGradient id={`bg${id}`} cx="38%" cy="38%" r="62%"><stop offset="0%" stopColor={fish.color}/><stop offset="100%" stopColor={fish.fin}/></radialGradient>
         <radialGradient id={`bl${id}`} cx="50%" cy="65%" r="50%"><stop offset="0%" stopColor={fish.belly} stopOpacity=".85"/><stop offset="100%" stopColor={fish.belly} stopOpacity="0"/></radialGradient>
+        {/* Scale pattern — overlapping semicircles like real fish scales */}
+        <pattern id={pid} x="0" y="0" width={ss} height={ss*.75} patternUnits="userSpaceOnUse">
+          <path d={`M 0 ${ss*.38} Q ${ss*.5} 0 ${ss} ${ss*.38}`} fill="none" stroke="rgba(0,0,0,.11)" strokeWidth=".9"/>
+          <path d={`M ${-ss*.5} ${ss*.75} Q 0 ${ss*.38} ${ss*.5} ${ss*.75}`} fill="none" stroke="rgba(0,0,0,.09)" strokeWidth=".8"/>
+        </pattern>
+        <clipPath id={`clip${id}`}><ellipse cx={cx} cy={cy} rx={rx*.95} ry={ry*.92}/></clipPath>
       </defs>
+
       {/* Bill for billfish */}
       {body==="billfish" && <polygon points={`${cx-rx*.9},${cy} ${cx-rx*2.0},${cy-2} ${cx-rx*2.0},${cy+2}`} fill={fish.fin}/>}
-      {/* Tail */}
+
+      {/* Caudal (tail) fin with rays */}
       <polygon points={`${cx+rx*.85},${cy} ${cx+rx*.85+W*.18*tailScale},${cy-H*.36*tailScale} ${cx+rx*.85+W*.10},${cy} ${cx+rx*.85+W*.18*tailScale},${cy+H*.36*tailScale}`} fill={fish.fin} opacity=".9"/>
+      {[-0.55,-0.28,0,.28,.55].map(function(f,i){
+        return <line key={i} x1={cx+rx*.87} y1={cy+f*ry*.5} x2={cx+rx*.85+W*.14*tailScale} y2={cy+f*H*.28*tailScale} stroke="rgba(0,0,0,.14)" strokeWidth=".8"/>;
+      })}
+
+      {/* Anal fin (bottom rear) */}
+      <polygon points={`${cx+rx*.15},${cy+ry} ${cx+rx*.38},${cy+ry*(1.45*finScale)} ${cx+rx*.58},${cy+ry}`} fill={fish.fin} opacity=".75"/>
+
+      {/* Ventral (pelvic) fin */}
+      <polygon points={`${cx-rx*.1},${cy+ry*.7} ${cx-rx*.04},${cy+ry*(1.3*finScale)} ${cx+rx*.12},${cy+ry*.7}`} fill={fish.fin} opacity=".65"/>
+
       {/* Body */}
       <ellipse cx={cx} cy={cy} rx={rx} ry={ry} fill={`url(#bg${id})`}/>
+
+      {/* Scale texture overlaid on body */}
+      <rect x={cx-rx} y={cy-ry} width={rx*2} height={ry*2} fill={`url(#${pid})`} clipPath={`url(#clip${id})`} opacity=".55"/>
+
+      {/* Belly highlight */}
       <ellipse cx={cx} cy={cy+ry*.28} rx={rx*.72} ry={ry*.48} fill={`url(#bl${id})`}/>
-      {/* Lateral line */}
-      <path d={`M ${cx-rx*.55},${cy-ry*.08} Q ${cx+rx*.1},${cy-ry*.05} ${cx+rx*.65},${cy+ry*.04}`} stroke="rgba(0,0,0,.18)" strokeWidth="1.2" fill="none" strokeDasharray="4,3"/>
-      {/* Dorsal fin(s) */}
+
+      {/* Lateral line — runs along mid-flank */}
+      <path d={`M ${cx-rx*.55},${cy-ry*.08} Q ${cx+rx*.1},${cy-ry*.05} ${cx+rx*.65},${cy+ry*.04}`} stroke="rgba(0,0,0,.20)" strokeWidth="1.3" fill="none" strokeDasharray="3.5,3"/>
+
+      {/* Dorsal fin with rays */}
       {body==="spiny"
         ? [0,1,2,3,4].map(function(si){ return <polygon key={si} points={`${cx-rx*.4+si*rx*.3},${cy-ry} ${cx-rx*.35+si*rx*.3},${cy-ry*1.8} ${cx-rx*.25+si*rx*.3},${cy-ry}`} fill={fish.fin} opacity=".85"/>; })
-        : <polygon points={`${cx-rx*.15},${cy-ry} ${cx-rx*.05},${cy-ry*(1.62*finScale)} ${cx+rx*.40},${cy-ry*(1.35*finScale)} ${cx+rx*.52},${cy-ry}`} fill={fish.fin} opacity=".88"/>}
+        : <>
+            <polygon points={`${cx-rx*.15},${cy-ry} ${cx-rx*.05},${cy-ry*(1.62*finScale)} ${cx+rx*.40},${cy-ry*(1.35*finScale)} ${cx+rx*.52},${cy-ry}`} fill={fish.fin} opacity=".88"/>
+            {[-0.12,0.04,0.18,0.32,0.44].map(function(xf,i){
+              return <line key={i} x1={cx+rx*xf} y1={cy-ry} x2={cx+rx*(xf-.03)} y2={cy-ry*(1.35*finScale+i*.04)} stroke="rgba(0,0,0,.16)" strokeWidth=".75"/>;
+            })}
+          </>}
+
       {/* Pectoral fin */}
       <ellipse cx={cx-rx*.22} cy={cy+ry*.22} rx={rx*.20} ry={ry*.38} fill={fish.fin} opacity=".72" transform={`rotate(-22,${cx-rx*.22},${cy+ry*.22})`}/>
-      {/* Gill cover */}
-      <path d={`M ${cx-rx*.52},${cy-ry*.52} Q ${cx-rx*.68},${cy} ${cx-rx*.52},${cy+ry*.52}`} stroke="rgba(0,0,0,.30)" strokeWidth="1.8" fill="none"/>
-      <path d={`M ${cx-rx*.44},${cy-ry*.46} Q ${cx-rx*.60},${cy} ${cx-rx*.44},${cy+ry*.46}`} stroke="rgba(0,0,0,.16)" strokeWidth="1.1" fill="none"/>
-      <ellipse cx={cx-rx*.52} cy={cy} rx={3} ry={ry*.28} fill={fish.gill} opacity=".55"/>
-      {/* Eye */}
-      <circle cx={cx-rx*.68} cy={cy-ry*.18} r={ry*.18} fill="#111"/>
-      <circle cx={cx-rx*.66} cy={cy-ry*.22} r={ry*.045} fill="rgba(255,255,255,.85)"/>
+
+      {/* GILL ANATOMY — operculum (hard bony gill cover) */}
+      {/* Outer edge of operculum */}
+      <path d={`M ${cx-rx*.52},${cy-ry*.54} Q ${cx-rx*.70},${cy} ${cx-rx*.52},${cy+ry*.54}`} stroke="rgba(0,0,0,.32)" strokeWidth="2.0" fill="none"/>
+      {/* Suboperculum inner line */}
+      <path d={`M ${cx-rx*.45},${cy-ry*.48} Q ${cx-rx*.61},${cy} ${cx-rx*.45},${cy+ry*.48}`} stroke="rgba(0,0,0,.18)" strokeWidth="1.1" fill="none"/>
+      {/* Gill slit — the actual opening between operculum and body */}
+      <path d={`M ${cx-rx*.55},${cy-ry*.42} Q ${cx-rx*.67},${cy} ${cx-rx*.55},${cy+ry*.42}`} stroke={fish.gill} strokeWidth="2.8" fill="none" opacity=".65"/>
+      {/* Gill arch filaments (branchial arches) — fine reddish lines */}
+      <path d={`M ${cx-rx*.51},${cy-ry*.32} Q ${cx-rx*.62},${cy-ry*.1} ${cx-rx*.53},${cy+ry*.12}`} stroke={fish.gill} strokeWidth="1.3" fill="none" opacity=".52"/>
+      <path d={`M ${cx-rx*.49},${cy-ry*.18} Q ${cx-rx*.59},${cy+ry*.02} ${cx-rx*.51},${cy+ry*.20}`} stroke={fish.gill} strokeWidth="1.1" fill="none" opacity=".42"/>
+      <path d={`M ${cx-rx*.47},${cy-ry*.06} Q ${cx-rx*.56},${cy+ry*.10} ${cx-rx*.49},${cy+ry*.26}`} stroke={fish.gill} strokeWidth=".9" fill="none" opacity=".32"/>
+      {/* Gill membrane — soft tissue visible at gill opening */}
+      <ellipse cx={cx-rx*.555} cy={cy} rx={2.8} ry={ry*.26} fill={fish.gill} opacity=".60"/>
+
+      {/* Nostril (naris) — small pit anterior to eye */}
+      <ellipse cx={cx-rx*.83} cy={cy-ry*.25} rx={ry*.055} ry={ry*.04} fill="rgba(0,0,0,.50)"/>
+
+      {/* Eye with iris, pupil, specular highlight */}
+      <circle cx={cx-rx*.68} cy={cy-ry*.18} r={ry*.20} fill="white"/>
+      <circle cx={cx-rx*.68} cy={cy-ry*.18} r={ry*.155} fill="#1A1A1A"/>
+      <circle cx={cx-rx*.675} cy={cy-ry*.18} r={ry*.085} fill="#333"/>
+      <circle cx={cx-rx*.655} cy={cy-ry*.225} r={ry*.055} fill="rgba(255,255,255,.9)"/>
+      <circle cx={cx-rx*.70} cy={cy-ry*.14} r={ry*.028} fill="rgba(255,255,255,.5)"/>
+
+      {/* Mouth — subtle lower jaw line */}
+      {body!=="billfish" && <path d={`M ${cx-rx*.97},${cy+ry*.06} Q ${cx-rx*.93},${cy+ry*.18} ${cx-rx*.84},${cy+ry*.14}`} stroke="rgba(0,0,0,.45)" strokeWidth="1.1" fill="none" strokeLinecap="round"/>}
     </svg>
   );
 }
@@ -2439,7 +2491,7 @@ function RoomFP({ room, rs, onAction, time }) {
 }
 
 // ─── DRIVE + WALK (Three.js): drive boat on water, dock, walk on land to shops ─
-function DriveMap({ boat, cfg, onEnter }) {
+function DriveMap({ boat, cfg, onEnter, onFishAshore }) {
   const mountRef = useRef(null);
   const objs = useRef({});
   // mode: "boat" or "walk"
@@ -2745,6 +2797,9 @@ function DriveMap({ boat, cfg, onEnter }) {
       {isWalk && nearDock && (
         <button onClick={boardBoat} style={{ padding:"12px", background:"linear-gradient(135deg,#0D47A1,#1565C0)", color:"#fff", border:"none", borderRadius:12, fontSize:15, fontFamily:"Georgia", cursor:"pointer", fontWeight:"bold" }}>Board Your Boat</button>
       )}
+      {isWalk && nearDock && onFishAshore && (
+        <button onClick={onFishAshore} style={{ padding:"12px", background:"linear-gradient(135deg,#1B5E20,#2E7D32)", color:"#fff", border:"none", borderRadius:12, fontSize:15, fontFamily:"Georgia", cursor:"pointer", fontWeight:"bold" }}>Fish from the Dock</button>
+      )}
 
       {/* Controls */}
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:8 }}>
@@ -2759,7 +2814,7 @@ function DriveMap({ boat, cfg, onEnter }) {
         </div>
       </div>
       <div style={{ textAlign:"center", fontSize:11, color:"#607D8B" }}>
-        {isWalk ? "Walk to a shop door and enter. Return to the dock to board your boat." : "Drive to the dock at the shore, then Dock & Go Ashore to walk to the shops."}
+        {isWalk ? "Walk to a shop door and enter. Return to the dock to board your boat or fish from shore." : "Drive to the dock at the shore, then Dock & Go Ashore to walk to the shops."}
       </div>
     </div>
   );
@@ -2767,7 +2822,7 @@ function DriveMap({ boat, cfg, onEnter }) {
 
 
 // ─── DRIVE MAP 2D (top-down: drive on water, dock, walk on land to shops) ─────
-function DriveMap2D({ boat, cfg, onEnter }) {
+function DriveMap2D({ boat, cfg, onEnter, onFishAshore }) {
   const d = useRef({ mode:"boat", x:500, y:460, heading:0, speed:0, temp:20, overheated:false, throttle:false, reverse:false, turn:0, wx:500, wy:250 });
   const [hud, setHud] = useState({ mph:0, temp:20, overheated:false, mode:"boat", x:500, y:460, heading:0, wx:500, wy:250 });
   const [nearShop, setNearShop] = useState(null);
@@ -2930,6 +2985,7 @@ function DriveMap2D({ boat, cfg, onEnter }) {
         ? <button onClick={function(){ onEnter(nearShop); }} style={{ padding:"12px", background:"linear-gradient(135deg,#1565C0,#1976D2)", color:"#fff", border:"none", borderRadius:12, fontSize:15, fontFamily:"Georgia", cursor:"pointer", fontWeight:"bold" }}>Enter {nearShop.name}</button>
         : <div style={{ padding:"12px", background:"#3A1A1A", color:"#FF8A80", borderRadius:12, fontSize:14, fontFamily:"Georgia", textAlign:"center", border:"1px solid #5A2A2A" }}>{nearShop.name} is closed right now. Come back later!</div>)}
       {isWalk && nearDock && <button onClick={boardBoat} style={{ padding:"12px", background:"linear-gradient(135deg,#0D47A1,#1565C0)", color:"#fff", border:"none", borderRadius:12, fontSize:15, fontFamily:"Georgia", cursor:"pointer", fontWeight:"bold" }}>Board Your Boat</button>}
+      {isWalk && nearDock && onFishAshore && <button onClick={onFishAshore} style={{ padding:"12px", background:"linear-gradient(135deg,#1B5E20,#2E7D32)", color:"#fff", border:"none", borderRadius:12, fontSize:15, fontFamily:"Georgia", cursor:"pointer", fontWeight:"bold" }}>Fish from the Dock</button>}
 
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:8 }}>
         <div style={{ display:"flex", gap:8 }}>
@@ -2942,7 +2998,7 @@ function DriveMap2D({ boat, cfg, onEnter }) {
           <button onPointerDown={function(e){ e.preventDefault(); press("throttle",true); }} onPointerUp={function(e){ e.preventDefault(); press("throttle",false); }} onPointerLeave={function(e){ e.preventDefault(); press("throttle",false); }} style={Object.assign({}, ctrlBtn, { width:72, background:(!isWalk && hud.overheated)?"#5A1A1A":"linear-gradient(135deg,#1565C0,#1976D2)", color:"#fff", borderRadius:14 })}>{isWalk ? "WALK" : "GAS"}</button>
         </div>
       </div>
-      <div style={{ textAlign:"center", fontSize:11, color:"#607D8B" }}>{isWalk ? "Walk to a shop and enter. Return to the dock to board your boat." : "Drive to the dock, then Dock & Go Ashore to walk to the shops."}</div>
+      <div style={{ textAlign:"center", fontSize:11, color:"#607D8B" }}>{isWalk ? "Walk to a shop and enter. Return to the dock to board your boat or fish from shore." : "Drive to the dock, then Dock & Go Ashore to walk to the shops."}</div>
     </div>
   );
 }
@@ -3517,7 +3573,7 @@ function App() {
 
       {/* Tabs */}
       <div style={{display:"flex",background:"#0A1628",borderBottom:"1px solid #1E3A5A"}}>
-        {[["fish","Cast"],["fishpedia","Fish"],["drive","Drive"],["boat","Boat"],["map","Map"],["gear","Gear"],["hold","Hold"],["items","Items"]].map(([id,label])=>(
+        {[["fish","Cast"],["fishpedia","Fish"],["drive","Drive"],["boat","Boat"],["map","Map"],["gear","Gear"],["hold","Hold"],["items","Items"],["me","Me"]].map(([id,label])=>(
           <button key={id} onClick={()=>setTab(id)} style={{flex:1,padding:"9px 0",background:tab===id?"#122030":"transparent",color:tab===id?"#FFD54F":"#607D8B",border:"none",cursor:"pointer",fontSize:10,fontFamily:"Georgia",borderBottom:tab===id?"2px solid #FFD54F":"2px solid transparent"}}>
             {label}
           </button>
@@ -3597,8 +3653,8 @@ function App() {
               </div>
             </div>
             {drive3D
-              ? <DriveMap boat={boat} cfg={cfg} onEnter={(sh)=>setActiveShop(sh)}/>
-              : <DriveMap2D boat={boat} cfg={cfg} onEnter={(sh)=>setActiveShop(sh)}/>}
+              ? <DriveMap boat={boat} cfg={cfg} onEnter={(sh)=>setActiveShop(sh)} onFishAshore={()=>setTab("fish")}/>
+              : <DriveMap2D boat={boat} cfg={cfg} onEnter={(sh)=>setActiveShop(sh)} onFishAshore={()=>setTab("fish")}/>}
           </div>
         )}
 
@@ -3760,6 +3816,41 @@ function App() {
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {tab==="me" && (
+          <div style={{display:"flex",flexDirection:"column",gap:16}}>
+            <div style={{fontSize:14,color:"#FFD54F",fontFamily:"Georgia",fontWeight:"bold"}}>Customize Your Angler</div>
+            <div style={{display:"flex",gap:20,flexWrap:"wrap",justifyContent:"center",background:"linear-gradient(160deg,#142030,#1E3A5A)",borderRadius:16,padding:20,border:"1px solid #2A4A6A"}}>
+              <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:10}}>
+                <div style={{background:"#0D1B2A",borderRadius:14,padding:12,border:"1px solid #2A4A6A"}}>
+                  <CharSVG cfg={cfg} size={60}/>
+                </div>
+                <input value={cfg.name} onChange={e=>setCfg(c=>(Object.assign({},c,{name:e.target.value})))} style={{background:"#0D1B2A",border:"1px solid #2A4A6A",color:"#EEE",borderRadius:8,padding:"7px 12px",fontFamily:"Georgia",textAlign:"center",width:130,fontSize:14}} placeholder="Your name"/>
+              </div>
+              <div style={{flex:1,minWidth:200}}>
+                {[{label:"Skin",key:"skin",opts:SKIN},{label:"Shirt",key:"shirt",opts:SHIRT},{label:"Pants",key:"pants",opts:PANTS},{label:"Hat Color",key:"hatColor",opts:HATC}].map(row=>(
+                  <div key={row.key} style={{marginBottom:12}}>
+                    <div style={{fontSize:10,color:"#90CAF9",letterSpacing:1,marginBottom:5}}>{row.label.toUpperCase()}</div>
+                    <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
+                      {row.opts.map(c=><div key={c} onClick={()=>setCfg(x=>(Object.assign({},x,{[row.key]:c})))} style={{width:26,height:26,borderRadius:"50%",background:c,cursor:"pointer",border:cfg[row.key]===c?"3px solid #FFD54F":"3px solid rgba(255,255,255,.1)",boxSizing:"border-box"}}/>)}
+                    </div>
+                  </div>
+                ))}
+                <div style={{marginBottom:10}}>
+                  <div style={{fontSize:10,color:"#90CAF9",letterSpacing:1,marginBottom:5}}>HAT STYLE</div>
+                  <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                    {["none","cap","wide","captain"].map(h=>(
+                      <button key={h} onClick={()=>setCfg(c=>(Object.assign({},c,{hat:h})))} style={{padding:"5px 9px",background:cfg.hat===h?"#FFD54F":"#0D1B2A",color:cfg.hat===h?"#111":"#90CAF9",border:"1px solid #2A4A6A",borderRadius:7,cursor:"pointer",fontSize:10,fontFamily:"Georgia"}}>{h==="none"?"Bare":h[0].toUpperCase()+h.slice(1)}</button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div style={{background:"rgba(255,255,255,.04)",borderRadius:12,padding:"12px 14px",border:"1px solid #1E3A5A",fontSize:12,color:"#90CAF9"}}>
+              Changes apply instantly. Your angler appears in the fishing view, drive view, and header.
+            </div>
           </div>
         )}
       </div>
