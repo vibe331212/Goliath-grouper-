@@ -224,6 +224,41 @@ const SHIRT = ["#2C3E50","#E74C3C","#27AE60","#3498DB","#F39C12","#8E44AD"];
 const PANTS = ["#2C3E50","#795548","#37474F","#1565C0","#4E342E"];
 const HATC  = ["#8B0000","#1A237E","#2E7D32","#4A3728","#DDDDDD"];
 
+// Seashells you can find on the sand. Rarer shells are far less common and sell
+// for much more. "shape" drives how the little shell is drawn.
+const SEASHELLS = [
+  { id:"scallop",  name:"Scallop Shell",   rarity:"common",    color:"#E8C8A0", sell:8,   shape:"fan" },
+  { id:"clam",     name:"Clam Shell",      rarity:"common",    color:"#D8C0B0", sell:11,  shape:"fan" },
+  { id:"cockle",   name:"Cockle Shell",    rarity:"common",    color:"#E0CABF", sell:14,  shape:"fan" },
+  { id:"auger",    name:"Auger Shell",     rarity:"uncommon",  color:"#C8A878", sell:26,  shape:"spiral" },
+  { id:"olive",    name:"Olive Shell",     rarity:"uncommon",  color:"#B89A6A", sell:34,  shape:"spiral" },
+  { id:"whelk",    name:"Whelk Shell",     rarity:"uncommon",  color:"#CDBBA0", sell:40,  shape:"spiral" },
+  { id:"murex",    name:"Murex Shell",     rarity:"rare",      color:"#D8B0C0", sell:75,  shape:"spiral" },
+  { id:"conch",    name:"Queen Conch",     rarity:"rare",      color:"#F0B090", sell:95,  shape:"conch" },
+  { id:"nautilus", name:"Nautilus Shell",  rarity:"epic",      color:"#EDE0D0", sell:210, shape:"spiral" },
+  { id:"junonia",  name:"Junonia",         rarity:"epic",      color:"#E8D8B0", sell:300, shape:"spiral" },
+  { id:"goldcowrie",name:"Golden Cowrie",  rarity:"legendary", color:"#FFD56A", sell:650, shape:"conch" },
+];
+// Weighted pick — commons turn up constantly, legendaries almost never.
+const SHELL_WEIGHT = { common:46, uncommon:24, rare:11, epic:4, legendary:1 };
+function pickShell() {
+  var pool = [];
+  for (var i=0;i<SEASHELLS.length;i++){ var w=SHELL_WEIGHT[SEASHELLS[i].rarity]||1; for (var k=0;k<w;k++) pool.push(SEASHELLS[i]); }
+  return pool[Math.floor(Math.random()*pool.length)];
+}
+
+// Questions you can ask the staff, with each keeper-type's own answers.
+const SHOP_QA = {
+  bait:      [["What's biting today?","The grouper are thick on the reef right now. Drop a live crab and hold on tight!"],["What's your freshest bait?","Just got a bucket of goggle eyes in this morning — premium stuff for the big ones."],["Any tips for a beginner?","Keep your hook sharp and your drag loose. Patience catches more than speed."]],
+  tackle:    [["Which rod for big fish?","For offshore monsters you want the heavy Offshore Rod — it won't snap on a marlin."],["Do lures really matter?","Absolutely. Match the hatch — shiny spoons for tarpon, jigs for snapper."],["What's new in stock?","Got some holographic spoons that flash like a wounded baitfish. Deadly."]],
+  supermarket:[["Where's the ice?","Back cooler, grab a bag before you head out — keeps your catch fresh all day."],["Any deals today?","The gift cards are the smart buy — flip 'em later for a tidy profit."],["You sell snacks?","Aisle two. A captain's gotta eat out there!"]],
+  general:   [["What sells best here?","Folks love the souvenir mugs, but the gift cards are where the money's at."],["Got any local pearls?","Now and then. Keep beachcombing — the sea gives up treasures to the patient."],["Just looking around.","Take your time, friend. Holler if you need anything."]],
+  makeup:    [["What style suits me?","A bold shirt and a sharp hat, darling — you'll turn heads on the boardwalk!"],["Got new colors?","Fresh shades just in. Try something daring this season!"],["Any tips?","Confidence is the best look there is. The rest is just color."]],
+  restaurant:[["What's your specialty?","Whatever you reel in, I'll make it sing. Bring me your best catch!"],["How does this work?","Hand me a fish from your hold and pick a style — I cook it and pay you for it."],["What pays the most?","Sushi and sashimi from a fresh, rare fish. Quality on the plate, coins in your pocket."]],
+  church:    [["Can I rest here?","Of course. Sit, breathe, let the tide of worry roll out for a while."],["Got any wisdom?","The sea rewards the patient and humbles the proud. Fish kindly, friend."],["Why a chapel by the docks?","Sailors have always needed a place to give thanks for a safe return."]],
+  repair:    [["My engine overheats.","Don't run her wide open for too long — and come see me when the temp gauge climbs."],["Can you fix anything?","If it's got an engine and a hull, I can patch it. What's she doing?"],["Any maintenance tips?","Rinse the salt off after every trip. Salt's the silent killer of a good motor."]],
+};
+
 // ─── FISH SVG ─────────────────────────────────────────────────────────────────
 function FishSVG({ fish, W=100 }) {
   const H=W*0.56, cx=W*.42, cy=H*.50, id=fish.id+"_"+W;
@@ -2508,8 +2543,79 @@ function RoomFP({ room, rs, onAction, time }) {
   return <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`}><rect width={W} height={H} fill="#1A2A3A"/><text x={W/2} y={H/2} textAnchor="middle" fill="#607D8B" fontSize={14} fontFamily="Georgia">{ROOM_NAMES[room]||room}</text></svg>;
 }
 
+// ─── KNOT MINIGAME: tie the boat to the dock cleat by drawing loops ──────────
+// Drag in circles around the cleat. Every full loop wraps the rope once; after
+// enough wraps the line is secured and you can step onto the dock.
+function KnotMinigame({ onDone, onCancel }) {
+  const NEED = 3;
+  const boxRef = useRef(null);
+  const st = useRef({ dragging:false, last:0, accum:0 });
+  const [wraps, setWraps] = useState(0);
+  const [trail, setTrail] = useState([]);
+
+  function angleAt(clientX, clientY) {
+    var r = boxRef.current.getBoundingClientRect();
+    var cx = r.left + r.width/2, cy = r.top + r.height*0.52;
+    return { a: Math.atan2(clientY - cy, clientX - cx), nx:(clientX-r.left)/r.width, ny:(clientY-r.top)/r.height };
+  }
+  function down(e){ e.preventDefault(); var p=angleAt(e.clientX,e.clientY); st.current.dragging=true; st.current.last=p.a; }
+  function move(e){
+    if(!st.current.dragging) return;
+    e.preventDefault();
+    var p = angleAt(e.clientX, e.clientY);
+    var d = p.a - st.current.last;
+    while (d >  Math.PI) d -= Math.PI*2;
+    while (d < -Math.PI) d += Math.PI*2;
+    st.current.accum += d; st.current.last = p.a;
+    var w = Math.min(NEED, Math.floor(Math.abs(st.current.accum) / (Math.PI*2)));
+    if (w !== wraps) setWraps(w);
+    setTrail(function(t){ var nt=t.concat([{x:p.nx,y:p.ny}]); return nt.slice(-26); });
+  }
+  function up(e){ if(e) e.preventDefault(); st.current.dragging=false; }
+
+  var done = wraps >= NEED;
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.86)", zIndex:180, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
+      <div style={{ background:"#0D1B2A", borderRadius:18, padding:18, border:"1px solid #1E3A5A", width:"min(420px,92vw)", textAlign:"center", fontFamily:"Georgia" }}>
+        <div style={{ fontSize:17, fontWeight:"bold", color:"#FFD54F", marginBottom:4 }}>Tie Off to the Cleat</div>
+        <div style={{ fontSize:12, color:"#90CAF9", marginBottom:10 }}>Drag in circles around the cleat to wrap the rope. {NEED} loops secures her.</div>
+        <div
+          ref={boxRef}
+          onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerLeave={up}
+          style={{ position:"relative", width:"100%", height:240, background:"radial-gradient(circle at 50% 55%,#15314f,#0A1A2A)", borderRadius:14, border:"1px solid #1E3A5A", touchAction:"none", cursor:"grab", overflow:"hidden" }}
+        >
+          <svg width="100%" height="100%" viewBox="0 0 300 240" style={{ position:"absolute", inset:0, pointerEvents:"none" }}>
+            {/* dock plank */}
+            <rect x="0" y="150" width="300" height="90" fill="#7A552F"/>
+            <rect x="0" y="150" width="300" height="6" fill="#5D4023"/>
+            {/* the cleat (horn) */}
+            <rect x="138" y="120" width="24" height="34" rx="5" fill="#9AA3AA"/>
+            <rect x="120" y="112" width="60" height="14" rx="7" fill="#B7C0C7"/>
+            <circle cx="126" cy="119" r="5" fill="#7C868D"/>
+            <circle cx="174" cy="119" r="5" fill="#7C868D"/>
+            {/* rope wraps drawn as you loop */}
+            {[0,1,2].map(function(i){
+              return i < wraps ? <ellipse key={i} cx="150" cy="125" rx={30+i*7} ry={16+i*5} fill="none" stroke="#D9B779" strokeWidth="4" opacity="0.92"/> : null;
+            })}
+            {/* live drag trail */}
+            {trail.length>1 && <polyline points={trail.map(function(p){return (p.x*300)+","+(p.y*240);}).join(" ")} fill="none" stroke="#FFD54F" strokeWidth="2.5" opacity="0.5" strokeLinecap="round"/>}
+          </svg>
+        </div>
+        <div style={{ display:"flex", justifyContent:"center", gap:6, margin:"12px 0" }}>
+          {[0,1,2].map(function(i){ return <div key={i} style={{ width:42, height:8, borderRadius:4, background: i<wraps ? "#FFD54F" : "#1E3A5A" }}/>; })}
+        </div>
+        <div style={{ fontSize:13, color: done?"#81C784":"#90CAF9", marginBottom:12 }}>{done ? "Cleat hitch secured!" : ("Wraps: " + wraps + " / " + NEED)}</div>
+        <div style={{ display:"flex", gap:8 }}>
+          <button onClick={onCancel} style={{ flex:1, padding:"11px", background:"#142030", color:"#90CAF9", border:"1px solid #1E3A5A", borderRadius:10, cursor:"pointer", fontFamily:"Georgia", fontSize:13 }}>Cast Off (cancel)</button>
+          <button onClick={function(){ if(done) onDone(); }} disabled={!done} style={{ flex:2, padding:"11px", background: done?"linear-gradient(135deg,#2E7D32,#43A047)":"#1A2E44", color:"#fff", border:"none", borderRadius:10, cursor: done?"pointer":"not-allowed", fontFamily:"Georgia", fontSize:14, fontWeight:"bold", opacity: done?1:0.5 }}>Step onto the Dock</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── DRIVE + WALK (Three.js): drive boat on water, dock, walk on land to shops ─
-function DriveMap({ boat, cfg, onEnter }) {
+function DriveMap({ boat, cfg, onEnter, onCollect }) {
   const mountRef = useRef(null);
   const objs = useRef({});
   // mode: "boat" or "walk"
@@ -2517,6 +2623,10 @@ function DriveMap({ boat, cfg, onEnter }) {
   const [hud, setHud] = useState({ mph:0, temp:20, overheated:false, mode:"boat" });
   const [nearShop, setNearShop] = useState(null);
   const [nearDock, setNearDock] = useState(false);
+  const [docking, setDocking] = useState(false);       // knot minigame open
+  const [shellToast, setShellToast] = useState(null);   // "Found a ... shell!"
+  const collectRef = useRef(onCollect);
+  collectRef.current = onCollect;
   const boatSpeed = (boat && boat.speed) ? boat.speed : 6;
 
   // Decide which shops are open (once per mount). ~75% open.
@@ -2679,7 +2789,32 @@ function DriveMap({ boat, cfg, onEnter }) {
     charGroup.visible = false;
     scene.add(charGroup);
 
-    objs.current = { scene:scene, camera:camera, renderer:renderer, ocean:ocean, boatGroup:boatGroup, charGroup:charGroup, legL:legL, legR:legR, wheel:wheel };
+    // SEASHELLS scattered on the sand. A fixed pool that respawns endlessly, so
+    // you can keep beachcombing. Each gets a fresh random rarity when it respawns.
+    var shellMeshes = [];
+    function placeShell(obj) {
+      var data = pickShell();
+      obj.data = data; obj.collected = false; obj.respawnAt = 0;
+      obj.dome.material.color.setHex(parseInt(data.color.replace("#",""), 16));
+      var rare = (data.rarity === "epic" || data.rarity === "legendary");
+      obj.mesh.position.set(Math.random()*1240 - 620, 1.4, Math.random()*150 - 92);
+      obj.mesh.rotation.y = Math.random()*Math.PI*2;
+      obj.mesh.scale.setScalar(rare ? 1.25 : 1);
+      obj.mesh.visible = true;
+    }
+    for (var sh2 = 0; sh2 < 24; sh2++) {
+      var sgrp = new THREE.Group();
+      var dome = new THREE.Mesh(new THREE.SphereGeometry(1.5, 10, 8), new THREE.MeshPhongMaterial({ color: 0xE8C8A0, shininess: 60 }));
+      dome.scale.set(1, 0.5, 1.25); sgrp.add(dome);
+      var nub = new THREE.Mesh(new THREE.SphereGeometry(0.5, 8, 6), dome.material);
+      nub.position.set(0, 0.2, -1.1); sgrp.add(nub);
+      scene.add(sgrp);
+      var sobj = { mesh:sgrp, dome:dome };
+      placeShell(sobj);
+      shellMeshes.push(sobj);
+    }
+
+    objs.current = { scene:scene, camera:camera, renderer:renderer, ocean:ocean, boatGroup:boatGroup, charGroup:charGroup, legL:legL, legR:legR, wheel:wheel, shellMeshes:shellMeshes, placeShell:placeShell };
 
     function onResize() {
       if (!mount) return;
@@ -2732,6 +2867,23 @@ function DriveMap({ boat, cfg, onEnter }) {
         var cd = 26, cH = 18;
         camera.position.set(d.wx - Math.sin(d.heading)*cd, cH, d.wz + Math.cos(d.heading)*cd);
         camera.lookAt(d.wx, 6, d.wz);
+
+        // bob the shells and check for pickups as you walk the sand
+        var shells = objs.current.shellMeshes || [];
+        for (var sI = 0; sI < shells.length; sI++) {
+          var so = shells[sI];
+          if (so.collected) {
+            if (t > so.respawnAt) objs.current.placeShell(so);
+            continue;
+          }
+          so.mesh.position.y = 1.4 + Math.sin(t*2 + sI)*0.15;
+          var ddx = d.wx - so.mesh.position.x, ddz = d.wz - so.mesh.position.z;
+          if (ddx*ddx + ddz*ddz < 196) { // within ~14 units
+            so.collected = true; so.mesh.visible = false; so.respawnAt = t + 7 + Math.random()*7;
+            if (collectRef.current) collectRef.current(so.data);
+            setShellToast(so.data);
+          }
+        }
       }
 
       renderer.render(scene, camera);
@@ -2745,6 +2897,9 @@ function DriveMap({ boat, cfg, onEnter }) {
       if (renderer.domElement && renderer.domElement.parentNode) renderer.domElement.parentNode.removeChild(renderer.domElement);
     };
   }, []);
+
+  // auto-dismiss the "found a shell" toast
+  useEffect(function(){ if(!shellToast) return; var to=setTimeout(function(){ setShellToast(null); }, 1900); return function(){ clearTimeout(to); }; }, [shellToast]);
 
   // Physics + HUD
   useEffect(function () {
@@ -2820,8 +2975,15 @@ function DriveMap({ boat, cfg, onEnter }) {
 
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+      {docking && <KnotMinigame onDone={function(){ setDocking(false); goAshore(); }} onCancel={function(){ setDocking(false); }} />}
       <div style={{ position:"relative", width:"100%", borderRadius:14, overflow:"hidden", border:"1px solid #1E3A5A", boxShadow:"0 4px 20px rgba(0,0,0,.4)" }}>
         <div ref={mountRef} style={{ width:"100%", height:340 }} />
+        {shellToast && (
+          <div style={{ position:"absolute", top:40, left:"50%", transform:"translateX(-50%)", background:"rgba(10,18,32,.92)", border:"1px solid "+RARITY_COLOR[shellToast.rarity], borderRadius:10, padding:"7px 14px", textAlign:"center", boxShadow:"0 4px 16px rgba(0,0,0,.5)" }}>
+            <div style={{ fontSize:13, color:"#fff", fontWeight:"bold" }}>Found a {shellToast.name}!</div>
+            <div style={{ fontSize:10, color:RARITY_COLOR[shellToast.rarity], textTransform:"uppercase", letterSpacing:1 }}>{shellToast.rarity} · sells for ${shellToast.sell}</div>
+          </div>
+        )}
         {!isWalk && (
           <div style={{ position:"absolute", bottom:8, left:8, background:"rgba(10,18,32,.78)", borderRadius:10, padding:"6px 14px", border:"1px solid rgba(255,255,255,.15)" }}>
             <div style={{ fontSize:24, color:"#FFD54F", fontWeight:"bold", lineHeight:1 }}>{mph} <span style={{fontSize:11,color:"#90CAF9"}}>MPH</span></div>
@@ -2844,7 +3006,7 @@ function DriveMap({ boat, cfg, onEnter }) {
 
       {/* Action buttons: dock / enter / board */}
       {!isWalk && nearDock && (
-        <button onClick={goAshore} style={{ padding:"12px", background:"linear-gradient(135deg,#2E7D32,#43A047)", color:"#fff", border:"none", borderRadius:12, fontSize:15, fontFamily:"Georgia", cursor:"pointer", fontWeight:"bold" }}>Dock & Go Ashore</button>
+        <button onClick={function(){ setDocking(true); }} style={{ padding:"12px", background:"linear-gradient(135deg,#2E7D32,#43A047)", color:"#fff", border:"none", borderRadius:12, fontSize:15, fontFamily:"Georgia", cursor:"pointer", fontWeight:"bold" }}>Dock & Tie Off</button>
       )}
       {isWalk && nearShop && (
         shopOpen
@@ -2868,7 +3030,7 @@ function DriveMap({ boat, cfg, onEnter }) {
         </div>
       </div>
       <div style={{ textAlign:"center", fontSize:11, color:"#607D8B" }}>
-        {isWalk ? "Walk to a shop door and enter. Return to the dock to board your boat." : "Drive to the dock at the shore, then Dock & Go Ashore to walk to the shops."}
+        {isWalk ? "Walk the sand to pick up seashells, visit a shop, or return to the dock to board your boat." : "Drive to the dock, then Dock & Tie Off — wrap the rope to secure your boat and step ashore."}
       </div>
     </div>
   );
@@ -3175,6 +3337,22 @@ function ShopView({ shop, money, setMoney, inv, setInv, rodId, setRodId, ownedRo
           </div>
         </div>
 
+        {/* Talk to the shopkeeper — ask a question, get an answer */}
+        {(SHOP_QA[shop.type] && SHOP_QA[shop.type].length>0) && (
+          <div style={{ marginBottom:12 }}>
+            <div style={{ fontSize:10, color:"#607D8B", letterSpacing:1, marginBottom:6 }}>ASK {shop.keeper.toUpperCase()} A QUESTION</div>
+            <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+              {SHOP_QA[shop.type].map(function(qa, qi){
+                return (
+                  <button key={qi} onClick={function(){ say(qa[1]); }} style={{ textAlign:"left", background:"#142030", border:"1px solid #1E3A5A", color:"#90CAF9", borderRadius:8, padding:"9px 12px", fontSize:12, cursor:"pointer", fontFamily:"Georgia" }}>
+                    "{qa[0]}"
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
           <div style={{ background:"rgba(255,213,79,.12)", border:"1px solid #FFD54F", borderRadius:8, padding:"4px 12px", fontSize:13, color:"#FFD54F", fontWeight:"bold" }}>Wallet: ${money.toLocaleString()}</div>
           {isRetail && !checkout && <div style={{ fontSize:11, color:"#81C784" }}>Cart: {cart.length} item{cart.length===1?"":"s"}</div>}
@@ -3368,6 +3546,9 @@ function App() {
   const [goods, setGoods] = useState([]);
   const [fishSearch, setFishSearch] = useState("");
   const addGood = useCallback((g)=>{ setGoods(prev=>prev.concat([g])); },[]);
+  // Collected seashells drop into the same Inventory as gift cards, so they're
+  // sold the same way (double-click) and rarer shells pay more.
+  const collectShell = useCallback((shell)=>{ setGoods(prev=>prev.concat([{ uid:Date.now()+Math.random(), name:shell.name, rarity:shell.rarity, sell:shell.sell, color:shell.color }])); },[]);
   const sellGood = useCallback((uid)=>{
     setGoods(prev=>{
       let val=0; const out=[];
@@ -3713,7 +3894,7 @@ function App() {
               </div>
             </div>
             {drive3D
-              ? <DriveMap boat={boat} cfg={cfg} onEnter={(sh)=>setActiveShop(sh)}/>
+              ? <DriveMap boat={boat} cfg={cfg} onEnter={(sh)=>setActiveShop(sh)} onCollect={collectShell}/>
               : <DriveMap2D boat={boat} cfg={cfg} onEnter={(sh)=>setActiveShop(sh)}/>}
           </div>
         )}
@@ -3721,10 +3902,10 @@ function App() {
         {tab==="items" && (
           <div style={{display:"flex",flexDirection:"column",gap:10}}>
             <div style={{fontSize:14,color:"#FFD54F",fontFamily:"Georgia",fontWeight:"bold"}}>Your Inventory</div>
-            <div style={{fontSize:11,color:"#90CAF9",lineHeight:1.5}}>Things you've bought at shops show up here. <b style={{color:"#FFD54F"}}>Double-click an item to sell it</b> for coins — the rarer the item, the more money you get!</div>
+            <div style={{fontSize:11,color:"#90CAF9",lineHeight:1.5}}>Gift cards you buy and <b style={{color:"#FFD54F"}}>seashells you collect on the sand</b> show up here. <b style={{color:"#FFD54F"}}>Double-click an item to sell it</b> for coins — the rarer it is, the more money you get!</div>
             {goods.length===0 ? (
               <div style={{textAlign:"center",color:"#607D8B",padding:"30px 16px",background:"rgba(255,255,255,.03)",borderRadius:12,border:"1px solid #1E3A5A"}}>
-                Your inventory is empty. Drive to a shop, grab something like a gift card, and it'll appear here to sell.
+                Your inventory is empty. Walk the sand to collect seashells, or buy a gift card at a shop — they'll appear here to sell.
               </div>
             ) : (
               <div>
