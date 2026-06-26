@@ -5,14 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
 <title>Live the Life</title>
 <style>
-  * { box-sizing: border-box; }
-  html, body { margin:0; padding:0; height:100%; background:#0b1020; font-family: 'Segoe UI', system-ui, Arial, sans-serif; overflow:hidden; color:#fff; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin:0; padding:0; height:100%; background:#0b1020; font-family: 'Segoe UI', system-ui, Arial, sans-serif; overflow:hidden; color:#fff; user-select:none; }
   #root, #game { position:fixed; inset:0; }
   #canvas-wrap { position:fixed; inset:0; }
-  canvas { display:block; }
+  canvas { display:block; width:100%; height:100%; }
   #boot { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:14px; background:linear-gradient(160deg,#0b1020,#142a44); z-index:50; }
   .spinner { width:54px; height:54px; border:5px solid rgba(255,255,255,.2); border-top-color:#4dd0e1; border-radius:50%; animation:spin 1s linear infinite; }
   @keyframes spin { to { transform:rotate(360deg);} }
+  @keyframes pop { from { transform:scale(.92); opacity:0;} to { transform:scale(1); opacity:1;} }
   .btn { cursor:pointer; border:none; border-radius:10px; padding:10px 16px; font-size:15px; font-weight:600; background:#2e7dff; color:#fff; transition:filter .15s, transform .05s; }
   .btn:hover { filter:brightness(1.1); }
   .btn:active { transform:translateY(1px); }
@@ -20,142 +21,94 @@
   .btn.gold { background:#e6a417; color:#1a1200; }
   .btn:disabled { opacity:.45; cursor:not-allowed; }
   ::-webkit-scrollbar { width:8px; } ::-webkit-scrollbar-thumb { background:#445; border-radius:4px; }
+  .dpad { width:58px; height:58px; border-radius:14px; background:rgba(20,28,48,.85); border:1px solid rgba(255,255,255,.18); color:#fff; font-size:22px; font-weight:700; display:flex; align-items:center; justify-content:center; }
+  .dpad:active { background:rgba(46,125,255,.8); }
 </style>
 <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-<script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone@7.23.5/babel.min.js"></script>
 </head>
 <body>
-<div id="boot"><div class="spinner"></div><div style="font-size:20px;letter-spacing:1px">Live the Life</div><div style="opacity:.6;font-size:13px">Loading your world…</div></div>
+<div id="boot"><div class="spinner"></div><div style="font-size:20px;letter-spacing:1px">Live the Life</div><div style="opacity:.6;font-size:13px">Loading your world...</div></div>
 <div id="root"></div>
 <script type="text/babel" data-presets="react">
 const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
 /* ============================================================================
-   LIVE THE LIFE  —  a first-person life simulation
-   - Drive an RV/car, get a job (interview!), work, earn money & XP
-   - Level up for prizes & daily gifts; buy/upgrade houses, RVs, cars
-   - A working phone (passcode + Face ID + 15 apps + wallpapers)
-   - A mall with 150 stores
-   Everything is in this one file. Saves to localStorage.
+   LIVE THE LIFE  —  a 2D top-down life simulation (no 3D, no emojis)
    ========================================================================== */
 
-// ─── DATA: JOBS (100) ────────────────────────────────────────────────────────
-// Each job belongs to a "work archetype" that decides its minigame.
-// archetypes: quiz, timing, memory, delivery, clicker
+// ─── JOBS (100) ──────────────────────────────────────────────────────────────
+// title, category, archetype, basePay, levelReq
 const JOB_SEED = [
-  // title, category, archetype, basePay, levelReq, emoji
-  ["Software Engineer","Tech","timing",120,1,"💻"],
-  ["Truck Driver","Logistics","delivery",90,1,"🚚"],
-  ["Realtor","Sales","quiz",110,2,"🏠"],
-  ["Chef","Food","timing",80,1,"👨‍🍳"],
-  ["Doctor","Health","quiz",260,8,"🩺"],
-  ["Nurse","Health","memory",140,4,"💉"],
-  ["Teacher","Education","quiz",95,2,"📚"],
-  ["Pilot","Transport","timing",300,10,"✈️"],
-  ["Electrician","Trades","memory",115,3,"⚡"],
-  ["Plumber","Trades","timing",110,2,"🔧"],
-  ["Barista","Food","clicker",55,1,"☕"],
-  ["Cashier","Retail","clicker",45,1,"🛒"],
-  ["Police Officer","Public","quiz",105,3,"👮"],
-  ["Firefighter","Public","timing",110,4,"🚒"],
-  ["Accountant","Finance","memory",130,4,"📊"],
-  ["Lawyer","Law","quiz",280,9,"⚖️"],
-  ["Architect","Design","memory",170,6,"📐"],
-  ["Graphic Designer","Design","clicker",90,2,"🎨"],
-  ["Mechanic","Trades","timing",100,2,"🔩"],
-  ["Farmer","Agriculture","timing",70,1,"🌾"],
-  ["Scientist","Science","memory",200,7,"🔬"],
-  ["Dentist","Health","timing",240,8,"🦷"],
-  ["Veterinarian","Health","quiz",180,6,"🐾"],
-  ["Photographer","Creative","clicker",85,2,"📷"],
-  ["Musician","Creative","memory",95,3,"🎸"],
-  ["Actor","Entertainment","memory",160,5,"🎭"],
-  ["Journalist","Media","quiz",100,3,"📰"],
-  ["Pharmacist","Health","memory",190,6,"💊"],
-  ["Dog Walker","Service","delivery",40,1,"🐕"],
-  ["Delivery Rider","Logistics","delivery",55,1,"🛵"],
-  ["Bus Driver","Transport","delivery",75,2,"🚌"],
-  ["Taxi Driver","Transport","delivery",70,1,"🚕"],
-  ["Carpenter","Trades","timing",95,2,"🪚"],
-  ["Welder","Trades","timing",105,3,"🔥"],
-  ["Surgeon","Health","timing",380,12,"🔪"],
-  ["Astronaut","Science","memory",500,15,"🚀"],
-  ["Marine Biologist","Science","quiz",170,6,"🐬"],
-  ["Banker","Finance","memory",160,5,"🏦"],
-  ["Stock Trader","Finance","timing",210,7,"📈"],
-  ["Real Estate Developer","Sales","quiz",320,11,"🏗️"],
-  ["Web Developer","Tech","timing",125,2,"🌐"],
-  ["Data Scientist","Tech","memory",210,7,"🧮"],
-  ["Game Developer","Tech","timing",150,5,"🎮"],
-  ["IT Support","Tech","clicker",80,1,"🖥️"],
-  ["Cybersecurity Analyst","Tech","memory",220,8,"🛡️"],
-  ["Flight Attendant","Transport","clicker",90,3,"🧳"],
-  ["Hotel Manager","Hospitality","quiz",140,5,"🏨"],
-  ["Tour Guide","Hospitality","quiz",70,2,"🗺️"],
-  ["Bartender","Food","clicker",65,1,"🍸"],
-  ["Waiter","Food","clicker",50,1,"🍽️"],
-  ["Baker","Food","timing",70,1,"🥖"],
-  ["Butcher","Food","timing",80,2,"🥩"],
-  ["Fisherman","Agriculture","timing",75,1,"🎣"],
-  ["Park Ranger","Public","delivery",80,2,"🌲"],
-  ["Librarian","Education","memory",75,2,"📖"],
-  ["Professor","Education","quiz",200,8,"🎓"],
-  ["Social Worker","Public","quiz",90,3,"🤝"],
-  ["Psychologist","Health","quiz",185,6,"🧠"],
-  ["Physiotherapist","Health","memory",150,5,"🦴"],
-  ["Optometrist","Health","quiz",195,7,"👓"],
-  ["Paramedic","Health","timing",120,4,"🚑"],
-  ["Construction Worker","Trades","timing",85,1,"👷"],
-  ["Crane Operator","Trades","timing",130,4,"🏗️"],
-  ["Painter","Trades","clicker",70,1,"🖌️"],
-  ["Roofer","Trades","timing",95,3,"🏚️"],
-  ["Landscaper","Service","timing",65,1,"🌳"],
-  ["Janitor","Service","clicker",45,1,"🧹"],
-  ["Security Guard","Public","memory",60,1,"🔒"],
-  ["Detective","Public","quiz",200,8,"🕵️"],
-  ["Judge","Law","quiz",400,13,"👨‍⚖️"],
-  ["Paralegal","Law","memory",110,4,"📑"],
-  ["Economist","Finance","quiz",230,9,"💱"],
-  ["Insurance Agent","Finance","quiz",115,3,"📋"],
-  ["Marketing Manager","Business","quiz",170,6,"📣"],
-  ["Salesperson","Sales","clicker",75,1,"💼"],
-  ["HR Manager","Business","quiz",150,5,"🧑‍💼"],
-  ["CEO","Business","quiz",600,18,"🤵"],
-  ["Entrepreneur","Business","timing",250,9,"🚀"],
-  ["Consultant","Business","quiz",220,8,"📎"],
-  ["Translator","Language","memory",100,3,"🗣️"],
-  ["Writer","Creative","memory",90,3,"✍️"],
-  ["Editor","Media","memory",120,4,"📝"],
-  ["Animator","Creative","timing",140,5,"🎞️"],
-  ["Fashion Designer","Design","clicker",160,6,"👗"],
-  ["Interior Designer","Design","memory",150,5,"🛋️"],
-  ["Hairdresser","Service","timing",60,1,"💇"],
-  ["Makeup Artist","Creative","clicker",70,2,"💄"],
-  ["Tattoo Artist","Creative","timing",110,4,"🖊️"],
-  ["Personal Trainer","Health","timing",80,2,"🏋️"],
-  ["Yoga Instructor","Health","memory",70,2,"🧘"],
-  ["Athlete","Sports","timing",300,10,"⚽"],
-  ["Coach","Sports","quiz",140,5,"📣"],
-  ["Referee","Sports","timing",90,3,"🟨"],
-  ["Pilot Instructor","Transport","memory",280,11,"🛩️"],
-  ["Train Conductor","Transport","delivery",100,3,"🚆"],
-  ["Ship Captain","Transport","delivery",260,9,"⚓"],
-  ["Air Traffic Controller","Transport","memory",240,9,"🗼"],
-  ["Robotics Engineer","Tech","timing",230,9,"🤖"],
-  ["AI Researcher","Tech","memory",320,12,"🧬"],
-  ["Geologist","Science","quiz",160,6,"🪨"],
+  ["Software Engineer","Tech","timing",120,1],["Truck Driver","Logistics","delivery",90,1],
+  ["Realtor","Sales","quiz",110,2],["Chef","Food","timing",80,1],
+  ["Doctor","Health","quiz",260,8],["Nurse","Health","memory",140,4],
+  ["Teacher","Education","quiz",95,2],["Pilot","Transport","timing",300,10],
+  ["Electrician","Trades","memory",115,3],["Plumber","Trades","timing",110,2],
+  ["Barista","Food","clicker",55,1],["Cashier","Retail","clicker",45,1],
+  ["Police Officer","Public","quiz",105,3],["Firefighter","Public","timing",110,4],
+  ["Accountant","Finance","memory",130,4],["Lawyer","Law","quiz",280,9],
+  ["Architect","Design","memory",170,6],["Graphic Designer","Design","clicker",90,2],
+  ["Mechanic","Trades","timing",100,2],["Farmer","Agriculture","timing",70,1],
+  ["Scientist","Science","memory",200,7],["Dentist","Health","timing",240,8],
+  ["Veterinarian","Health","quiz",180,6],["Photographer","Creative","clicker",85,2],
+  ["Musician","Creative","memory",95,3],["Actor","Entertainment","memory",160,5],
+  ["Journalist","Media","quiz",100,3],["Pharmacist","Health","memory",190,6],
+  ["Dog Walker","Service","delivery",40,1],["Delivery Rider","Logistics","delivery",55,1],
+  ["Bus Driver","Transport","delivery",75,2],["Taxi Driver","Transport","delivery",70,1],
+  ["Carpenter","Trades","timing",95,2],["Welder","Trades","timing",105,3],
+  ["Surgeon","Health","timing",380,12],["Astronaut","Science","memory",500,15],
+  ["Marine Biologist","Science","quiz",170,6],["Banker","Finance","memory",160,5],
+  ["Stock Trader","Finance","timing",210,7],["Real Estate Developer","Sales","quiz",320,11],
+  ["Web Developer","Tech","timing",125,2],["Data Scientist","Tech","memory",210,7],
+  ["Game Developer","Tech","timing",150,5],["IT Support","Tech","clicker",80,1],
+  ["Cybersecurity Analyst","Tech","memory",220,8],["Flight Attendant","Transport","clicker",90,3],
+  ["Hotel Manager","Hospitality","quiz",140,5],["Tour Guide","Hospitality","quiz",70,2],
+  ["Bartender","Food","clicker",65,1],["Waiter","Food","clicker",50,1],
+  ["Baker","Food","timing",70,1],["Butcher","Food","timing",80,2],
+  ["Fisherman","Agriculture","timing",75,1],["Park Ranger","Public","delivery",80,2],
+  ["Librarian","Education","memory",75,2],["Professor","Education","quiz",200,8],
+  ["Social Worker","Public","quiz",90,3],["Psychologist","Health","quiz",185,6],
+  ["Physiotherapist","Health","memory",150,5],["Optometrist","Health","quiz",195,7],
+  ["Paramedic","Health","timing",120,4],["Construction Worker","Trades","timing",85,1],
+  ["Crane Operator","Trades","timing",130,4],["Painter","Trades","clicker",70,1],
+  ["Roofer","Trades","timing",95,3],["Landscaper","Service","timing",65,1],
+  ["Janitor","Service","clicker",45,1],["Security Guard","Public","memory",60,1],
+  ["Detective","Public","quiz",200,8],["Judge","Law","quiz",400,13],
+  ["Paralegal","Law","memory",110,4],["Economist","Finance","quiz",230,9],
+  ["Insurance Agent","Finance","quiz",115,3],["Marketing Manager","Business","quiz",170,6],
+  ["Salesperson","Sales","clicker",75,1],["HR Manager","Business","quiz",150,5],
+  ["CEO","Business","quiz",600,18],["Entrepreneur","Business","timing",250,9],
+  ["Consultant","Business","quiz",220,8],["Translator","Language","memory",100,3],
+  ["Writer","Creative","memory",90,3],["Editor","Media","memory",120,4],
+  ["Animator","Creative","timing",140,5],["Fashion Designer","Design","clicker",160,6],
+  ["Interior Designer","Design","memory",150,5],["Hairdresser","Service","timing",60,1],
+  ["Makeup Artist","Creative","clicker",70,2],["Tattoo Artist","Creative","timing",110,4],
+  ["Personal Trainer","Health","timing",80,2],["Yoga Instructor","Health","memory",70,2],
+  ["Athlete","Sports","timing",300,10],["Coach","Sports","quiz",140,5],
+  ["Referee","Sports","timing",90,3],["Pilot Instructor","Transport","memory",280,11],
+  ["Train Conductor","Transport","delivery",100,3],["Ship Captain","Transport","delivery",260,9],
+  ["Air Traffic Controller","Transport","memory",240,9],["Robotics Engineer","Tech","timing",230,9],
+  ["AI Researcher","Tech","memory",320,12],["Geologist","Science","quiz",160,6],
 ];
 const ARCHETYPE_LABEL = {
-  quiz:"Answer the calls/questions", timing:"Hit the timing windows",
+  quiz:"Answer questions correctly", timing:"Hit the timing windows",
   memory:"Repeat the sequence", delivery:"Make the delivery", clicker:"Serve customers fast"
 };
+const CAT_COLOR = { Tech:"#3f72af", Logistics:"#b06f3a", Sales:"#c2185b", Food:"#e08a17",
+  Health:"#2e9e6b", Education:"#6a5acd", Transport:"#1565c0", Trades:"#8d6e3a",
+  Agriculture:"#6b8e23", Science:"#00838f", Creative:"#9c27b0", Media:"#546e7a",
+  Finance:"#2e7d32", Law:"#6d4c41", Design:"#d81b60", Public:"#3949ab", Service:"#607d8b",
+  Entertainment:"#8e24aa", Business:"#283593", Hospitality:"#00796b", Sports:"#d84315",
+  Language:"#5e35b1", Retail:"#ad7a00" };
+function initials(s){ const w=s.split(' '); return (w.length>1?(w[0][0]+w[1][0]):s.slice(0,2)).toUpperCase(); }
 const JOBS = JOB_SEED.map((j,i)=>({
-  id:i, title:j[0], category:j[1], archetype:j[2], basePay:j[3], levelReq:j[4], emoji:j[5]
+  id:i, title:j[0], category:j[1], archetype:j[2], basePay:j[3], levelReq:j[4],
+  badge:initials(j[0]), color:CAT_COLOR[j[1]]||"#3f72af"
 }));
 
-// ─── DATA: INTERVIEW QUESTIONS ───────────────────────────────────────────────
+// ─── INTERVIEW QUESTIONS ─────────────────────────────────────────────────────
 const INTERVIEW_QUESTIONS = [
   ["Why do you want to work here?",["I love this field and want to grow","I just need any paycheck","I have nothing better to do","My friend dared me"],0],
   ["What is your biggest strength?",["I'm a hard worker and learn fast","I'm always late","I avoid responsibility","I dislike teamwork"],0],
@@ -171,583 +124,408 @@ const INTERVIEW_QUESTIONS = [
   ["What makes a good employee?",["Dependability and a good attitude","Doing as little as possible","Avoiding hard tasks","Complaining a lot"],0],
 ];
 
-// ─── DATA: PROPERTIES / VEHICLES ─────────────────────────────────────────────
+// ─── PROPERTIES / VEHICLES ───────────────────────────────────────────────────
 const HOUSES = [
-  { id:0, name:"Tiny Studio", price:0, level:1, color:"#8d7b66", emoji:"🏚️", income:0 },
-  { id:1, name:"Cozy Cottage", price:6000, level:2, color:"#b5895a", emoji:"🏡", income:5 },
-  { id:2, name:"Suburban Home", price:20000, level:4, color:"#c97f5a", emoji:"🏠", income:15 },
-  { id:3, name:"Modern Villa", price:75000, level:7, color:"#dcdcdc", emoji:"🏘️", income:40 },
-  { id:4, name:"Lakeside Mansion", price:240000, level:11, color:"#e8e0c8", emoji:"🏰", income:120 },
-  { id:5, name:"Sky Penthouse", price:800000, level:16, color:"#9fd3ff", emoji:"🌆", income:400 },
+  { id:0, name:"Tiny Studio", price:0, level:1, color:"#8d7b66", income:0 },
+  { id:1, name:"Cozy Cottage", price:6000, level:2, color:"#b5895a", income:5 },
+  { id:2, name:"Suburban Home", price:20000, level:4, color:"#c97f5a", income:15 },
+  { id:3, name:"Modern Villa", price:75000, level:7, color:"#cfd3d6", income:40 },
+  { id:4, name:"Lakeside Mansion", price:240000, level:11, color:"#e8e0c8", income:120 },
+  { id:5, name:"Sky Penthouse", price:800000, level:16, color:"#9fd3ff", income:400 },
 ];
 const RVS = [
-  { id:0, name:"Old Camper", price:0, level:1, color:"#9a9a86", emoji:"🚐", speed:1.0 },
-  { id:1, name:"Road Cruiser", price:9000, level:2, color:"#d6c27a", emoji:"🚐", speed:1.2 },
-  { id:2, name:"Adventure RV", price:35000, level:5, color:"#7ec8a0", emoji:"🚍", speed:1.4 },
-  { id:3, name:"Luxury Motorhome", price:120000, level:9, color:"#e8e8e8", emoji:"🚍", speed:1.7 },
-  { id:4, name:"Mega Land Yacht", price:420000, level:14, color:"#ffd54f", emoji:"🚍", speed:2.1 },
+  { id:0, name:"Old Camper", price:0, level:1, color:"#9a9a86", speed:1.0 },
+  { id:1, name:"Road Cruiser", price:9000, level:2, color:"#d6c27a", speed:1.2 },
+  { id:2, name:"Adventure RV", price:35000, level:5, color:"#7ec8a0", speed:1.4 },
+  { id:3, name:"Luxury Motorhome", price:120000, level:9, color:"#e8e8e8", speed:1.7 },
+  { id:4, name:"Mega Land Yacht", price:420000, level:14, color:"#ffd54f", speed:2.1 },
 ];
 const CARS = [
-  { id:0, name:"Rusty Hatchback", price:0, level:1, color:"#7d8a99", emoji:"🚗", speed:1.1 },
-  { id:1, name:"Family Sedan", price:8000, level:2, color:"#3f72af", emoji:"🚙", speed:1.3 },
-  { id:2, name:"Sporty Coupe", price:30000, level:5, color:"#e0524a", emoji:"🏎️", speed:1.8 },
-  { id:3, name:"Luxury SUV", price:90000, level:8, color:"#2c2c2c", emoji:"🚙", speed:1.9 },
-  { id:4, name:"Supercar", price:350000, level:13, color:"#ffd54f", emoji:"🏎️", speed:2.6 },
-  { id:5, name:"Hyper GT", price:1200000, level:18, color:"#b388ff", emoji:"🏎️", speed:3.2 },
+  { id:0, name:"Rusty Hatchback", price:0, level:1, color:"#7d8a99", speed:1.1 },
+  { id:1, name:"Family Sedan", price:8000, level:2, color:"#3f72af", speed:1.3 },
+  { id:2, name:"Sporty Coupe", price:30000, level:5, color:"#e0524a", speed:1.8 },
+  { id:3, name:"Luxury SUV", price:90000, level:8, color:"#2c2c2c", speed:1.9 },
+  { id:4, name:"Supercar", price:350000, level:13, color:"#ffd54f", speed:2.6 },
+  { id:5, name:"Hyper GT", price:1200000, level:18, color:"#b388ff", speed:3.2 },
 ];
 
-// ─── DATA: MALL STORES (150) ─────────────────────────────────────────────────
+// ─── MALL STORES (150) ───────────────────────────────────────────────────────
 const STORE_BASES = ["Urban","Lux","Style","Prime","Nova","Peak","Aero","Vivid","Royal","Metro","Echo","Pixel","Coral","Onyx","Aura","Vibe","Crest","Halo","Zenith","Lush","Bloom","Forge","Pulse","Drift","Spark","Glow","Trend","Haven","Maple","Velvet"];
 const STORE_TYPES = [
-  ["Apparel","👕","clothing"],["Shoes","👟","clothing"],["Electronics","📱","gadget"],
-  ["Jewelry","💍","luxury"],["Toys","🧸","fun"],["Books","📚","fun"],
-  ["Sports","🏀","fun"],["Perfume","🌸","luxury"],["Furniture","🛋️","home"],
-  ["Cafe","☕","food"],["Bakery","🧁","food"],["Watches","⌚","luxury"],
-  ["Gaming","🎮","gadget"],["Beauty","💄","clothing"],["Outdoor","🏕️","fun"],
+  ["Apparel","clothing","#c2185b"],["Shoes","clothing","#8d6e3a"],["Electronics","gadget","#3f72af"],
+  ["Jewelry","luxury","#e6a417"],["Toys","fun","#d84315"],["Books","fun","#6a5acd"],
+  ["Sports","fun","#2e9e6b"],["Perfume","luxury","#d81b60"],["Furniture","home","#607d8b"],
+  ["Cafe","food","#e08a17"],["Bakery","food","#ad7a00"],["Watches","luxury","#283593"],
+  ["Gaming","gadget","#8e24aa"],["Beauty","clothing","#c2185b"],["Outdoor","fun","#00838f"],
 ];
 function buildStores(){
   const out=[]; let id=0;
   for(let i=0;i<150;i++){
     const base=STORE_BASES[i%STORE_BASES.length];
-    const t=STORE_TYPES[(i*7+ (i%STORE_TYPES.length))%STORE_TYPES.length];
-    const tierMul = 1 + ((id*13)%5)*0.6;
-    const price = Math.round((20 + (id*17)%180) * tierMul);
-    out.push({ id:id++, name:`${base} ${t[0]}`, emoji:t[1], cat:t[2],
-      itemName:`${base} ${t[0]} item`, price, xp: 3 + (id%5) });
+    const t=STORE_TYPES[(i*7+(i%STORE_TYPES.length))%STORE_TYPES.length];
+    const tierMul=1+((id*13)%5)*0.6;
+    const price=Math.round((20+(id*17)%180)*tierMul);
+    out.push({ id:id++, name:`${base} ${t[0]}`, color:t[2], cat:t[1],
+      itemName:`${base} ${t[0]} item`, price, xp:3+(id%5) });
   }
   return out;
 }
 const STORES = buildStores();
 
-// ─── DATA: PHONE ─────────────────────────────────────────────────────────────
+// ─── PHONE APPS / WALLPAPERS ─────────────────────────────────────────────────
 const WALLPAPERS = [
-  ["Sunset","linear-gradient(160deg,#ff9966,#ff5e62)"],
-  ["Ocean","linear-gradient(160deg,#2193b0,#6dd5ed)"],
-  ["Aurora","linear-gradient(160deg,#5f2c82,#49a09d)"],
-  ["Mint","linear-gradient(160deg,#00b09b,#96c93d)"],
-  ["Berry","linear-gradient(160deg,#cc2b5e,#753a88)"],
-  ["Carbon","linear-gradient(160deg,#232526,#414345)"],
-  ["Gold","linear-gradient(160deg,#f7971e,#ffd200)"],
-  ["Night","linear-gradient(160deg,#0f2027,#2c5364)"],
+  ["Sunset","linear-gradient(160deg,#ff9966,#ff5e62)"],["Ocean","linear-gradient(160deg,#2193b0,#6dd5ed)"],
+  ["Aurora","linear-gradient(160deg,#5f2c82,#49a09d)"],["Mint","linear-gradient(160deg,#00b09b,#96c93d)"],
+  ["Berry","linear-gradient(160deg,#cc2b5e,#753a88)"],["Carbon","linear-gradient(160deg,#232526,#414345)"],
+  ["Gold","linear-gradient(160deg,#f7971e,#ffd200)"],["Night","linear-gradient(160deg,#0f2027,#2c5364)"],
+];
+const PHONE_APPS = [
+  {id:'settings',name:'Settings',tag:'SET',color:'#607d8b'},
+  {id:'messages',name:'Messages',tag:'MSG',color:'#23b26d'},
+  {id:'social',name:'Social',tag:'SOC',color:'#2e7dff'},
+  {id:'weather',name:'Weather',tag:'WX',color:'#4dabf7'},
+  {id:'bank',name:'Bank',tag:'BNK',color:'#2e7d32'},
+  {id:'camera',name:'Camera',tag:'CAM',color:'#455a64'},
+  {id:'photos',name:'Photos',tag:'PIC',color:'#9c27b0'},
+  {id:'music',name:'Music',tag:'MUS',color:'#d81b60'},
+  {id:'clock',name:'Clock',tag:'CLK',color:'#37474f'},
+  {id:'maps',name:'Maps',tag:'MAP',color:'#00897b'},
+  {id:'browser',name:'Browser',tag:'WEB',color:'#1565c0'},
+  {id:'health',name:'Health',tag:'HP',color:'#e0524a'},
+  {id:'game1',name:'Tap Race',tag:'TAP',color:'#e08a17'},
+  {id:'game2',name:'Memory',tag:'MEM',color:'#5e35b1'},
+  {id:'store',name:'App Store',tag:'APP',color:'#2196f3'},
 ];
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 const money = n => "$"+Math.round(n).toLocaleString();
 const xpForLevel = lvl => Math.round(80*Math.pow(lvl,1.45));
 function rint(a,b){ return Math.floor(Math.random()*(b-a+1))+a; }
-function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
 function shuffle(a){ a=[...a]; for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
 
+// tiny sound effects (Web Audio, no assets)
+let _actx=null;
+function beep(freq=440,dur=0.08,type='sine',vol=0.06){
+  try{ _actx=_actx||new (window.AudioContext||window.webkitAudioContext)();
+    const o=_actx.createOscillator(), g=_actx.createGain();
+    o.type=type; o.frequency.value=freq; g.gain.value=vol;
+    o.connect(g); g.connect(_actx.destination); o.start();
+    g.gain.exponentialRampToValueAtTime(0.0001,_actx.currentTime+dur); o.stop(_actx.currentTime+dur);
+  }catch(e){}
+}
+const SFX={ click:()=>beep(520,.05,'square',.04), good:()=>{beep(660,.09);setTimeout(()=>beep(880,.11),90);},
+  bad:()=>beep(160,.18,'sawtooth',.05), cash:()=>{beep(740,.07);setTimeout(()=>beep(990,.09),70);},
+  level:()=>{beep(523,.1);setTimeout(()=>beep(659,.1),100);setTimeout(()=>beep(784,.14),200);} };
+
 // ─── PERSISTENCE ─────────────────────────────────────────────────────────────
-const SAVE_KEY="livethelife_save_v1";
+const SAVE_KEY="livethelife_save_v2";
 const todayStr = ()=> new Date().toISOString().slice(0,10);
 function defaultState(){
-  return {
-    money: 200, xp:0, level:1,
-    jobId:null, shiftsToday:0, day:1, timeOfDay:8.0, // hours 0-24
-    ownedHouses:[0], ownedRVs:[0], ownedCars:[0],
-    currentHouse:0, currentRV:0, currentCar:0,
-    inventory:[], // store item ids
-    lastGiftDate:null,
-    phone:{ passcode:null, faceId:false, wallpaper:0, unlockedThisSession:false },
-    prizesClaimed:[],
-    name:"You",
-    stats:{ shiftsWorked:0, interviewsPassed:0, moneyEarned:0 },
-  };
+  return { money:200, xp:0, level:1, jobId:null, shiftsToday:0, day:1, timeOfDay:8.0,
+    ownedHouses:[0], ownedRVs:[0], ownedCars:[0], currentHouse:0, currentRV:0, currentCar:0,
+    inventory:[], lastGiftDate:null, vehicleType:'car',
+    phone:{ passcode:null, faceId:false, wallpaper:0 },
+    stats:{ shiftsWorked:0, interviewsPassed:0, moneyEarned:0 } };
 }
 function loadState(){
-  try{ const s=JSON.parse(localStorage.getItem(SAVE_KEY)); if(s){ const d=defaultState(); return {...d,...s, phone:{...d.phone,...s.phone}, stats:{...d.stats,...s.stats}}; } }catch(e){}
+  try{ const s=JSON.parse(localStorage.getItem(SAVE_KEY)); if(s){ const d=defaultState();
+    return {...d,...s, phone:{...d.phone,...s.phone}, stats:{...d.stats,...s.stats}}; } }catch(e){}
   return defaultState();
 }
 
+// ─── BUILDINGS ───────────────────────────────────────────────────────────────
+const BUILDINGS=[
+  {id:"home", name:"Home",         pos:[-40,-30], color:"#c97f5a", w:14, h:14},
+  {id:"jobs", name:"Job Center",    pos:[40,-30],  color:"#3f72af", w:18, h:16},
+  {id:"mall", name:"Mall",          pos:[-50,40],  color:"#b06fb0", w:26, h:22},
+  {id:"cars", name:"Car Dealer",    pos:[50,40],   color:"#e0524a", w:18, h:16},
+  {id:"rvs",  name:"RV Dealer",     pos:[55,-5],   color:"#d6a93a", w:16, h:16},
+  {id:"bank", name:"Bank & Houses", pos:[-55,-5],  color:"#6ec6a0", w:16, h:16},
+];
+const BNAMES = Object.fromEntries(BUILDINGS.map(b=>[b.id,b.name]));
+
 /* ============================================================================
-   3D WORLD  (vanilla Three.js, controlled via a class, bridged to React)
+   WORLD2D — top-down canvas world (walk + drive), no 3D
    ========================================================================== */
-class World {
-  constructor(mount, hooks){
-    this.mount=mount; this.hooks=hooks; // hooks: onNear(buildingId|null), onDeliveryDone()
-    this.keys={}; this.inVehicle=false; this.delivery=null;
-    this.buildings=[]; this.enabled=true;
-    this.controlsLocked=false;
-    this._init();
+class World2D {
+  constructor(canvas, hooks){
+    this.canvas=canvas; this.ctx=canvas.getContext('2d'); this.hooks=hooks;
+    this.keys={}; this.touch={up:false,down:false,left:false,right:false};
+    this.px=-40; this.py=-12; this.heading=-Math.PI/2;
+    this.inVehicle=false; this.enabled=true; this.delivery=null; this.speedMult=1.1;
+    this.vehColor="#3f72af"; this.t=8; this._near=null; this._pulse=0;
+    this._bind(); this._resize(); this._loop();
   }
-  _init(){
-    const W=this.mount.clientWidth, H=this.mount.clientHeight;
-    const scene=new THREE.Scene();
-    scene.background=new THREE.Color(0x87b8e8);
-    scene.fog=new THREE.Fog(0x87b8e8, 80, 320);
-    this.scene=scene;
-    const cam=new THREE.PerspectiveCamera(70, W/H, 0.1, 1000);
-    cam.position.set(0,1.7,8); this.cam=cam;
-    const renderer=new THREE.WebGLRenderer({antialias:true});
-    renderer.setSize(W,H); renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
-    renderer.shadowMap.enabled=true;
-    this.renderer=renderer; this.mount.appendChild(renderer.domElement);
-
-    // lights
-    const amb=new THREE.AmbientLight(0xffffff,0.6); scene.add(amb);
-    const sun=new THREE.DirectionalLight(0xffffff,0.9); sun.position.set(40,80,20);
-    sun.castShadow=true; sun.shadow.mapSize.set(1024,1024);
-    sun.shadow.camera.left=-150; sun.shadow.camera.right=150;
-    sun.shadow.camera.top=150; sun.shadow.camera.bottom=-150;
-    scene.add(sun); this.sun=sun; this.amb=amb;
-
-    // ground
-    const ground=new THREE.Mesh(new THREE.PlaneGeometry(600,600),
-      new THREE.MeshLambertMaterial({color:0x5fa55a}));
-    ground.rotation.x=-Math.PI/2; ground.receiveShadow=true; scene.add(ground);
-
-    // roads (cross)
-    const roadMat=new THREE.MeshLambertMaterial({color:0x37383c});
-    const r1=new THREE.Mesh(new THREE.PlaneGeometry(12,600),roadMat); r1.rotation.x=-Math.PI/2; r1.position.y=0.02; scene.add(r1);
-    const r2=new THREE.Mesh(new THREE.PlaneGeometry(600,12),roadMat); r2.rotation.x=-Math.PI/2; r2.position.y=0.02; scene.add(r2);
-
-    // buildings
-    const defs=[
-      {id:"home",  name:"🏠 Home",        pos:[-40,-30], color:0xc97f5a, size:[14,10,14]},
-      {id:"jobs",  name:"💼 Job Center",   pos:[40,-30],  color:0x3f72af, size:[18,16,16]},
-      {id:"mall",  name:"🛍️ Mall",         pos:[-50,40],  color:0xb06fb0, size:[26,12,22]},
-      {id:"cars",  name:"🚗 Car Dealer",   pos:[50,40],   color:0xe0524a, size:[18,8,16]},
-      {id:"rvs",   name:"🚐 RV Dealer",    pos:[55,-5],   color:0xd6a93a, size:[16,9,16]},
-      {id:"bank",  name:"🏦 Bank & Houses",pos:[-55,-5],  color:0x6ec6a0, size:[16,11,16]},
-    ];
-    const loader=new THREE.TextureLoader();
-    defs.forEach(d=>{
-      const g=new THREE.BoxGeometry(...d.size);
-      const m=new THREE.MeshLambertMaterial({color:d.color});
-      const mesh=new THREE.Mesh(g,m);
-      mesh.position.set(d.pos[0], d.size[1]/2, d.pos[1]);
-      mesh.castShadow=true; mesh.receiveShadow=true; scene.add(mesh);
-      // roof marker
-      const sign=this._makeLabel(d.name);
-      sign.position.set(d.pos[0], d.size[1]+5, d.pos[1]);
-      scene.add(sign);
-      // door glow
-      const door=new THREE.Mesh(new THREE.BoxGeometry(3,4,0.5),
-        new THREE.MeshBasicMaterial({color:0xffe082}));
-      door.position.set(d.pos[0], 2, d.pos[1]+d.size[2]/2+0.3);
-      scene.add(door);
-      this.buildings.push({...d, mesh});
-    });
-
-    // scatter some trees / props
-    for(let i=0;i<60;i++){
-      const x=rint(-200,200), z=rint(-200,200);
-      if(Math.abs(x)<10||Math.abs(z)<10) continue;
-      if(this._nearBuilding(x,z,20)) continue;
-      const trunk=new THREE.Mesh(new THREE.CylinderGeometry(0.4,0.5,3),
-        new THREE.MeshLambertMaterial({color:0x6b4a2a}));
-      trunk.position.set(x,1.5,z);
-      const leaves=new THREE.Mesh(new THREE.ConeGeometry(2.4,4,8),
-        new THREE.MeshLambertMaterial({color:0x2f7d32}));
-      leaves.position.set(x,4.5,z); leaves.castShadow=true;
-      scene.add(trunk); scene.add(leaves);
-    }
-
-    // player vehicle (car/rv box) - hidden until driving
-    this.vehicle=new THREE.Group();
-    this.vehBody=new THREE.Mesh(new THREE.BoxGeometry(2.4,1.6,5),
-      new THREE.MeshLambertMaterial({color:0x3f72af}));
-    this.vehBody.position.y=1; this.vehBody.castShadow=true;
-    this.vehicle.add(this.vehBody);
-    const cab=new THREE.Mesh(new THREE.BoxGeometry(2.2,1,2.2),
-      new THREE.MeshLambertMaterial({color:0x111522, transparent:true, opacity:.6}));
-    cab.position.set(0,2,-0.4); this.vehicle.add(cab);
-    [[-1,-1.6],[1,-1.6],[-1,1.6],[1,1.6]].forEach(([wx,wz])=>{
-      const wheel=new THREE.Mesh(new THREE.CylinderGeometry(0.5,0.5,0.4,12),
-        new THREE.MeshLambertMaterial({color:0x111111}));
-      wheel.rotation.z=Math.PI/2; wheel.position.set(wx,0.5,wz); this.vehicle.add(wheel);
-    });
-    this.vehicle.position.set(-40,0,-15); scene.add(this.vehicle);
-    this.vehHeading=0; this.vehSpeed=0;
-
-    // delivery marker
-    this.marker=new THREE.Mesh(new THREE.CylinderGeometry(2,2,0.3,24),
-      new THREE.MeshBasicMaterial({color:0xffd54f}));
-    this.marker.visible=false; this.marker.position.y=0.2; scene.add(this.marker);
-    this.markerBeam=new THREE.Mesh(new THREE.CylinderGeometry(0.6,0.6,30,12),
-      new THREE.MeshBasicMaterial({color:0xffd54f,transparent:true,opacity:.3}));
-    this.markerBeam.visible=false; this.markerBeam.position.y=15; scene.add(this.markerBeam);
-
-    // controls
-    this.yaw=0; this.pitch=0;
-    this._bindControls();
-    window.addEventListener('resize', this._onResize=()=>this._resize());
-    this._resize();
-    this._loop();
+  _bind(){
+    this._onResize=()=>this._resize(); window.addEventListener('resize',this._onResize);
+    this._kd=(e)=>{ this.keys[e.code]=true; if(e.code==='KeyV'&&this.enabled) this.toggleVehicle(); };
+    this._ku=(e)=>{ this.keys[e.code]=false; };
+    window.addEventListener('keydown',this._kd); window.addEventListener('keyup',this._ku);
   }
-  _makeLabel(text){
-    const c=document.createElement('canvas'); c.width=512; c.height=128;
-    const ctx=c.getContext('2d');
-    ctx.fillStyle='rgba(10,12,24,0.85)'; ctx.roundRect?ctx.roundRect(8,8,496,112,18):ctx.fillRect(8,8,496,112); ctx.fill();
-    ctx.fillStyle='#fff'; ctx.font='bold 56px Segoe UI, Arial'; ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.fillText(text,256,64);
-    const tex=new THREE.CanvasTexture(c);
-    const spr=new THREE.Sprite(new THREE.SpriteMaterial({map:tex}));
-    spr.scale.set(16,4,1); return spr;
-  }
-  _nearBuilding(x,z,r){ return this.buildings?.some(b=>Math.hypot(b.pos[0]-x,b.pos[1]-z)<r); }
-  _bindControls(){
-    const el=this.renderer.domElement;
-    el.addEventListener('click',()=>{ if(this.enabled && !this.controlsLocked) el.requestPointerLock(); });
-    document.addEventListener('pointerlockchange',()=>{
-      this.pointerLocked = (document.pointerLockElement===el);
-    });
-    document.addEventListener('mousemove',(e)=>{
-      if(!this.pointerLocked||!this.enabled) return;
-      this.yaw   -= e.movementX*0.0022;
-      this.pitch -= e.movementY*0.0022;
-      this.pitch = Math.max(-1.2, Math.min(1.2, this.pitch));
-    });
-    window.addEventListener('keydown',(e)=>{
-      this.keys[e.code]=true;
-      if(e.code==='KeyV' && this.enabled) this.toggleVehicle();
-    });
-    window.addEventListener('keyup',(e)=>{ this.keys[e.code]=false; });
-  }
-  toggleVehicle(){
-    if(!this.inVehicle){
-      // must be near vehicle to enter
-      const d=Math.hypot(this.cam.position.x-this.vehicle.position.x, this.cam.position.z-this.vehicle.position.z);
-      if(d>6 && !this._teleported){ /* allow if far the first time? require near */ }
-      this.inVehicle=true;
-    } else {
-      this.inVehicle=false;
-      // step out beside vehicle
-      this.cam.position.x=this.vehicle.position.x+3;
-      this.cam.position.z=this.vehicle.position.z;
-    }
-    this.hooks.onVehicle?.(this.inVehicle);
-  }
-  setVehicleColor(hex){ this.vehBody.material.color.set(hex); }
-  setVehicleSpeed(mult){ this.speedMult=mult; }
-  startDelivery(){
-    const x=rint(-160,160), z=rint(-160,160);
-    this.delivery={x,z};
-    this.marker.position.set(x,0.2,z); this.marker.visible=true;
-    this.markerBeam.position.set(x,15,z); this.markerBeam.visible=true;
-  }
-  stopDelivery(){ this.delivery=null; this.marker.visible=false; this.markerBeam.visible=false; }
-  _resize(){
-    const W=this.mount.clientWidth, H=this.mount.clientHeight;
-    this.cam.aspect=W/H; this.cam.updateProjectionMatrix(); this.renderer.setSize(W,H);
-  }
-  setEnabled(v){ this.enabled=v; if(!v && document.pointerLockElement) document.exitPointerLock(); }
+  _resize(){ const dpr=Math.min(window.devicePixelRatio||1,2);
+    this.canvas.width=this.canvas.clientWidth*dpr; this.canvas.height=this.canvas.clientHeight*dpr;
+    this.ctx.setTransform(dpr,0,0,dpr,0,0); this.vw=this.canvas.clientWidth; this.vh=this.canvas.clientHeight; }
+  setTouch(dir,v){ this.touch[dir]=v; }
+  toggleVehicle(){ this.inVehicle=!this.inVehicle; this.hooks.onVehicle?.(this.inVehicle); }
+  setVehicle(color,speed){ this.vehColor=color; this.speedMult=speed; }
+  setEnabled(v){ this.enabled=v; }
+  setTime(t){ this.t=t; }
+  teleportTo(id){ const b=BUILDINGS.find(x=>x.id===id); if(!b) return;
+    this.px=b.pos[0]; this.py=b.pos[1]+b.h/2+5; this.heading=-Math.PI/2; }
+  startDelivery(){ this.delivery={x:rint(-150,150), y:rint(-150,150)}; }
+  stopDelivery(){ this.delivery=null; }
+  dispose(){ cancelAnimationFrame(this.raf); window.removeEventListener('resize',this._onResize);
+    window.removeEventListener('keydown',this._kd); window.removeEventListener('keyup',this._ku); }
   _loop(){
     this.raf=requestAnimationFrame(()=>this._loop());
-    const dt=0.016;
     if(this.enabled){
-      const speedMul=this.speedMult||1;
-      if(this.inVehicle){
-        // drive
-        let accel=0, steer=0;
-        if(this.keys['KeyW']||this.keys['ArrowUp']) accel+=1;
-        if(this.keys['KeyS']||this.keys['ArrowDown']) accel-=1;
-        if(this.keys['KeyA']||this.keys['ArrowLeft']) steer+=1;
-        if(this.keys['KeyD']||this.keys['ArrowRight']) steer-=1;
-        this.vehSpeed += accel*0.5*speedMul;
-        this.vehSpeed *= 0.94;
-        this.vehSpeed = Math.max(-0.6, Math.min(1.4*speedMul, this.vehSpeed));
-        if(Math.abs(this.vehSpeed)>0.02) this.vehHeading += steer*0.03*(this.vehSpeed>0?1:-1);
-        this.vehicle.position.x += Math.sin(this.vehHeading)*this.vehSpeed;
-        this.vehicle.position.z += Math.cos(this.vehHeading)*this.vehSpeed;
-        this.vehicle.rotation.y = this.vehHeading;
-        // camera behind/above (third person-ish first person from cab)
-        const camDist=7, camH=4;
-        this.cam.position.x = this.vehicle.position.x - Math.sin(this.vehHeading)*camDist;
-        this.cam.position.z = this.vehicle.position.z - Math.cos(this.vehHeading)*camDist;
-        this.cam.position.y = camH;
-        this.cam.lookAt(this.vehicle.position.x, 2, this.vehicle.position.z);
-        this.playerX=this.vehicle.position.x; this.playerZ=this.vehicle.position.z;
-      } else {
-        // walk
-        const sp=0.32;
-        const fwd=new THREE.Vector3(Math.sin(this.yaw),0,Math.cos(this.yaw));
-        const right=new THREE.Vector3(Math.sin(this.yaw-Math.PI/2),0,Math.cos(this.yaw-Math.PI/2));
-        let mv=new THREE.Vector3();
-        if(this.keys['KeyW']||this.keys['ArrowUp']) mv.sub(fwd);
-        if(this.keys['KeyS']||this.keys['ArrowDown']) mv.add(fwd);
-        if(this.keys['KeyA']||this.keys['ArrowLeft']) mv.sub(right);
-        if(this.keys['KeyD']||this.keys['ArrowRight']) mv.add(right);
-        if(mv.length()>0){ mv.normalize().multiplyScalar(sp); this.cam.position.add(mv); }
-        this.cam.position.y=1.7;
-        // look
-        const dir=new THREE.Vector3(
-          Math.sin(this.yaw)*Math.cos(this.pitch),
-          Math.sin(this.pitch),
-          Math.cos(this.yaw)*Math.cos(this.pitch));
-        this.cam.lookAt(this.cam.position.clone().add(dir));
-        this.playerX=this.cam.position.x; this.playerZ=this.cam.position.z;
+      let dx=0,dy=0;
+      if(this.keys['KeyW']||this.keys['ArrowUp']||this.touch.up) dy-=1;
+      if(this.keys['KeyS']||this.keys['ArrowDown']||this.touch.down) dy+=1;
+      if(this.keys['KeyA']||this.keys['ArrowLeft']||this.touch.left) dx-=1;
+      if(this.keys['KeyD']||this.keys['ArrowRight']||this.touch.right) dx+=1;
+      const moving=dx||dy;
+      if(moving){ const l=Math.hypot(dx,dy); dx/=l; dy/=l;
+        const sp=this.inVehicle?(1.9*this.speedMult):1.7;
+        this.px=Math.max(-240,Math.min(240,this.px+dx*sp));
+        this.py=Math.max(-240,Math.min(240,this.py+dy*sp));
+        this.heading=Math.atan2(dy,dx);
       }
-      // clamp world
-      this.cam.position.x=Math.max(-280,Math.min(280,this.cam.position.x));
-      this.cam.position.z=Math.max(-280,Math.min(280,this.cam.position.z));
-
-      // proximity to buildings (size-aware: bigger buildings have a bigger reach)
-      let near=null, bestScore=0;
-      for(const b of this.buildings){
-        const d=Math.hypot(b.pos[0]-this.playerX, b.pos[1]-this.playerZ);
-        const reach=Math.max(b.size[0],b.size[2])/2 + 9;
-        if(d<reach){ const score=reach-d; if(score>bestScore){ bestScore=score; near=b.id; } }
-      }
+      // proximity (size-aware)
+      let near=null,best=0;
+      for(const b of BUILDINGS){ const d=Math.hypot(b.pos[0]-this.px,b.pos[1]-this.py);
+        const reach=Math.max(b.w,b.h)/2+10; if(d<reach){ const s=reach-d; if(s>best){best=s;near=b.id;} } }
       if(near!==this._near){ this._near=near; this.hooks.onNear?.(near); }
-
-      // delivery check
-      if(this.delivery){
-        const d=Math.hypot(this.delivery.x-this.playerX, this.delivery.z-this.playerZ);
-        this.marker.rotation.y+=0.03;
-        if(d<5){ const cb=this.delivery; this.stopDelivery(); this.hooks.onDeliveryDone?.(); }
-      }
+      // delivery
+      if(this.delivery){ const d=Math.hypot(this.delivery.x-this.px,this.delivery.y-this.py);
+        if(d<7){ this.stopDelivery(); this.hooks.onDeliveryDone?.(); } }
     }
-    this.renderer.render(this.scene,this.cam);
+    this._draw();
   }
-  setTime(t){ // 0-24 -> move sun & sky
-    const day = Math.max(0,Math.sin((t-6)/12*Math.PI)); // 0 at night, 1 noon
-    this.sun.intensity=0.2+day*0.9;
-    this.amb.intensity=0.3+day*0.4;
-    const top=new THREE.Color(0x0b1020), noon=new THREE.Color(0x87b8e8);
-    const sky=top.clone().lerp(noon,day);
-    this.scene.background=sky; if(this.scene.fog) this.scene.fog.color=sky;
-    this.sun.position.set(Math.cos((t-6)/12*Math.PI)*80, 20+day*80, 20);
+  _draw(){
+    const ctx=this.ctx, vw=this.vw, vh=this.vh, S=5.2;
+    const camX=this.px, camY=this.py;
+    const sx=(wx)=>vw/2+(wx-camX)*S, sy=(wy)=>vh/2+(wy-camY)*S;
+    // ground
+    ctx.fillStyle="#5fa55a"; ctx.fillRect(0,0,vw,vh);
+    // road grid
+    ctx.strokeStyle="#37383c"; ctx.lineWidth=11*S;
+    for(let g=-240;g<=240;g+=80){ ctx.beginPath(); ctx.moveTo(sx(g),sy(-260)); ctx.lineTo(sx(g),sy(260)); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(sx(-260),sy(g)); ctx.lineTo(sx(260),sy(g)); ctx.stroke(); }
+    // lane dashes
+    ctx.strokeStyle="rgba(255,255,255,.5)"; ctx.lineWidth=1.5; ctx.setLineDash([8,12]);
+    for(let g=-240;g<=240;g+=80){ ctx.beginPath(); ctx.moveTo(sx(g),sy(-260)); ctx.lineTo(sx(g),sy(260)); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(sx(-260),sy(g)); ctx.lineTo(sx(260),sy(g)); ctx.stroke(); }
+    ctx.setLineDash([]);
+    // trees (deterministic scatter)
+    ctx.fillStyle="#2f7d32";
+    for(let i=0;i<120;i++){ const tx=((i*131)%500)-250, ty=((i*271)%500)-250;
+      if(Math.abs(tx)<14||Math.abs(ty)<14) continue;
+      const dxn=sx(tx),dyn=sy(ty); if(dxn<-20||dxn>vw+20||dyn<-20||dyn>vh+20) continue;
+      ctx.beginPath(); ctx.arc(dxn,dyn,3.4*S/3,0,7); ctx.fill(); }
+    // buildings
+    BUILDINGS.forEach(b=>{
+      const x=sx(b.pos[0]-b.w/2), y=sy(b.pos[1]-b.h/2), w=b.w*S, h=b.h*S;
+      ctx.fillStyle="rgba(0,0,0,.25)"; ctx.fillRect(x+4,y+5,w,h);
+      ctx.fillStyle=b.color; ctx.fillRect(x,y,w,h);
+      // windows
+      ctx.fillStyle="rgba(255,255,255,.35)";
+      for(let wx=x+8;wx<x+w-8;wx+=16) for(let wy=y+8;wy<y+h-8;wy+=16) ctx.fillRect(wx,wy,7,7);
+      // door
+      ctx.fillStyle="#ffe082"; ctx.fillRect(x+w/2-7,y+h-10,14,10);
+      // label
+      ctx.fillStyle="rgba(10,12,24,.85)"; const lw=ctx.measureText?Math.max(70,b.name.length*8):90;
+      ctx.font="bold 13px Segoe UI, Arial"; ctx.textAlign="center";
+      const tw=ctx.measureText(b.name).width+16;
+      ctx.fillRect(sx(b.pos[0])-tw/2, y-22, tw, 18);
+      ctx.fillStyle="#fff"; ctx.fillText(b.name, sx(b.pos[0]), y-9);
+    });
+    // delivery marker
+    if(this.delivery){ this._pulse+=0.08; const r=(8+Math.sin(this._pulse)*3)*S/2;
+      const mx=sx(this.delivery.x), my=sy(this.delivery.y);
+      ctx.fillStyle="rgba(255,213,79,.35)"; ctx.beginPath(); ctx.arc(mx,my,r,0,7); ctx.fill();
+      ctx.fillStyle="#ffd54f"; ctx.beginPath(); ctx.arc(mx,my,5,0,7); ctx.fill();
+      // off-screen arrow
+      if(mx<0||mx>vw||my<0||my>vh){ const ang=Math.atan2(my-vh/2,mx-vw/2);
+        const ex=vw/2+Math.cos(ang)*Math.min(vw,vh)*0.42, ey=vh/2+Math.sin(ang)*Math.min(vw,vh)*0.42;
+        ctx.save(); ctx.translate(ex,ey); ctx.rotate(ang); ctx.fillStyle="#ffd54f";
+        ctx.beginPath(); ctx.moveTo(12,0); ctx.lineTo(-8,-7); ctx.lineTo(-8,7); ctx.closePath(); ctx.fill(); ctx.restore(); }
+    }
+    // player
+    const pmx=vw/2, pmy=vh/2;
+    ctx.save(); ctx.translate(pmx,pmy); ctx.rotate(this.heading);
+    if(this.inVehicle){
+      ctx.fillStyle="rgba(0,0,0,.3)"; ctx.fillRect(-11,-8,26,18);
+      ctx.fillStyle=this.vehColor; ctx.fillRect(-13,-9,26,18);
+      ctx.fillStyle="#111522"; ctx.fillRect(2,-7,8,14);
+    } else {
+      ctx.fillStyle="rgba(0,0,0,.3)"; ctx.beginPath(); ctx.arc(0,2,9,0,7); ctx.fill();
+      ctx.fillStyle="#ffce9e"; ctx.beginPath(); ctx.arc(0,0,8,0,7); ctx.fill();
+      ctx.fillStyle="#2e3a59"; ctx.beginPath(); ctx.arc(5,0,3,0,7); ctx.fill();
+    }
+    ctx.restore();
+    // night tint
+    const day=Math.max(0,Math.sin((this.t-6)/12*Math.PI));
+    if(day<0.9){ ctx.fillStyle=`rgba(8,12,30,${(0.9-day)*0.6})`; ctx.fillRect(0,0,vw,vh); }
   }
-  teleportTo(id){
-    const b=this.buildings.find(x=>x.id===id); if(!b) return;
-    if(this.inVehicle) this.toggleVehicle();
-    this.cam.position.set(b.pos[0], 1.7, b.pos[1]+b.size[2]/2+5);
-    this.yaw=Math.PI; this.pitch=0;
-    this.playerX=this.cam.position.x; this.playerZ=this.cam.position.z;
-  }
-  dispose(){ cancelAnimationFrame(this.raf); window.removeEventListener('resize',this._onResize);
-    this.renderer.dispose(); if(this.renderer.domElement.parentNode) this.renderer.domElement.parentNode.removeChild(this.renderer.domElement); }
 }
 
 /* ============================================================================
    REACT UI
    ========================================================================== */
+function Badge({label,color,size=40,radius=11}){
+  return <div style={{width:size,height:size,minWidth:size,borderRadius:radius,background:color,display:'inline-flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:size*0.34,color:'#fff',letterSpacing:.5}}>{label}</div>;
+}
 function Bar({label,val,max,color}){
   return (<div style={{marginBottom:4}}>
-    <div style={{display:'flex',justifyContent:'space-between',fontSize:11,opacity:.8}}>
-      <span>{label}</span><span>{val}/{max}</span></div>
+    <div style={{display:'flex',justifyContent:'space-between',fontSize:11,opacity:.8}}><span>{label}</span><span>{val}/{max}</span></div>
     <div style={{height:8,background:'rgba(255,255,255,.15)',borderRadius:4,overflow:'hidden'}}>
-      <div style={{height:'100%',width:`${Math.min(100,val/max*100)}%`,background:color,transition:'width .3s'}}/></div>
-  </div>);
+      <div style={{height:'100%',width:`${Math.min(100,val/max*100)}%`,background:color,transition:'width .3s'}}/></div></div>);
 }
-
 function Modal({children,onClose,wide}){
   return (<div style={{position:'fixed',inset:0,background:'rgba(4,6,16,.72)',zIndex:30,display:'flex',alignItems:'center',justifyContent:'center',padding:16}} onClick={onClose}>
-    <div onClick={e=>e.stopPropagation()} style={{background:'linear-gradient(160deg,#1a2138,#10162a)',border:'1px solid rgba(255,255,255,.12)',borderRadius:18,maxWidth:wide?720:520,width:'100%',maxHeight:'88vh',overflowY:'auto',boxShadow:'0 20px 60px rgba(0,0,0,.6)'}}>
-      {children}
-    </div></div>);
+    <div onClick={e=>e.stopPropagation()} style={{animation:'pop .18s ease-out',background:'linear-gradient(160deg,#1a2138,#10162a)',border:'1px solid rgba(255,255,255,.12)',borderRadius:18,maxWidth:wide?720:520,width:'100%',maxHeight:'88vh',overflowY:'auto',boxShadow:'0 20px 60px rgba(0,0,0,.6)'}}>{children}</div></div>);
 }
 
-// ── Interview minigame ──
-function Interview({job, onResult, onClose}){
-  const [qs] = useState(()=>shuffle(INTERVIEW_QUESTIONS).slice(0,5).map(q=>{
-    const opts=q[1].map((t,i)=>({t,correct:i===q[2]}));
-    return {q:q[0], opts:shuffle(opts)};
-  }));
-  const [i,setI]=useState(0);
-  const [right,setRight]=useState(0);
-  const [wrong,setWrong]=useState(0);
-  const [picked,setPicked]=useState(null);
+// ── Interview ──
+function Interview({job,onResult,onClose}){
+  const [qs]=useState(()=>shuffle(INTERVIEW_QUESTIONS).slice(0,5).map(q=>({q:q[0],opts:shuffle(q[1].map((t,i)=>({t,correct:i===q[2]})))})));
+  const [i,setI]=useState(0); const [right,setRight]=useState(0); const [wrong,setWrong]=useState(0); const [picked,setPicked]=useState(null);
   const cur=qs[i];
-  function choose(opt,idx){
-    if(picked!=null) return;
-    setPicked(idx);
+  function choose(opt,idx){ if(picked!=null) return; setPicked(idx); opt.correct?SFX.good():SFX.bad();
     const r=right+(opt.correct?1:0), w=wrong+(opt.correct?0:1);
-    setTimeout(()=>{
-      if(opt.correct){
-        if(r>=3){ onResult(true); return; }
-        setRight(r);
-      } else {
-        if(w>=3){ onResult(false); return; }
-        setWrong(w);
-      }
-      setPicked(null); setI(x=>x+1);
-    },650);
+    setTimeout(()=>{ if(opt.correct){ if(r>=3){onResult(true);return;} setRight(r);} else { if(w>=3){onResult(false);return;} setWrong(w);} setPicked(null); setI(x=>x+1); },650);
   }
-  return (<Modal onClose={onClose}>
-    <div style={{padding:24}}>
-      <div style={{fontSize:13,opacity:.7}}>Interview for</div>
-      <h2 style={{margin:'2px 0 6px'}}>{job.emoji} {job.title}</h2>
-      <div style={{display:'flex',gap:16,marginBottom:14,fontSize:14}}>
-        <span style={{color:'#7ee0a0'}}>✅ Correct: {right}/3</span>
-        <span style={{color:'#ff8a8a'}}>❌ Wrong: {wrong}/3</span>
-      </div>
-      <div style={{background:'rgba(255,255,255,.06)',borderRadius:12,padding:16}}>
-        <div style={{fontSize:17,fontWeight:600,marginBottom:14}}>“{cur.q}”</div>
-        {cur.opts.map((o,idx)=>{
-          let bg='rgba(255,255,255,.08)';
-          if(picked!=null){ if(o.correct) bg='rgba(40,180,100,.55)'; else if(idx===picked) bg='rgba(220,70,60,.55)'; }
-          return <button key={idx} onClick={()=>choose(o,idx)} style={{display:'block',width:'100%',textAlign:'left',margin:'8px 0',padding:'12px 14px',borderRadius:10,border:'1px solid rgba(255,255,255,.12)',background:bg,color:'#fff',cursor:picked!=null?'default':'pointer',fontSize:15}}>{o.t}</button>;
-        })}
-      </div>
-      <div style={{marginTop:12,fontSize:12,opacity:.6}}>Get 3 correct to be hired. 3 wrong and you're rejected.</div>
+  return (<Modal onClose={onClose}><div style={{padding:24}}>
+    <div style={{fontSize:13,opacity:.7}}>Interview for</div>
+    <div style={{display:'flex',alignItems:'center',gap:10,margin:'4px 0 8px'}}><Badge label={job.badge} color={job.color}/><h2 style={{margin:0}}>{job.title}</h2></div>
+    <div style={{display:'flex',gap:16,marginBottom:14,fontSize:14}}>
+      <span style={{color:'#7ee0a0'}}>Correct: {right}/3</span><span style={{color:'#ff8a8a'}}>Wrong: {wrong}/3</span></div>
+    <div style={{background:'rgba(255,255,255,.06)',borderRadius:12,padding:16}}>
+      <div style={{fontSize:17,fontWeight:600,marginBottom:14}}>"{cur.q}"</div>
+      {cur.opts.map((o,idx)=>{ let bg='rgba(255,255,255,.08)'; if(picked!=null){ if(o.correct)bg='rgba(40,180,100,.55)'; else if(idx===picked)bg='rgba(220,70,60,.55)'; }
+        return <button key={idx} onClick={()=>choose(o,idx)} style={{display:'block',width:'100%',textAlign:'left',margin:'8px 0',padding:'12px 14px',borderRadius:10,border:'1px solid rgba(255,255,255,.12)',background:bg,color:'#fff',cursor:picked!=null?'default':'pointer',fontSize:15}}>{o.t}</button>; })}
     </div>
-  </Modal>);
-}
-
-// ── Work minigames ──
-function WorkGame({job, onDone, onClose, startDelivery, deliverySignal}){
-  const arch=job.archetype;
-  // ---- delivery handled by 3D world ----
-  if(arch==='delivery'){
-    return (<Modal onClose={onClose}><div style={{padding:24,textAlign:'center'}}>
-      <h2>{job.emoji} {job.title} — Delivery</h2>
-      <p style={{opacity:.8}}>A delivery marker has been placed in the world. Get in your vehicle (press <b>V</b> near it) or walk, and reach the glowing pillar.</p>
-      <button className="btn" onClick={()=>{ startDelivery(); onClose(); }}>📍 Drop marker & go</button>
-      <div style={{marginTop:10,fontSize:12,opacity:.6}}>Reach the marker in the world to complete the shift.</div>
-    </div></Modal>);
-  }
-  if(arch==='clicker') return <ClickerGame job={job} onDone={onDone} onClose={onClose}/>;
-  if(arch==='timing') return <TimingGame job={job} onDone={onDone} onClose={onClose}/>;
-  if(arch==='memory') return <MemoryGame job={job} onDone={onDone} onClose={onClose}/>;
-  if(arch==='quiz') return <QuizWorkGame job={job} onDone={onDone} onClose={onClose}/>;
-  return null;
-}
-
-function ClickerGame({job,onDone,onClose}){
-  const [score,setScore]=useState(0);
-  const [time,setTime]=useState(8);
-  useEffect(()=>{ if(time<=0){ onDone(0.4+Math.min(0.8,score/40)); return;} const t=setTimeout(()=>setTime(time-0.1),100); return ()=>clearTimeout(t); },[time]);
-  return (<Modal onClose={onClose}><div style={{padding:24,textAlign:'center'}}>
-    <h2>{job.emoji} {job.title}</h2>
-    <p style={{opacity:.8}}>Serve as many customers as you can! Tap fast for {Math.ceil(time)}s.</p>
-    <div style={{fontSize:40,fontWeight:800,margin:'10px 0'}}>{score}</div>
-    <button onClick={()=>setScore(s=>s+1)} style={{width:170,height:170,borderRadius:'50%',border:'none',background:'radial-gradient(circle at 35% 30%,#ffe082,#e6a417)',fontSize:48,cursor:'pointer',boxShadow:'0 8px 20px rgba(0,0,0,.4)'}}>🛎️</button>
-    <div style={{marginTop:14}}><Bar label="Time" val={Math.ceil(time*10)/10} max={8} color="#4dd0e1"/></div>
+    <div style={{marginTop:12,fontSize:12,opacity:.6}}>Get 3 correct to be hired. 3 wrong and you're rejected.</div>
   </div></Modal>);
 }
 
-function TimingGame({job,onDone,onClose}){
-  const [pos,setPos]=useState(0); const [dir,setDir]=useState(1);
-  const [hits,setHits]=useState(0); const [tries,setTries]=useState(0);
-  const [msg,setMsg]=useState("");
-  const raf=useRef();
-  useEffect(()=>{
-    let p=0,d=1;
-    const tick=()=>{ p+=d*0.018; if(p>1){p=1;d=-1;} if(p<0){p=0;d=1;} setPos(p); setDir(d); raf.current=requestAnimationFrame(tick); };
-    raf.current=requestAnimationFrame(tick);
-    return ()=>cancelAnimationFrame(raf.current);
-  },[]);
-  function hit(){
-    const inZone = pos>0.42 && pos<0.58;
-    const nt=tries+1, nh=hits+(inZone?1:0);
-    setMsg(inZone?"Perfect! ⚙️":"Missed!");
-    setHits(nh); setTries(nt);
-    if(nt>=5){ cancelAnimationFrame(raf.current); setTimeout(()=>onDone(0.3+nh/5*0.9),400); }
-  }
+// ── Work minigames ──
+function WorkGame({job,onDone,onClose,startDelivery}){
+  const a=job.archetype;
+  if(a==='delivery') return (<Modal onClose={onClose}><div style={{padding:24,textAlign:'center'}}>
+    <h2>{job.title} — Delivery</h2>
+    <p style={{opacity:.8}}>A delivery point will appear on the map. Drive (press V) or walk to the glowing yellow marker to complete the shift.</p>
+    <button className="btn gold" onClick={()=>{ startDelivery(); onClose(); }}>Drop marker & go</button>
+  </div></Modal>);
+  if(a==='clicker') return <ClickerGame job={job} onDone={onDone} onClose={onClose}/>;
+  if(a==='timing') return <TimingGame job={job} onDone={onDone} onClose={onClose}/>;
+  if(a==='memory') return <MemoryGame job={job} onDone={onDone} onClose={onClose}/>;
+  if(a==='quiz') return <QuizWorkGame job={job} onDone={onDone} onClose={onClose}/>;
+  return null;
+}
+function ClickerGame({job,onDone,onClose}){
+  const [score,setScore]=useState(0); const [time,setTime]=useState(8);
+  useEffect(()=>{ if(time<=0){ onDone(0.4+Math.min(0.8,score/40)); return;} const t=setTimeout(()=>setTime(time-0.1),100); return ()=>clearTimeout(t); },[time]);
   return (<Modal onClose={onClose}><div style={{padding:24,textAlign:'center'}}>
-    <h2>{job.emoji} {job.title}</h2>
-    <p style={{opacity:.8}}>Stop the marker in the green zone. 5 attempts. ({hits}/{tries})</p>
+    <h2>{job.title}</h2><p style={{opacity:.8}}>Serve as many customers as you can. Tap fast!</p>
+    <div style={{fontSize:40,fontWeight:800,margin:'10px 0'}}>{score}</div>
+    <button onClick={()=>{setScore(s=>s+1);SFX.click();}} style={{width:160,height:160,borderRadius:24,border:'none',background:'radial-gradient(circle at 35% 30%,#ffe082,#e6a417)',fontSize:22,fontWeight:800,color:'#5a3a00',cursor:'pointer',boxShadow:'0 8px 20px rgba(0,0,0,.4)'}}>SERVE</button>
+    <div style={{marginTop:14}}><Bar label="Time" val={Math.ceil(time*10)/10} max={8} color="#4dd0e1"/></div>
+  </div></Modal>);
+}
+function TimingGame({job,onDone,onClose}){
+  const [pos,setPos]=useState(0); const [hits,setHits]=useState(0); const [tries,setTries]=useState(0); const [msg,setMsg]=useState("");
+  const raf=useRef(); const st=useRef({p:0,d:1});
+  useEffect(()=>{ const tick=()=>{ let{p,d}=st.current; p+=d*0.018; if(p>1){p=1;d=-1;} if(p<0){p=0;d=1;} st.current={p,d}; setPos(p); raf.current=requestAnimationFrame(tick); };
+    raf.current=requestAnimationFrame(tick); return ()=>cancelAnimationFrame(raf.current); },[]);
+  function hit(){ const inZone=st.current.p>0.42&&st.current.p<0.58; const nt=tries+1,nh=hits+(inZone?1:0);
+    setMsg(inZone?"Perfect":"Missed"); inZone?SFX.good():SFX.bad(); setHits(nh); setTries(nt);
+    if(nt>=5){ cancelAnimationFrame(raf.current); setTimeout(()=>onDone(0.3+nh/5*0.9),400); } }
+  return (<Modal onClose={onClose}><div style={{padding:24,textAlign:'center'}}>
+    <h2>{job.title}</h2><p style={{opacity:.8}}>Stop the marker in the green zone. 5 tries. ({hits}/{tries})</p>
     <div style={{position:'relative',height:30,background:'rgba(255,255,255,.1)',borderRadius:15,margin:'18px 0',overflow:'hidden'}}>
       <div style={{position:'absolute',left:'42%',width:'16%',height:'100%',background:'rgba(40,180,100,.5)'}}/>
-      <div style={{position:'absolute',left:`calc(${pos*100}% - 4px)`,width:8,height:'100%',background:'#fff',borderRadius:4}}/>
-    </div>
+      <div style={{position:'absolute',left:`calc(${pos*100}% - 4px)`,width:8,height:'100%',background:'#fff',borderRadius:4}}/></div>
     <div style={{height:20,color:'#ffd54f',fontWeight:600}}>{msg}</div>
     <button className="btn gold" onClick={hit} style={{marginTop:8,width:200}}>STOP</button>
   </div></Modal>);
 }
-
 function MemoryGame({job,onDone,onClose}){
   const colors=['#e0524a','#3f72af','#23b26d','#e6a417'];
-  const [seq,setSeq]=useState([]); const [userIdx,setUserIdx]=useState(0);
-  const [flash,setFlash]=useState(-1); const [phase,setPhase]=useState('show');
-  const [round,setRound]=useState(1);
-  useEffect(()=>{ // new round
-    const ns=[...seq, rint(0,3)]; setSeq(ns); setPhase('show'); setUserIdx(0);
-    let i=0; const iv=setInterval(()=>{ setFlash(ns[i]); setTimeout(()=>setFlash(-1),300); i++; if(i>=ns.length){ clearInterval(iv); setTimeout(()=>setPhase('input'),350);} },600);
-    return ()=>clearInterval(iv);
-  },[round]);
-  function press(c){
-    if(phase!=='input') return;
-    setFlash(c); setTimeout(()=>setFlash(-1),150);
-    if(c!==seq[userIdx]){ setTimeout(()=>onDone(0.3+Math.min(0.9,(round-1)/5)),300); return; }
-    const ni=userIdx+1;
-    if(ni>=seq.length){ if(round>=5){ setTimeout(()=>onDone(1.2),300); } else { setTimeout(()=>setRound(r=>r+1),500);} }
-    setUserIdx(ni);
-  }
+  const [seq,setSeq]=useState([]); const [userIdx,setUserIdx]=useState(0); const [flash,setFlash]=useState(-1); const [phase,setPhase]=useState('show'); const [round,setRound]=useState(1);
+  useEffect(()=>{ const ns=[...seq,rint(0,3)]; setSeq(ns); setPhase('show'); setUserIdx(0);
+    let i=0; const iv=setInterval(()=>{ setFlash(ns[i]); beep(440+ns[i]*120,.12); setTimeout(()=>setFlash(-1),300); i++; if(i>=ns.length){ clearInterval(iv); setTimeout(()=>setPhase('input'),350);} },600);
+    return ()=>clearInterval(iv); },[round]);
+  function press(c){ if(phase!=='input') return; setFlash(c); beep(440+c*120,.1); setTimeout(()=>setFlash(-1),150);
+    if(c!==seq[userIdx]){ SFX.bad(); setTimeout(()=>onDone(0.3+Math.min(0.9,(round-1)/5)),300); return; }
+    const ni=userIdx+1; if(ni>=seq.length){ if(round>=5){ SFX.good(); setTimeout(()=>onDone(1.2),300);} else setTimeout(()=>setRound(r=>r+1),500); } setUserIdx(ni); }
   return (<Modal onClose={onClose}><div style={{padding:24,textAlign:'center'}}>
-    <h2>{job.emoji} {job.title}</h2>
-    <p style={{opacity:.8}}>{phase==='show'?'Watch the sequence…':'Now repeat it!'} (Round {round}/5)</p>
+    <h2>{job.title}</h2><p style={{opacity:.8}}>{phase==='show'?'Watch the sequence...':'Now repeat it.'} (Round {round}/5)</p>
     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,maxWidth:260,margin:'16px auto'}}>
-      {colors.map((c,i)=><button key={i} onClick={()=>press(i)} style={{height:90,borderRadius:14,border:'none',cursor:'pointer',background:c,opacity:flash===i?1:0.45,transition:'opacity .12s',boxShadow:flash===i?'0 0 24px '+c:'none'}}/>)}
-    </div>
+      {colors.map((c,i)=><button key={i} onClick={()=>press(i)} style={{height:90,borderRadius:14,border:'none',cursor:'pointer',background:c,opacity:flash===i?1:.45,transition:'opacity .12s'}}/>)}</div>
   </div></Modal>);
 }
-
 function QuizWorkGame({job,onDone,onClose}){
   const [qs]=useState(()=>shuffle(INTERVIEW_QUESTIONS).slice(0,4).map(q=>({q:q[0],opts:shuffle(q[1].map((t,i)=>({t,c:i===q[2]})))})));
-  const [i,setI]=useState(0); const [score,setScore]=useState(0); const [picked,setPicked]=useState(null);
-  const cur=qs[i];
-  function choose(o,idx){ if(picked!=null)return; setPicked(idx); const ns=score+(o.c?1:0);
-    setTimeout(()=>{ if(i+1>=qs.length){ onDone(0.3+ns/qs.length*1.0);} else {setScore(ns);setPicked(null);setI(i+1);} },500); }
+  const [i,setI]=useState(0); const [score,setScore]=useState(0); const [picked,setPicked]=useState(null); const cur=qs[i];
+  function choose(o,idx){ if(picked!=null)return; setPicked(idx); o.c?SFX.good():SFX.bad(); const ns=score+(o.c?1:0);
+    setTimeout(()=>{ if(i+1>=qs.length) onDone(0.3+ns/qs.length*1.0); else {setScore(ns);setPicked(null);setI(i+1);} },500); }
   return (<Modal onClose={onClose}><div style={{padding:24}}>
-    <h2 style={{textAlign:'center'}}>{job.emoji} {job.title}</h2>
-    <p style={{opacity:.8,textAlign:'center'}}>Handle the situation correctly. ({i+1}/{qs.length})</p>
+    <h2 style={{textAlign:'center'}}>{job.title}</h2><p style={{opacity:.8,textAlign:'center'}}>Handle the situation correctly. ({i+1}/{qs.length})</p>
     <div style={{fontSize:16,fontWeight:600,margin:'10px 0'}}>{cur.q}</div>
     {cur.opts.map((o,idx)=>{ let bg='rgba(255,255,255,.08)'; if(picked!=null){ if(o.c)bg='rgba(40,180,100,.5)'; else if(idx===picked)bg='rgba(220,70,60,.5)';}
-      return <button key={idx} onClick={()=>choose(o,idx)} style={{display:'block',width:'100%',textAlign:'left',margin:'7px 0',padding:'11px 13px',borderRadius:10,border:'1px solid rgba(255,255,255,.12)',background:bg,color:'#fff',cursor:'pointer'}}>{o.t}</button>;})}
+      return <button key={idx} onClick={()=>choose(o,idx)} style={{display:'block',width:'100%',textAlign:'left',margin:'7px 0',padding:'11px 13px',borderRadius:10,border:'1px solid rgba(255,255,255,.12)',background:bg,color:'#fff',cursor:'pointer'}}>{o.t}</button>; })}
   </div></Modal>);
 }
 
 // ── Job Center ──
-function JobCenter({state, onApply, onClose, onWork}){
+function JobCenter({state,onApply,onWork,onClose}){
   const [filter,setFilter]=useState("");
   const list=JOBS.filter(j=>j.title.toLowerCase().includes(filter.toLowerCase())||j.category.toLowerCase().includes(filter.toLowerCase()));
   const cur=state.jobId!=null?JOBS[state.jobId]:null;
-  return (<Modal onClose={onClose} wide>
-    <div style={{padding:24}}>
-      <h2 style={{marginTop:0}}>💼 Job Center</h2>
-      {cur && <div style={{background:'rgba(46,125,255,.18)',border:'1px solid rgba(46,125,255,.4)',borderRadius:12,padding:14,marginBottom:14}}>
-        <div style={{fontSize:13,opacity:.8}}>Current job</div>
-        <div style={{fontSize:20,fontWeight:700}}>{cur.emoji} {cur.title}</div>
-        <div style={{fontSize:13,opacity:.85,margin:'4px 0'}}>Pay ~{money(cur.basePay)}/shift · {ARCHETYPE_LABEL[cur.archetype]}</div>
-        <div style={{fontSize:13,marginBottom:8}}>Shifts today: {state.shiftsToday}/2</div>
-        <button className="btn green" disabled={state.shiftsToday>=2} onClick={()=>onWork(cur)}>{state.shiftsToday>=2?'Done for today':'🛠️ Go to work'}</button>
-      </div>}
-      <input placeholder="Search 100 jobs…" value={filter} onChange={e=>setFilter(e.target.value)} style={{width:'100%',padding:'10px 12px',borderRadius:10,border:'1px solid rgba(255,255,255,.15)',background:'rgba(255,255,255,.06)',color:'#fff',marginBottom:12}}/>
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
-        {list.map(j=>{
-          const locked=state.level<j.levelReq;
-          const isCur=state.jobId===j.id;
-          return <div key={j.id} style={{background:'rgba(255,255,255,.05)',borderRadius:10,padding:'10px 12px',opacity:locked?.5:1}}>
-            <div style={{fontWeight:600}}>{j.emoji} {j.title}</div>
-            <div style={{fontSize:11,opacity:.7}}>{j.category} · ~{money(j.basePay)}/shift</div>
-            <div style={{fontSize:11,opacity:.7,marginBottom:6}}>Requires Lv {j.levelReq}</div>
-            {isCur? <span style={{fontSize:12,color:'#7ee0a0'}}>✓ Current</span>
-              : <button className="btn" disabled={locked} style={{padding:'5px 10px',fontSize:13}} onClick={()=>onApply(j)}>{locked?`🔒 Lv ${j.levelReq}`:'Apply'}</button>}
-          </div>;
-        })}
-      </div>
+  return (<Modal onClose={onClose} wide><div style={{padding:24}}>
+    <h2 style={{marginTop:0}}>Job Center</h2>
+    {cur && <div style={{background:'rgba(46,125,255,.18)',border:'1px solid rgba(46,125,255,.4)',borderRadius:12,padding:14,marginBottom:14}}>
+      <div style={{fontSize:13,opacity:.8}}>Current job</div>
+      <div style={{display:'flex',alignItems:'center',gap:10}}><Badge label={cur.badge} color={cur.color}/><div style={{fontSize:20,fontWeight:700}}>{cur.title}</div></div>
+      <div style={{fontSize:13,opacity:.85,margin:'6px 0'}}>Pay ~{money(cur.basePay)}/shift · {ARCHETYPE_LABEL[cur.archetype]}</div>
+      <div style={{fontSize:13,marginBottom:8}}>Shifts today: {state.shiftsToday}/2</div>
+      <button className="btn green" disabled={state.shiftsToday>=2} onClick={()=>onWork(cur)}>{state.shiftsToday>=2?'Done for today':'Go to work'}</button>
+    </div>}
+    <input placeholder="Search 100 jobs by name or category" value={filter} onChange={e=>setFilter(e.target.value)} style={inp}/>
+    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+      {list.map(j=>{ const locked=state.level<j.levelReq, isCur=state.jobId===j.id;
+        return <div key={j.id} style={{display:'flex',gap:10,background:'rgba(255,255,255,.05)',borderRadius:10,padding:'10px 12px',opacity:locked?.55:1}}>
+          <Badge label={j.badge} color={j.color} size={34}/>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontWeight:600}}>{j.title}</div>
+            <div style={{fontSize:11,opacity:.7}}>{j.category} · ~{money(j.basePay)}/shift · Lv {j.levelReq}</div>
+            {isCur? <span style={{fontSize:12,color:'#7ee0a0'}}>Current</span>
+              : <button className="btn" disabled={locked} style={{padding:'5px 10px',fontSize:13,marginTop:4}} onClick={()=>onApply(j)}>{locked?`Locked (Lv ${j.levelReq})`:'Apply'}</button>}
+          </div></div>; })}
     </div>
-  </Modal>);
+  </div></Modal>);
 }
 
-// ── Shop (houses/rvs/cars/bank) ──
-function Shop({kind, state, onBuy, onEquip, onClose}){
-  const cfg={ houses:{list:HOUSES,owned:state.ownedHouses,cur:state.currentHouse,title:'🏠 Houses',field:'income'},
-             rvs:{list:RVS,owned:state.ownedRVs,cur:state.currentRV,title:'🚐 RV Dealer',field:'speed'},
-             cars:{list:CARS,owned:state.ownedCars,cur:state.currentCar,title:'🚗 Car Dealer',field:'speed'} }[kind];
+// ── Shop ──
+function Shop({kind,state,onBuy,onEquip,onClose}){
+  const cfg={ houses:{list:HOUSES,owned:state.ownedHouses,cur:state.currentHouse,title:'Houses'},
+             rvs:{list:RVS,owned:state.ownedRVs,cur:state.currentRV,title:'RV Dealer'},
+             cars:{list:CARS,owned:state.ownedCars,cur:state.currentCar,title:'Car Dealer'} }[kind];
   return (<Modal onClose={onClose} wide><div style={{padding:24}}>
     <h2 style={{marginTop:0}}>{cfg.title}</h2>
     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
-      {cfg.list.map(item=>{
-        const owned=cfg.owned.includes(item.id);
-        const equipped=cfg.cur===item.id;
-        const locked=state.level<item.level;
+      {cfg.list.map(item=>{ const owned=cfg.owned.includes(item.id), equipped=cfg.cur===item.id, locked=state.level<item.level;
         return <div key={item.id} style={{background:'rgba(255,255,255,.05)',borderRadius:12,padding:14,border:equipped?'1px solid #ffd54f':'1px solid transparent'}}>
-          <div style={{fontSize:34}}>{item.emoji}</div>
+          <div style={{height:40,borderRadius:8,background:item.color,marginBottom:8}}/>
           <div style={{fontWeight:700,fontSize:16}}>{item.name}</div>
-          <div style={{fontSize:12,opacity:.75,margin:'2px 0'}}>
-            {kind==='houses'? `Passive income +${money(item.income)}/day` : `Speed ×${item.speed.toFixed(1)}`}
-          </div>
+          <div style={{fontSize:12,opacity:.75,margin:'2px 0'}}>{kind==='houses'?`Passive income +${money(item.income)}/day`:`Speed x${item.speed.toFixed(1)}`}</div>
           <div style={{fontSize:12,opacity:.7,marginBottom:8}}>{item.price>0?money(item.price):'Starter'} · Lv {item.level}</div>
-          {equipped? <span style={{color:'#ffd54f',fontWeight:600}}>★ In use</span>
+          {equipped? <span style={{color:'#ffd54f',fontWeight:600}}>In use</span>
             : owned? <button className="btn gray" onClick={()=>onEquip(kind,item.id)}>Use</button>
-            : <button className="btn green" disabled={locked||state.money<item.price} onClick={()=>onBuy(kind,item)}>{locked?`🔒 Lv ${item.level}`:state.money<item.price?'Too pricey':'Buy'}</button>}
-        </div>;
-      })}
+            : <button className="btn green" disabled={locked||state.money<item.price} onClick={()=>onBuy(kind,item)}>{locked?`Locked (Lv ${item.level})`:state.money<item.price?'Too pricey':'Buy'}</button>}
+        </div>; })}
     </div>
   </div></Modal>);
 }
@@ -757,94 +535,61 @@ function Mall({state,onBuy,onClose}){
   const [filter,setFilter]=useState("");
   const list=STORES.filter(s=>s.name.toLowerCase().includes(filter.toLowerCase()));
   return (<Modal onClose={onClose} wide><div style={{padding:24}}>
-    <h2 style={{marginTop:0}}>🛍️ Mega Mall <span style={{fontSize:13,opacity:.6}}>· {STORES.length} stores</span></h2>
-    <input placeholder="Search stores…" value={filter} onChange={e=>setFilter(e.target.value)} style={{width:'100%',padding:'10px 12px',borderRadius:10,border:'1px solid rgba(255,255,255,.15)',background:'rgba(255,255,255,.06)',color:'#fff',marginBottom:12}}/>
+    <h2 style={{marginTop:0}}>Mega Mall <span style={{fontSize:13,opacity:.6}}>· {STORES.length} stores</span></h2>
+    <input placeholder="Search stores" value={filter} onChange={e=>setFilter(e.target.value)} style={inp}/>
     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,maxHeight:'60vh'}}>
       {list.map(s=>{ const owned=state.inventory.includes(s.id);
         return <div key={s.id} style={{background:'rgba(255,255,255,.05)',borderRadius:10,padding:10,textAlign:'center'}}>
-          <div style={{fontSize:24}}>{s.emoji}</div>
+          <div style={{height:26,borderRadius:6,background:s.color,marginBottom:6}}/>
           <div style={{fontSize:13,fontWeight:600,lineHeight:1.1}}>{s.name}</div>
           <div style={{fontSize:11,opacity:.7,margin:'2px 0 6px'}}>{money(s.price)}</div>
-          {owned? <span style={{fontSize:12,color:'#7ee0a0'}}>✓ Owned</span>
+          {owned? <span style={{fontSize:12,color:'#7ee0a0'}}>Owned</span>
             : <button className="btn" disabled={state.money<s.price} style={{padding:'4px 8px',fontSize:12}} onClick={()=>onBuy(s)}>Buy</button>}
-        </div>;
-      })}
+        </div>; })}
     </div>
   </div></Modal>);
 }
 
 /* ── PHONE ── */
-function Phone({state,setState,onClose}){
+function Phone({state,setState,onClose,onTeleport}){
   const ph=state.phone;
   const [unlocked,setUnlocked]=useState(ph.passcode==null);
-  const [entry,setEntry]=useState("");
-  const [app,setApp]=useState(null);
-  const [err,setErr]=useState(false);
+  const [entry,setEntry]=useState(""); const [app,setApp]=useState(null); const [err,setErr]=useState(false);
   const wp=WALLPAPERS[ph.wallpaper][1];
-
-  function press(d){ const n=(entry+d).slice(0,4); setEntry(n);
-    if(n.length===4){ if(n===ph.passcode){ setUnlocked(true);} else { setErr(true); setTimeout(()=>{setEntry("");setErr(false);},500);} } }
-  function faceId(){ // forgot passcode -> set up face id and unlock
-    setState(s=>({...s,phone:{...s.phone,faceId:true,passcode:null}})); setUnlocked(true);
-  }
-
-  const apps=[
-    {id:'settings',name:'Settings',icon:'⚙️'},
-    {id:'messages',name:'Messages',icon:'💬'},
-    {id:'social',name:'Social',icon:'📱'},
-    {id:'weather',name:'Weather',icon:'⛅'},
-    {id:'bank',name:'Bank',icon:'🏦'},
-    {id:'camera',name:'Camera',icon:'📷'},
-    {id:'photos',name:'Photos',icon:'🖼️'},
-    {id:'music',name:'Music',icon:'🎵'},
-    {id:'clock',name:'Clock',icon:'⏰'},
-    {id:'maps',name:'Maps',icon:'🗺️'},
-    {id:'browser',name:'Browser',icon:'🌐'},
-    {id:'health',name:'Health',icon:'❤️'},
-    {id:'game1',name:'Tap Race',icon:'🎯'},
-    {id:'game2',name:'Memory',icon:'🧩'},
-    {id:'store',name:'App Store',icon:'🅰️'},
-  ];
-
+  function press(d){ const n=(entry+d).slice(0,4); setEntry(n); SFX.click();
+    if(n.length===4){ if(n===ph.passcode){ setUnlocked(true); SFX.good(); } else { setErr(true); SFX.bad(); setTimeout(()=>{setEntry("");setErr(false);},500);} } }
+  function faceId(){ setState(s=>({...s,phone:{...s.phone,faceId:true,passcode:null}})); setUnlocked(true); SFX.good(); }
   return (<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.7)',zIndex:40,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={onClose}>
-    <div onClick={e=>e.stopPropagation()} style={{width:320,height:660,background:wp,borderRadius:40,border:'10px solid #0a0a0a',position:'relative',overflow:'hidden',boxShadow:'0 30px 80px rgba(0,0,0,.7)'}}>
+    <div onClick={e=>e.stopPropagation()} style={{width:320,height:660,maxHeight:'92vh',background:wp,borderRadius:40,border:'10px solid #0a0a0a',position:'relative',overflow:'hidden',boxShadow:'0 30px 80px rgba(0,0,0,.7)'}}>
       <div style={{position:'absolute',top:0,left:'50%',transform:'translateX(-50%)',width:120,height:24,background:'#0a0a0a',borderRadius:'0 0 16px 16px',zIndex:5}}/>
       <div style={{position:'absolute',top:12,width:'100%',textAlign:'center',fontSize:13,fontWeight:600,zIndex:4,textShadow:'0 1px 2px rgba(0,0,0,.5)'}}>
         {String(Math.floor(state.timeOfDay)).padStart(2,'0')}:{String(Math.floor((state.timeOfDay%1)*60)).padStart(2,'0')} · Day {state.day}</div>
-
       {!unlocked ? (
         <div style={{paddingTop:90,textAlign:'center'}}>
-          <div style={{fontSize:54}}>🔒</div>
-          <div style={{fontWeight:600,marginBottom:6}}>Enter Passcode</div>
+          <div style={{fontSize:18,fontWeight:700,letterSpacing:2}}>LOCKED</div>
+          <div style={{fontWeight:600,margin:'10px 0 6px'}}>Enter Passcode</div>
           <div style={{display:'flex',justifyContent:'center',gap:12,margin:'10px 0 18px'}}>
-            {[0,1,2,3].map(i=><div key={i} style={{width:14,height:14,borderRadius:'50%',background:entry.length>i?'#fff':'rgba(255,255,255,.3)',transition:'.1s',transform:err?'translateX(0)':'none'}}/>)}
-          </div>
+            {[0,1,2,3].map(i=><div key={i} style={{width:14,height:14,borderRadius:'50%',background:entry.length>i?'#fff':'rgba(255,255,255,.3)'}}/>)}</div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:14,maxWidth:200,margin:'0 auto'}}>
             {[1,2,3,4,5,6,7,8,9].map(n=><button key={n} onClick={()=>press(''+n)} style={dialBtn}>{n}</button>)}
             <div/><button onClick={()=>press('0')} style={dialBtn}>0</button>
-            <button onClick={()=>setEntry(entry.slice(0,-1))} style={{...dialBtn,fontSize:16}}>⌫</button>
-          </div>
+            <button onClick={()=>setEntry(entry.slice(0,-1))} style={{...dialBtn,fontSize:14}}>del</button></div>
           <button onClick={faceId} style={{marginTop:18,background:'none',border:'none',color:'#fff',textDecoration:'underline',cursor:'pointer',fontSize:14}}>Forgot passcode?</button>
         </div>
       ) : app==null ? (
-        <div style={{paddingTop:50,height:'100%'}}>
+        <div style={{paddingTop:50}}>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr',gap:14,padding:'14px 18px'}}>
-            {apps.map(a=><div key={a.id} onClick={()=>setApp(a.id)} style={{textAlign:'center',cursor:'pointer'}}>
-              <div style={{fontSize:30,background:'rgba(255,255,255,.18)',borderRadius:14,padding:6,backdropFilter:'blur(4px)'}}>{a.icon}</div>
-              <div style={{fontSize:9,marginTop:3,textShadow:'0 1px 2px rgba(0,0,0,.6)'}}>{a.name}</div>
-            </div>)}
-          </div>
+            {PHONE_APPS.map(a=><div key={a.id} onClick={()=>{setApp(a.id);SFX.click();}} style={{textAlign:'center',cursor:'pointer'}}>
+              <Badge label={a.tag} color={a.color} size={50} radius={14}/>
+              <div style={{fontSize:9,marginTop:3,textShadow:'0 1px 2px rgba(0,0,0,.6)'}}>{a.name}</div></div>)}</div>
         </div>
       ) : (
         <div style={{position:'absolute',inset:0,background:'#0e1320',paddingTop:44}}>
           <div style={{display:'flex',alignItems:'center',padding:'8px 14px',borderBottom:'1px solid rgba(255,255,255,.1)'}}>
-            <button onClick={()=>setApp(null)} style={{background:'none',border:'none',color:'#4dd0e1',fontSize:15,cursor:'pointer'}}>‹ Apps</button>
-            <div style={{flex:1,textAlign:'center',fontWeight:600}}>{apps.find(a=>a.id===app).name}</div>
-            <div style={{width:50}}/>
-          </div>
+            <button onClick={()=>setApp(null)} style={{background:'none',border:'none',color:'#4dd0e1',fontSize:15,cursor:'pointer'}}>Apps</button>
+            <div style={{flex:1,textAlign:'center',fontWeight:600}}>{PHONE_APPS.find(a=>a.id===app).name}</div><div style={{width:40}}/></div>
           <div style={{padding:16,overflowY:'auto',height:'calc(100% - 90px)'}}>
-            <PhoneApp app={app} state={state} setState={setState}/>
-          </div>
+            <PhoneApp app={app} state={state} setState={setState} onTeleport={(id)=>{ onTeleport(id); onClose(); }}/></div>
         </div>
       )}
       <div onClick={onClose} style={{position:'absolute',bottom:8,left:'50%',transform:'translateX(-50%)',width:120,height:5,background:'rgba(255,255,255,.6)',borderRadius:3,cursor:'pointer'}}/>
@@ -852,112 +597,109 @@ function Phone({state,setState,onClose}){
   </div>);
 }
 const dialBtn={width:54,height:54,borderRadius:'50%',border:'1px solid rgba(255,255,255,.3)',background:'rgba(255,255,255,.12)',color:'#fff',fontSize:22,cursor:'pointer'};
+const inp={width:'100%',padding:'10px 12px',borderRadius:10,border:'1px solid rgba(255,255,255,.15)',background:'rgba(255,255,255,.06)',color:'#fff',marginBottom:12};
 
-function PhoneApp({app,state,setState}){
+function PhoneApp({app,state,setState,onTeleport}){
   const ph=state.phone;
-  if(app==='settings'){
-    const [pc,setPc]=useState("");
-    return <div>
-      <h3>Wallpaper</h3>
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr',gap:8,marginBottom:18}}>
-        {WALLPAPERS.map((w,i)=><div key={i} onClick={()=>setState(s=>({...s,phone:{...s.phone,wallpaper:i}}))} style={{height:50,borderRadius:8,background:w[1],cursor:'pointer',border:ph.wallpaper===i?'2px solid #fff':'2px solid transparent'}}/>)}
-      </div>
-      <h3>Passcode</h3>
-      <div style={{fontSize:13,opacity:.7,marginBottom:6}}>Status: {ph.passcode?'Set ✓':ph.faceId?'Face ID enabled':'None'}</div>
-      <input value={pc} onChange={e=>setPc(e.target.value.replace(/\D/g,'').slice(0,4))} placeholder="4-digit code" style={{width:'100%',padding:10,borderRadius:8,border:'1px solid rgba(255,255,255,.2)',background:'rgba(255,255,255,.08)',color:'#fff',marginBottom:8}}/>
-      <button className="btn" disabled={pc.length!==4} onClick={()=>{setState(s=>({...s,phone:{...s.phone,passcode:pc,faceId:false}}));setPc("");}}>Set passcode</button>
-      {ph.passcode && <button className="btn red" style={{marginLeft:8}} onClick={()=>setState(s=>({...s,phone:{...s.phone,passcode:null}}))}>Remove</button>}
-      {ph.faceId && <div style={{marginTop:14,color:'#7ee0a0'}}>😊 Face ID is set up — it unlocked your phone automatically.</div>}
-    </div>;
-  }
+  if(app==='settings'){ return <SettingsApp state={state} setState={setState}/>; }
   if(app==='messages') return <div>
-    {[["Boss 💼","Great work on your last shift! Keep it up."],["Mom ❤️","Don't forget to buy a bigger house!"],["Bank 🏦","Your balance is "+money(state.money)+"."],["Friend 🎮","Wanna race RVs later?"]].map((m,i)=>
-      <div key={i} style={{background:'rgba(255,255,255,.06)',borderRadius:10,padding:12,marginBottom:8}}><b>{m[0]}</b><div style={{opacity:.85,fontSize:14}}>{m[1]}</div></div>)}
-  </div>;
+    {[["Boss","Great work on your last shift. Keep it up."],["Mom","Don't forget to buy a bigger house!"],["Bank","Your balance is "+money(state.money)+"."],["Friend","Want to race cars later?"]].map((m,i)=>
+      <div key={i} style={{background:'rgba(255,255,255,.06)',borderRadius:10,padding:12,marginBottom:8}}><b>{m[0]}</b><div style={{opacity:.85,fontSize:14}}>{m[1]}</div></div>)}</div>;
   if(app==='social') return <div>
-    {[["@you","Just hit Level "+state.level+"! 🎉",128],["@cartycoon","Look at my new supercar 🏎️",542],["@rvlife","Living the RV life on the road 🚐",301],["@richkid","Bought another mansion 🏰",980]].map((p,i)=>
-      <div key={i} style={{background:'rgba(255,255,255,.06)',borderRadius:10,padding:12,marginBottom:8}}><b>{p[0]}</b><div style={{fontSize:14,margin:'4px 0'}}>{p[1]}</div><div style={{fontSize:12,opacity:.6}}>❤️ {p[2]}  💬 {Math.floor(p[2]/9)}</div></div>)}
-  </div>;
-  if(app==='weather'){ const temps=[68,72,75,81,77]; const ic=['☀️','⛅','🌧️','⛈️','🌤️'];
-    return <div style={{textAlign:'center'}}>
-      <div style={{fontSize:60}}>{ic[state.day%5]}</div>
-      <div style={{fontSize:44,fontWeight:700}}>{temps[state.day%5]}°F</div>
-      <div style={{opacity:.7,marginBottom:16}}>Pleasantville · Day {state.day}</div>
-      <div style={{display:'flex',justifyContent:'space-around'}}>{['Mon','Tue','Wed','Thu','Fri'].map((d,i)=><div key={i}><div style={{fontSize:13,opacity:.7}}>{d}</div><div style={{fontSize:22}}>{ic[(state.day+i)%5]}</div><div style={{fontSize:13}}>{temps[(state.day+i)%5]}°</div></div>)}</div>
-    </div>;
-  }
+    {[["@you","Just hit Level "+state.level+"!",128],["@cartycoon","Look at my new supercar",542],["@rvlife","Living the road life",301],["@richkid","Bought another mansion",980]].map((p,i)=>
+      <div key={i} style={{background:'rgba(255,255,255,.06)',borderRadius:10,padding:12,marginBottom:8}}><b>{p[0]}</b><div style={{fontSize:14,margin:'4px 0'}}>{p[1]}</div><div style={{fontSize:12,opacity:.6}}>Likes {p[2]} · Comments {Math.floor(p[2]/9)}</div></div>)}</div>;
+  if(app==='weather'){ const temps=[68,72,75,81,77]; const cond=['Sunny','Partly Cloudy','Rainy','Stormy','Clear'];
+    return <div style={{textAlign:'center'}}><div style={{fontSize:44,fontWeight:700,marginTop:10}}>{temps[state.day%5]}F</div>
+      <div style={{opacity:.85,fontSize:18}}>{cond[state.day%5]}</div><div style={{opacity:.6,marginBottom:16}}>Pleasantville · Day {state.day}</div>
+      <div style={{display:'flex',justifyContent:'space-around'}}>{['Mon','Tue','Wed','Thu','Fri'].map((d,i)=><div key={i}><div style={{fontSize:13,opacity:.7}}>{d}</div><div style={{fontSize:13,margin:'4px 0'}}>{cond[(state.day+i)%5].split(' ')[0]}</div><div style={{fontSize:15,fontWeight:600}}>{temps[(state.day+i)%5]}</div></div>)}</div></div>; }
   if(app==='bank') return <div style={{textAlign:'center'}}>
-    <div style={{opacity:.7}}>Balance</div>
-    <div style={{fontSize:40,fontWeight:800,color:'#7ee0a0'}}>{money(state.money)}</div>
+    <div style={{opacity:.7}}>Balance</div><div style={{fontSize:40,fontWeight:800,color:'#7ee0a0'}}>{money(state.money)}</div>
     <div style={{marginTop:16,textAlign:'left'}}>
-      <div style={{background:'rgba(255,255,255,.06)',borderRadius:10,padding:12,marginBottom:8}}>Total earned: {money(state.stats.moneyEarned)}</div>
-      <div style={{background:'rgba(255,255,255,.06)',borderRadius:10,padding:12,marginBottom:8}}>Shifts worked: {state.stats.shiftsWorked}</div>
-      <div style={{background:'rgba(255,255,255,.06)',borderRadius:10,padding:12}}>Properties owned: {state.ownedHouses.length} 🏠 · {state.ownedRVs.length} 🚐 · {state.ownedCars.length} 🚗</div>
-    </div>
-  </div>;
-  if(app==='camera') return <div style={{textAlign:'center'}}><div style={{fontSize:80}}>📸</div><p style={{opacity:.8}}>Smile! You look great today.</p><button className="btn">Take selfie</button></div>;
-  if(app==='photos') return <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:6}}>{['🏖️','🚗','🍔','🌅','🐶','🏔️','🎡','🍕','🏠'].map((e,i)=><div key={i} style={{aspectRatio:'1',background:'rgba(255,255,255,.08)',borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',fontSize:34}}>{e}</div>)}</div>;
-  if(app==='music') return <div style={{textAlign:'center'}}><div style={{fontSize:70}}>🎧</div><div style={{fontWeight:700,marginTop:6}}>Road Trip Vibes</div><div style={{opacity:.7,fontSize:14}}>Now playing · Live the Life</div><div style={{fontSize:30,marginTop:14,letterSpacing:14}}>⏮️ ▶️ ⏭️</div></div>;
+      <Row>Total earned: {money(state.stats.moneyEarned)}</Row><Row>Shifts worked: {state.stats.shiftsWorked}</Row>
+      <Row>Interviews passed: {state.stats.interviewsPassed}</Row>
+      <Row>Properties: {state.ownedHouses.length} houses · {state.ownedRVs.length} RVs · {state.ownedCars.length} cars</Row></div></div>;
+  if(app==='camera') return <div style={{textAlign:'center'}}><div style={{height:180,borderRadius:12,background:'linear-gradient(160deg,#2c5364,#0f2027)',display:'flex',alignItems:'center',justifyContent:'center'}}>Viewfinder</div><button className="btn" style={{marginTop:12}} onClick={()=>SFX.click()}>Take selfie</button></div>;
+  if(app==='photos') return <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:6}}>{Array.from({length:9}).map((_,i)=><div key={i} style={{aspectRatio:'1',borderRadius:8,background:`linear-gradient(${i*40}deg,#3f72af,#9c27b0)`}}/>)}</div>;
+  if(app==='music') return <div style={{textAlign:'center'}}><div style={{height:140,borderRadius:12,background:'linear-gradient(160deg,#cc2b5e,#753a88)',marginBottom:12}}/><div style={{fontWeight:700}}>Road Trip Vibes</div><div style={{opacity:.7,fontSize:14}}>Now playing</div><div style={{marginTop:14,display:'flex',gap:18,justifyContent:'center'}}><button className="btn gray">Prev</button><button className="btn">Play</button><button className="btn gray">Next</button></div></div>;
   if(app==='clock') return <div style={{textAlign:'center'}}><div style={{fontSize:46,fontWeight:800,fontVariantNumeric:'tabular-nums'}}>{String(Math.floor(state.timeOfDay)).padStart(2,'0')}:{String(Math.floor((state.timeOfDay%1)*60)).padStart(2,'0')}</div><div style={{opacity:.7}}>Day {state.day} · Pleasantville</div></div>;
-  if(app==='maps') return <div style={{textAlign:'center'}}><div style={{fontSize:70}}>🗺️</div><p style={{opacity:.8}}>Locations: Home, Job Center, Mall, Car Dealer, RV Dealer, Bank.</p><p style={{fontSize:13,opacity:.6}}>Tip: press a teleport button in the world, or just drive there!</p></div>;
-  if(app==='browser') return <div><div style={{background:'rgba(255,255,255,.1)',borderRadius:20,padding:'8px 14px',marginBottom:12,opacity:.7}}>🔎 search the web…</div>{['How to get rich in Live the Life','Best paying jobs','RV road trip ideas','Cheapest houses near me'].map((q,i)=><div key={i} style={{padding:'10px 0',borderBottom:'1px solid rgba(255,255,255,.08)',color:'#7ab8ff'}}>{q}</div>)}</div>;
-  if(app==='health') return <div style={{textAlign:'center'}}><div style={{fontSize:60}}>❤️</div><div style={{fontSize:30,fontWeight:700}}>{6000+state.stats.shiftsWorked*120} steps</div><div style={{opacity:.7,marginBottom:12}}>today</div><div style={{display:'flex',justifyContent:'space-around'}}><div><div style={{fontSize:24}}>🔥</div>{420+state.stats.shiftsWorked*30} cal</div><div><div style={{fontSize:24}}>😴</div>7h 30m</div></div></div>;
+  if(app==='maps') return <div><p style={{opacity:.8,fontSize:14}}>Tap a place to travel there instantly:</p>
+    {BUILDINGS.map(b=><button key={b.id} onClick={()=>onTeleport(b.id)} style={{display:'flex',alignItems:'center',gap:10,width:'100%',textAlign:'left',background:'rgba(255,255,255,.07)',border:'none',borderRadius:10,padding:10,marginBottom:8,color:'#fff',cursor:'pointer'}}>
+      <div style={{width:16,height:16,borderRadius:4,background:b.color}}/><b>{b.name}</b></button>)}</div>;
+  if(app==='browser') return <div><div style={{background:'rgba(255,255,255,.1)',borderRadius:20,padding:'8px 14px',marginBottom:12,opacity:.7}}>search the web</div>{['How to get rich in Live the Life','Best paying jobs','Road trip ideas','Cheapest houses near me'].map((q,i)=><div key={i} style={{padding:'10px 0',borderBottom:'1px solid rgba(255,255,255,.08)',color:'#7ab8ff'}}>{q}</div>)}</div>;
+  if(app==='health') return <div style={{textAlign:'center'}}><div style={{fontSize:30,fontWeight:700,marginTop:10}}>{6000+state.stats.shiftsWorked*120}</div><div style={{opacity:.7,marginBottom:12}}>steps today</div><div style={{display:'flex',justifyContent:'space-around'}}><Stat n={420+state.stats.shiftsWorked*30} l="calories"/><Stat n="7h 30m" l="sleep"/></div></div>;
   if(app==='game1') return <PhoneTapRace/>;
   if(app==='game2') return <PhoneMemory/>;
-  if(app==='store') return <div>{['Photo Editor Pro','Budget Tracker','Fitness+','Podcast Player','Cloud Notes','Voice Memo'].map((a,i)=><div key={i} style={{display:'flex',alignItems:'center',gap:10,background:'rgba(255,255,255,.06)',borderRadius:10,padding:10,marginBottom:8}}><div style={{fontSize:26}}>📦</div><div style={{flex:1}}><b>{a}</b></div><button className="btn" style={{padding:'4px 12px',fontSize:12}}>GET</button></div>)}</div>;
+  if(app==='store') return <div>{['Photo Editor','Budget Tracker','Fitness Plus','Podcast Player','Cloud Notes','Voice Memo'].map((a,i)=><div key={i} style={{display:'flex',alignItems:'center',gap:10,background:'rgba(255,255,255,.06)',borderRadius:10,padding:10,marginBottom:8}}><Badge label={a.slice(0,2).toUpperCase()} color="#455a64" size={32}/><div style={{flex:1}}><b>{a}</b></div><button className="btn" style={{padding:'4px 12px',fontSize:12}} onClick={()=>SFX.click()}>Get</button></div>)}</div>;
   return null;
 }
+function Row({children}){ return <div style={{background:'rgba(255,255,255,.06)',borderRadius:10,padding:12,marginBottom:8}}>{children}</div>; }
+function Stat({n,l}){ return <div><div style={{fontSize:22,fontWeight:700}}>{n}</div><div style={{fontSize:12,opacity:.7}}>{l}</div></div>; }
+function SettingsApp({state,setState}){
+  const ph=state.phone; const [pc,setPc]=useState("");
+  return <div>
+    <h3 style={{marginTop:0}}>Wallpaper</h3>
+    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr',gap:8,marginBottom:18}}>
+      {WALLPAPERS.map((w,i)=><div key={i} onClick={()=>{setState(s=>({...s,phone:{...s.phone,wallpaper:i}}));SFX.click();}} style={{height:50,borderRadius:8,background:w[1],cursor:'pointer',border:ph.wallpaper===i?'2px solid #fff':'2px solid transparent'}}/>)}</div>
+    <h3>Passcode</h3>
+    <div style={{fontSize:13,opacity:.7,marginBottom:6}}>Status: {ph.passcode?'Set':ph.faceId?'Face ID enabled':'None'}</div>
+    <input value={pc} onChange={e=>setPc(e.target.value.replace(/\D/g,'').slice(0,4))} placeholder="4-digit code" style={{width:'100%',padding:10,borderRadius:8,border:'1px solid rgba(255,255,255,.2)',background:'rgba(255,255,255,.08)',color:'#fff',marginBottom:8}}/>
+    <button className="btn" disabled={pc.length!==4} onClick={()=>{setState(s=>({...s,phone:{...s.phone,passcode:pc,faceId:false}}));setPc("");SFX.good();}}>Set passcode</button>
+    {ph.passcode && <button className="btn red" style={{marginLeft:8}} onClick={()=>setState(s=>({...s,phone:{...s.phone,passcode:null}}))}>Remove</button>}
+    {ph.faceId && <div style={{marginTop:14,color:'#7ee0a0'}}>Face ID is set up. It unlocked your phone automatically.</div>}
+  </div>;
+}
 function PhoneTapRace(){
-  const [target,setTarget]=useState(null); const [score,setScore]=useState(0); const [best,setBest]=useState(0);
-  const [t,setT]=useState(null);
+  const [target,setTarget]=useState(null); const [score,setScore]=useState(0); const tref=useRef(null);
   function go(){ setScore(0); next(); }
-  function next(){ setTimeout(()=>{ setTarget({x:rint(5,80),y:rint(5,70)}); setT(Date.now()); }, rint(300,1200)); }
-  function hit(){ if(!target)return; setScore(s=>s+1); setTarget(null); next(); }
-  return <div style={{textAlign:'center'}}><h3>🎯 Tap Race</h3><div style={{opacity:.8,marginBottom:8}}>Tap the dots fast! Score: {score}</div>
-    <div style={{position:'relative',height:200,background:'rgba(255,255,255,.06)',borderRadius:12,overflow:'hidden'}} >
+  function next(){ tref.current=setTimeout(()=>setTarget({x:rint(5,80),y:rint(5,70)}),rint(300,1100)); }
+  function hit(){ if(!target)return; setScore(s=>s+1); SFX.click(); setTarget(null); next(); }
+  useEffect(()=>()=>clearTimeout(tref.current),[]);
+  return <div style={{textAlign:'center'}}><h3 style={{marginTop:0}}>Tap Race</h3><div style={{opacity:.8,marginBottom:8}}>Tap the dots fast. Score: {score}</div>
+    <div style={{position:'relative',height:200,background:'rgba(255,255,255,.06)',borderRadius:12,overflow:'hidden'}}>
       {target && <div onClick={hit} style={{position:'absolute',left:target.x+'%',top:target.y+'%',width:40,height:40,borderRadius:'50%',background:'#e0524a',cursor:'pointer'}}/>}
-      {!target && <button className="btn" style={{position:'absolute',top:'42%',left:'30%'}} onClick={go}>Start</button>}
-    </div></div>;
+      {!target && <button className="btn" style={{position:'absolute',top:'42%',left:'34%'}} onClick={go}>Start</button>}</div></div>;
 }
 function PhoneMemory(){
-  const emojis=['🍎','🚗','🌟','🎈','🍕','🐶','🌈','⚽'];
-  const [cards,setCards]=useState(()=>shuffle([...emojis,...emojis].map((e,i)=>({i,e,flipped:false,done:false}))));
+  const tiles=['A','B','C','D','E','F','G','H'];
+  const [cards,setCards]=useState(()=>shuffle([...tiles,...tiles].map((e,i)=>({i,e,flipped:false,done:false}))));
   const [sel,setSel]=useState([]);
-  function flip(c){ if(c.flipped||c.done||sel.length>=2)return; const nc=cards.map(x=>x.i===c.i?{...x,flipped:true}:x); setCards(nc); const ns=[...sel,c]; setSel(ns);
-    if(ns.length===2){ setTimeout(()=>{ if(ns[0].e===ns[1].e){ setCards(cs=>cs.map(x=>x.e===ns[0].e?{...x,done:true}:x)); } else { setCards(cs=>cs.map(x=>(x.i===ns[0].i||x.i===ns[1].i)?{...x,flipped:false}:x)); } setSel([]); },700); } }
+  function flip(c){ if(c.flipped||c.done||sel.length>=2)return; const nc=cards.map(x=>x.i===c.i?{...x,flipped:true}:x); setCards(nc); const ns=[...sel,c]; setSel(ns); SFX.click();
+    if(ns.length===2){ setTimeout(()=>{ if(ns[0].e===ns[1].e){ setCards(cs=>cs.map(x=>x.e===ns[0].e?{...x,done:true}:x)); SFX.good(); } else setCards(cs=>cs.map(x=>(x.i===ns[0].i||x.i===ns[1].i)?{...x,flipped:false}:x)); setSel([]); },700); } }
   const won=cards.every(c=>c.done);
-  return <div style={{textAlign:'center'}}><h3>🧩 Memory Match</h3>{won&&<div style={{color:'#7ee0a0',marginBottom:8}}>You won! 🎉</div>}
-    <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:6}}>{cards.map(c=><div key={c.i} onClick={()=>flip(c)} style={{aspectRatio:'1',borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',fontSize:24,cursor:'pointer',background:c.flipped||c.done?'rgba(255,255,255,.18)':'rgba(46,125,255,.5)'}}>{(c.flipped||c.done)?c.e:'?'}</div>)}</div></div>;
+  return <div style={{textAlign:'center'}}><h3 style={{marginTop:0}}>Memory Match</h3>{won&&<div style={{color:'#7ee0a0',marginBottom:8}}>You won!</div>}
+    <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:6}}>{cards.map(c=><div key={c.i} onClick={()=>flip(c)} style={{aspectRatio:'1',borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,fontWeight:700,cursor:'pointer',background:c.flipped||c.done?'rgba(255,255,255,.2)':'rgba(46,125,255,.5)'}}>{(c.flipped||c.done)?c.e:''}</div>)}</div></div>;
 }
 
-/* ── Notifications / level up / daily gift ── */
+/* ── notifications / level / gift ── */
 function Toast({msg}){ if(!msg)return null;
   return <div style={{position:'fixed',top:18,left:'50%',transform:'translateX(-50%)',background:'rgba(20,28,48,.95)',border:'1px solid rgba(255,255,255,.15)',borderRadius:12,padding:'12px 20px',zIndex:60,fontSize:15,fontWeight:600,boxShadow:'0 8px 24px rgba(0,0,0,.5)'}}>{msg}</div>; }
-
 function LevelUp({level,reward,onClose}){
   return <Modal onClose={onClose}><div style={{padding:30,textAlign:'center'}}>
-    <div style={{fontSize:60}}>🎉</div>
-    <h1 style={{margin:'4px 0'}}>Level {level}!</h1>
+    <div style={{fontSize:14,letterSpacing:2,opacity:.7}}>LEVEL UP</div><h1 style={{margin:'4px 0',fontSize:46}}>Level {level}</h1>
     <p style={{opacity:.85}}>You're leveling up your life.</p>
     {reward && <div style={{background:'rgba(230,164,23,.18)',border:'1px solid rgba(230,164,23,.5)',borderRadius:12,padding:16,margin:'12px 0'}}>
-      <div style={{fontSize:13,opacity:.8}}>Prize unlocked</div>
-      <div style={{fontSize:20,fontWeight:700}}>{reward.emoji} {reward.text}</div>
-    </div>}
-    <button className="btn gold" onClick={onClose}>Awesome!</button>
-  </div></Modal>;
+      <div style={{fontSize:13,opacity:.8}}>Prize unlocked</div><div style={{fontSize:20,fontWeight:700}}>{reward.text}</div></div>}
+    <button className="btn gold" onClick={onClose}>Continue</button></div></Modal>;
 }
-
 function DailyGift({onClaim,onClose,day}){
-  const rewards=[ {emoji:'💰',text:money(150)+' cash',apply:s=>({...s,money:s.money+150})},
-    {emoji:'⭐',text:'80 XP',apply:s=>s}, {emoji:'💰',text:money(400)+' cash',apply:s=>({...s,money:s.money+400})},
-    {emoji:'🎁',text:'Mystery '+money(1000),apply:s=>({...s,money:s.money+1000})} ];
+  const rewards=[ {text:money(150)+' cash',apply:s=>({...s,money:s.money+150})},{text:'80 XP',xp:true,apply:s=>s},
+    {text:money(400)+' cash',apply:s=>({...s,money:s.money+400})},{text:'Mystery '+money(1000),apply:s=>({...s,money:s.money+1000})} ];
   const r=rewards[(day-1)%rewards.length];
   return <Modal onClose={onClose}><div style={{padding:30,textAlign:'center'}}>
-    <div style={{fontSize:60}}>🎁</div><h2>Daily Gift — Day {day}</h2>
-    <p style={{opacity:.85}}>Come back every day for bigger rewards!</p>
-    <div style={{fontSize:28,fontWeight:700,margin:'12px 0'}}>{r.emoji} {r.text}</div>
-    <button className="btn gold" onClick={()=>onClaim(r)}>Claim</button>
-  </div></Modal>;
+    <div style={{fontSize:14,letterSpacing:2,opacity:.7}}>DAILY GIFT</div><h2 style={{margin:'4px 0'}}>Day {day}</h2>
+    <p style={{opacity:.85}}>Come back every day for bigger rewards.</p>
+    <div style={{fontSize:26,fontWeight:700,margin:'12px 0'}}>{r.text}</div>
+    <button className="btn gold" onClick={()=>onClaim(r)}>Claim</button></div></Modal>;
+}
+
+/* ── touch controls ── */
+function DPad({world}){
+  const hold=(dir)=>({ onTouchStart:e=>{e.preventDefault();world.current?.setTouch(dir,true);}, onTouchEnd:e=>{e.preventDefault();world.current?.setTouch(dir,false);},
+    onMouseDown:()=>world.current?.setTouch(dir,true), onMouseUp:()=>world.current?.setTouch(dir,false), onMouseLeave:()=>world.current?.setTouch(dir,false) });
+  return <div style={{position:'fixed',bottom:16,right:16,display:'grid',gridTemplateColumns:'repeat(3,58px)',gridTemplateRows:'repeat(3,58px)',gap:4,zIndex:15,touchAction:'none'}}>
+    <div/><button className="dpad" {...hold('up')}>UP</button><div/>
+    <button className="dpad" {...hold('left')}>L</button><div/><button className="dpad" {...hold('right')}>R</button>
+    <div/><button className="dpad" {...hold('down')}>DN</button><div/></div>;
 }
 
 /* ============================================================================
@@ -967,220 +709,123 @@ function App(){
   const [state,setState]=useState(loadState);
   const stateRef=useRef(state); stateRef.current=state;
   const [near,setNear]=useState(null);
-  const [panel,setPanel]=useState(null); // 'jobs','mall','houses','rvs','cars','phone'
+  const [panel,setPanel]=useState(null);
   const [interviewJob,setInterviewJob]=useState(null);
   const [workJob,setWorkJob]=useState(null);
   const [toast,setToast]=useState("");
   const [levelUp,setLevelUp]=useState(null);
   const [showGift,setShowGift]=useState(false);
-  const [pendingDelivery,setPendingDelivery]=useState(null);
-  const worldRef=useRef(null);
-  const mountRef=useRef(null);
+  const [driving,setDriving]=useState(false);
+  const worldRef=useRef(null); const canvasRef=useRef(null);
 
-  // boot world
   useEffect(()=>{
     document.getElementById('boot').style.display='none';
-    let world;
-    try{
-      world=new World(mountRef.current,{
-        onNear:(id)=>setNear(id),
-        onVehicle:(v)=>setToast(v?'🚗 Driving — WASD to drive, V to exit':''),
-        onDeliveryDone:()=>{ finishWork(0.95, true); }
-      });
-      worldRef.current=world;
-      world.setTime(stateRef.current.timeOfDay);
-      const c=CARS[stateRef.current.currentCar]; world.setVehicleColor(c.color); world.setVehicleSpeed(c.speed);
-    }catch(e){ console.error(e); setToast('3D failed to load — UI still works'); }
-    // daily gift check
+    const world=new World2D(canvasRef.current,{
+      onNear:setNear, onVehicle:setDriving, onDeliveryDone:()=>finishWork(0.95,true) });
+    worldRef.current=world;
+    world.setTime(stateRef.current.timeOfDay);
+    const vt=stateRef.current.vehicleType, v=(vt==='rv'?RVS[stateRef.current.currentRV]:CARS[stateRef.current.currentCar]);
+    world.setVehicle(v.color,v.speed);
     if(stateRef.current.lastGiftDate!==todayStr()) setShowGift(true);
-    return ()=>{ world&&world.dispose(); };
+    return ()=>world.dispose();
   },[]);
-
-  // disable world controls when a panel/modal is open
-  useEffect(()=>{
-    const blocking = panel||interviewJob||workJob||levelUp||showGift;
-    worldRef.current?.setEnabled(!blocking);
-  },[panel,interviewJob,workJob,levelUp,showGift]);
-
-  // time progression (gentle) — only counts when no modal open
-  useEffect(()=>{
-    const iv=setInterval(()=>{
-      setState(s=>{
-        let t=s.timeOfDay+0.02;
-        worldRef.current?.setTime(t);
-        if(t>=24){ // new day
-          t-=24;
-          const income=HOUSES[s.currentHouse].income;
-          return {...s, timeOfDay:t, day:s.day+1, shiftsToday:0, money:s.money+income};
-        }
-        return {...s, timeOfDay:t};
-      });
-    },1000);
-    return ()=>clearInterval(iv);
-  },[]);
-
-  // persist
+  useEffect(()=>{ worldRef.current?.setEnabled(!(panel||interviewJob||workJob||levelUp||showGift)); },[panel,interviewJob,workJob,levelUp,showGift]);
+  useEffect(()=>{ const iv=setInterval(()=>{ setState(s=>{ let t=s.timeOfDay+0.02; worldRef.current?.setTime(t);
+    if(t>=24){ t-=24; return {...s,timeOfDay:t,day:s.day+1,shiftsToday:0,money:s.money+HOUSES[s.currentHouse].income}; } return {...s,timeOfDay:t}; }); },1000); return ()=>clearInterval(iv); },[]);
   useEffect(()=>{ localStorage.setItem(SAVE_KEY,JSON.stringify(state)); },[state]);
 
   function flash(m){ setToast(m); setTimeout(()=>setToast(""),2600); }
+  function grantXP(amount){ setState(s=>{ let xp=s.xp+amount, level=s.level, leveled=null;
+    while(xp>=xpForLevel(level+1)){ xp-=xpForLevel(level+1); level++; leveled=level; }
+    if(leveled){ const reward=prizeForLevel(leveled); SFX.level(); setTimeout(()=>setLevelUp({level:leveled,reward}),300); return applyPrize({...s,xp,level},reward); }
+    return {...s,xp,level}; }); }
+  function prizeForLevel(lvl){ const p={3:{text:'Road Cruiser RV',kind:'rv',id:1},5:{text:'Sporty Coupe car',kind:'car',id:2},7:{text:'Modern Villa house',kind:'house',id:3},10:{text:money(5000)+' bonus',kind:'cash',amt:5000}};
+    return p[lvl]||{text:money(lvl*200)+' bonus',kind:'cash',amt:lvl*200}; }
+  function applyPrize(s,r){ if(!r)return s;
+    if(r.kind==='cash') return {...s,money:s.money+r.amt};
+    if(r.kind==='rv'&&!s.ownedRVs.includes(r.id)) return {...s,ownedRVs:[...s.ownedRVs,r.id]};
+    if(r.kind==='car'&&!s.ownedCars.includes(r.id)) return {...s,ownedCars:[...s.ownedCars,r.id]};
+    if(r.kind==='house'&&!s.ownedHouses.includes(r.id)) return {...s,ownedHouses:[...s.ownedHouses,r.id]};
+    return s; }
 
-  function grantXP(amount){
-    setState(s=>{
-      let xp=s.xp+amount, level=s.level;
-      let leveled=null;
-      while(xp>=xpForLevel(level+1)){ xp-=xpForLevel(level+1); level++; leveled=level; }
-      if(leveled){
-        const reward=prizeForLevel(leveled);
-        setTimeout(()=>setLevelUp({level:leveled,reward}),300);
-        return applyPrize({...s,xp,level},reward);
-      }
-      return {...s,xp,level};
-    });
-  }
-  function prizeForLevel(lvl){
-    const prizes={3:{emoji:'🚐',text:'Road Cruiser RV',kind:'rv',id:1},5:{emoji:'🏎️',text:'Sporty Coupe',kind:'car',id:2},
-      7:{emoji:'🏘️',text:'Modern Villa',kind:'house',id:3},10:{emoji:'💰',text:money(5000)+' bonus',kind:'cash',amt:5000}};
-    return prizes[lvl]|| {emoji:'💰',text:money(lvl*200)+' bonus',kind:'cash',amt:lvl*200};
-  }
-  function applyPrize(s,reward){
-    if(!reward) return s;
-    if(reward.kind==='cash') return {...s,money:s.money+reward.amt};
-    if(reward.kind==='rv' && !s.ownedRVs.includes(reward.id)) return {...s,ownedRVs:[...s.ownedRVs,reward.id]};
-    if(reward.kind==='car' && !s.ownedCars.includes(reward.id)) return {...s,ownedCars:[...s.ownedCars,reward.id]};
-    if(reward.kind==='house' && !s.ownedHouses.includes(reward.id)) return {...s,ownedHouses:[...s.ownedHouses,reward.id]};
-    return s;
-  }
-
-  // ── job application & work ──
   function applyJob(job){ setPanel(null); setInterviewJob(job); }
-  function interviewResult(passed){
-    const job=interviewJob; setInterviewJob(null);
-    if(passed){ setState(s=>({...s,jobId:job.id,stats:{...s.stats,interviewsPassed:s.stats.interviewsPassed+1}}));
-      flash(`🎉 Hired as ${job.title}!`); grantXP(40);
-    } else { flash(`❌ Not hired for ${job.title}. Try again or pick another job.`); }
-  }
-  function startWork(job){
-    if(stateRef.current.shiftsToday>=2){ flash('You already worked 2 shifts today. Come back tomorrow!'); return; }
-    setPanel(null); setWorkJob(job);
-  }
-  function finishWork(performance, fromDelivery){
-    const job= fromDelivery? JOBS[stateRef.current.jobId] : workJob;
-    if(!job){ setWorkJob(null); return; }
-    setWorkJob(null);
-    const lvl=stateRef.current.level;
-    const pay=Math.round(job.basePay*(0.7+performance*0.8)*(1+lvl*0.05));
-    const xp=Math.round(20+performance*30);
-    setState(s=>({...s, money:s.money+pay, shiftsToday:s.shiftsToday+1, timeOfDay:Math.min(23.5,s.timeOfDay+3),
-      stats:{...s.stats, shiftsWorked:s.stats.shiftsWorked+1, moneyEarned:s.stats.moneyEarned+pay}}));
-    flash(`💵 Shift done! +${money(pay)} · +${xp} XP`);
-    grantXP(xp);
-  }
+  function interviewResult(passed){ const job=interviewJob; setInterviewJob(null);
+    if(passed){ setState(s=>({...s,jobId:job.id,stats:{...s.stats,interviewsPassed:s.stats.interviewsPassed+1}})); SFX.cash(); flash(`Hired as ${job.title}!`); grantXP(40); }
+    else { flash(`Not hired for ${job.title}. Try again or pick another job.`); } }
+  function startWork(job){ if(stateRef.current.shiftsToday>=2){ flash('You already worked 2 shifts today. Come back tomorrow.'); return; } setPanel(null); setWorkJob(job); }
+  function finishWork(perf,fromDelivery){ const job=fromDelivery?JOBS[stateRef.current.jobId]:workJob; if(!job){ setWorkJob(null); return; }
+    setWorkJob(null); const lvl=stateRef.current.level;
+    const pay=Math.round(job.basePay*(0.7+perf*0.8)*(1+lvl*0.05)); const xp=Math.round(20+perf*30);
+    setState(s=>({...s,money:s.money+pay,shiftsToday:s.shiftsToday+1,timeOfDay:Math.min(23.5,s.timeOfDay+3),stats:{...s.stats,shiftsWorked:s.stats.shiftsWorked+1,moneyEarned:s.stats.moneyEarned+pay}}));
+    SFX.cash(); flash(`Shift done! +${money(pay)} · +${xp} XP`); grantXP(xp); }
 
-  // ── purchases ──
-  function buyItem(kind,item){
-    setState(s=>{
-      if(s.money<item.price) return s;
-      const ownedKey={houses:'ownedHouses',rvs:'ownedRVs',cars:'ownedCars'}[kind];
-      const ns={...s, money:s.money-item.price, [ownedKey]:[...s[ownedKey],item.id]};
-      return ns;
-    });
-    flash(`✅ Bought ${item.name}!`);
-    equipItem(kind,item.id);
-  }
-  function equipItem(kind,id){
-    const curKey={houses:'currentHouse',rvs:'currentRV',cars:'currentCar'}[kind];
-    setState(s=>({...s,[curKey]:id}));
-    if(kind==='cars'){ const c=CARS[id]; worldRef.current?.setVehicleColor(c.color); worldRef.current?.setVehicleSpeed(c.speed); }
-    if(kind==='rvs'){ const r=RVS[id]; worldRef.current?.setVehicleColor(r.color); worldRef.current?.setVehicleSpeed(r.speed); }
-  }
-  function buyStoreItem(s){
-    if(state.money<s.price) return;
-    setState(p=>({...p,money:p.money-s.price,inventory:[...p.inventory,s.id]}));
-    flash(`🛍️ Bought ${s.itemName}! +${s.xp} XP`); grantXP(s.xp);
-  }
+  function buyItem(kind,item){ setState(s=>{ if(s.money<item.price)return s; const k={houses:'ownedHouses',rvs:'ownedRVs',cars:'ownedCars'}[kind];
+    return {...s,money:s.money-item.price,[k]:[...s[k],item.id]}; }); SFX.cash(); flash(`Bought ${item.name}!`); equipItem(kind,item.id); }
+  function equipItem(kind,id){ const ck={houses:'currentHouse',rvs:'currentRV',cars:'currentCar'}[kind];
+    setState(s=>{ const ns={...s,[ck]:id}; if(kind==='cars')ns.vehicleType='car'; if(kind==='rvs')ns.vehicleType='rv'; return ns; });
+    if(kind==='cars'){ const c=CARS[id]; worldRef.current?.setVehicle(c.color,c.speed); }
+    if(kind==='rvs'){ const r=RVS[id]; worldRef.current?.setVehicle(r.color,r.speed); } }
+  function buyStoreItem(s){ if(state.money<s.price)return; setState(p=>({...p,money:p.money-s.price,inventory:[...p.inventory,s.id]})); SFX.cash(); flash(`Bought ${s.itemName}! +${s.xp} XP`); grantXP(s.xp); }
+  function claimGift(r){ setState(s=>r.apply({...s,lastGiftDate:todayStr()})); if(r.xp) grantXP(80); setShowGift(false); SFX.cash(); flash(`Claimed ${r.text}!`); }
 
-  function claimGift(r){
-    setState(s=>{ let ns=r.apply({...s,lastGiftDate:todayStr()}); return ns; });
-    if(r.text.includes('XP')) grantXP(80);
-    setShowGift(false); flash(`🎁 Claimed ${r.text}!`);
-  }
-
-  // building -> panel map
-  const buildingPanel={ home:'home', jobs:'jobs', mall:'mall', cars:'cars', rvs:'rvs', bank:'bank' };
-  const buildingNames={home:'🏠 Home',jobs:'💼 Job Center',mall:'🛍️ Mall',cars:'🚗 Car Dealer',rvs:'🚐 RV Dealer',bank:'🏦 Bank & Houses'};
-
-  // keyboard: E to enter, P phone
-  useEffect(()=>{
-    const h=(e)=>{
-      if(e.code==='KeyE' && near && !panel && !interviewJob && !workJob){ openBuilding(near); }
-      if(e.code==='KeyP'){ setPanel(p=>p==='phone'?null:'phone'); }
-      if(e.code==='Escape'){ setPanel(null); }
-    };
-    window.addEventListener('keydown',h); return ()=>window.removeEventListener('keydown',h);
-  },[near,panel,interviewJob,workJob]);
-
-  function openBuilding(id){
-    if(id==='home'){ setPanel('houses'); }
-    else if(id==='bank'){ setPanel('houses'); }
-    else setPanel(buildingPanel[id]);
-  }
+  useEffect(()=>{ const h=(e)=>{
+    if(e.code==='KeyE'&&near&&!panel&&!interviewJob&&!workJob) openBuilding(near);
+    if(e.code==='KeyP') setPanel(p=>p==='phone'?null:'phone');
+    if(e.code==='Escape') setPanel(null);
+  }; window.addEventListener('keydown',h); return ()=>window.removeEventListener('keydown',h); },[near,panel,interviewJob,workJob]);
+  function openBuilding(id){ SFX.click(); if(id==='home'||id==='bank') setPanel('houses'); else setPanel(id==='jobs'?'jobs':id==='mall'?'mall':id); }
 
   const xpNext=xpForLevel(state.level+1);
   const curJob=state.jobId!=null?JOBS[state.jobId]:null;
+  const blocking = panel||interviewJob||workJob||levelUp||showGift;
 
   return (<div id="game">
-    <div id="canvas-wrap" ref={mountRef}/>
+    <div id="canvas-wrap"><canvas ref={canvasRef}/></div>
 
-    {/* crosshair */}
-    <div style={{position:'fixed',top:'50%',left:'50%',width:6,height:6,marginLeft:-3,marginTop:-3,borderRadius:'50%',background:'rgba(255,255,255,.6)',pointerEvents:'none'}}/>
-
-    {/* HUD top-left */}
-    <div style={{position:'fixed',top:14,left:14,width:230,background:'rgba(12,18,34,.82)',borderRadius:14,padding:14,backdropFilter:'blur(6px)',border:'1px solid rgba(255,255,255,.1)'}}>
+    {/* HUD */}
+    <div style={{position:'fixed',top:14,left:14,width:230,background:'rgba(12,18,34,.85)',borderRadius:14,padding:14,border:'1px solid rgba(255,255,255,.1)'}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
         <div><div style={{fontSize:12,opacity:.7}}>Level {state.level}</div><div style={{fontSize:22,fontWeight:800,color:'#7ee0a0'}}>{money(state.money)}</div></div>
-        <div style={{textAlign:'right',fontSize:12,opacity:.8}}>Day {state.day}<br/>{String(Math.floor(state.timeOfDay)).padStart(2,'0')}:{String(Math.floor((state.timeOfDay%1)*60)).padStart(2,'0')}</div>
-      </div>
+        <div style={{textAlign:'right',fontSize:12,opacity:.8}}>Day {state.day}<br/>{String(Math.floor(state.timeOfDay)).padStart(2,'0')}:{String(Math.floor((state.timeOfDay%1)*60)).padStart(2,'0')}</div></div>
       <Bar label="XP" val={Math.round(state.xp)} max={xpNext} color="#9b6bff"/>
-      <div style={{fontSize:12,marginTop:6,opacity:.85}}>{curJob?`${curJob.emoji} ${curJob.title} · ${state.shiftsToday}/2 shifts`:'🙅 Unemployed — visit Job Center'}</div>
+      <div style={{fontSize:12,marginTop:6,opacity:.85}}>{curJob?`${curJob.title} · ${state.shiftsToday}/2 shifts`:'Unemployed — visit Job Center'}</div>
+      <div style={{fontSize:11,marginTop:4,opacity:.6}}>{driving?'Driving — press V to walk':'On foot — press V to drive'}</div>
     </div>
 
-    {/* quick teleport / controls bottom-left */}
-    <div style={{position:'fixed',bottom:14,left:14,display:'flex',gap:6,flexWrap:'wrap',maxWidth:260}}>
-      {Object.keys(buildingNames).map(id=>(
-        <button key={id} className="btn gray" style={{padding:'6px 9px',fontSize:11}} onClick={()=>{ worldRef.current?.teleportTo(id); }}>{buildingNames[id].split(' ')[0]}</button>
-      ))}
+    {/* teleport buttons */}
+    <div style={{position:'fixed',bottom:14,left:14,display:'flex',gap:6,flexWrap:'wrap',maxWidth:300}}>
+      {BUILDINGS.map(b=><button key={b.id} className="btn gray" style={{padding:'7px 10px',fontSize:12}} onClick={()=>worldRef.current?.teleportTo(b.id)}>{b.name}</button>)}
     </div>
 
-    {/* phone button bottom-right */}
-    <button onClick={()=>setPanel('phone')} style={{position:'fixed',bottom:14,right:14,width:60,height:60,borderRadius:18,border:'none',background:'linear-gradient(160deg,#2e7dff,#1b3a7a)',fontSize:28,cursor:'pointer',boxShadow:'0 8px 20px rgba(0,0,0,.5)'}}>📱</button>
+    {/* phone + drive toggle */}
+    <div style={{position:'fixed',top:14,right:14,display:'flex',gap:8,alignItems:'flex-start'}}>
+      <div style={{background:'rgba(12,18,34,.7)',borderRadius:10,padding:'8px 12px',fontSize:11,opacity:.85,maxWidth:170,textAlign:'right'}}>
+        <b>WASD</b> / arrows or buttons to move · <b>V</b> drive · <b>E</b> enter · <b>P</b> phone</div>
+      <button onClick={()=>setPanel('phone')} style={{width:54,height:54,borderRadius:16,border:'none',background:'linear-gradient(160deg,#2e7dff,#1b3a7a)',fontSize:12,fontWeight:700,color:'#fff',cursor:'pointer'}}>PHONE</button>
+    </div>
 
     {/* interaction prompt */}
-    {near && !panel && !interviewJob && !workJob && <div style={{position:'fixed',bottom:90,left:'50%',transform:'translateX(-50%)',background:'rgba(12,18,34,.9)',borderRadius:12,padding:'10px 18px',border:'1px solid rgba(255,255,255,.15)',fontSize:15}}>
-      Press <b style={{color:'#ffd54f'}}>E</b> to enter {buildingNames[near]}</div>}
+    {near && !blocking && <div style={{position:'fixed',bottom:90,left:'50%',transform:'translateX(-50%)',background:'rgba(12,18,34,.92)',borderRadius:12,padding:'10px 18px',border:'1px solid rgba(255,255,255,.15)',fontSize:15,zIndex:16}}>
+      <button className="btn gold" style={{marginRight:8}} onClick={()=>openBuilding(near)}>Enter</button>{BNAMES[near]} <span style={{opacity:.6,fontSize:12}}>(or press E)</span></div>}
 
-    {/* help hint top-right */}
-    <div style={{position:'fixed',top:14,right:14,background:'rgba(12,18,34,.7)',borderRadius:10,padding:'8px 12px',fontSize:11,opacity:.85,maxWidth:200,textAlign:'right'}}>
-      <b>WASD</b> move · <b>Mouse</b> look · <b>V</b> drive · <b>E</b> enter · <b>P</b> phone
-    </div>
+    {!blocking && <button className="btn green" style={{position:'fixed',bottom:84,right:16,zIndex:15}} onClick={()=>worldRef.current?.toggleVehicle()}>{driving?'Walk':'Drive'}</button>}
+    {!blocking && <DPad world={worldRef}/>}
 
     <Toast msg={toast}/>
 
-    {/* PANELS */}
     {panel==='jobs' && <JobCenter state={state} onApply={applyJob} onWork={startWork} onClose={()=>setPanel(null)}/>}
     {panel==='mall' && <Mall state={state} onBuy={buyStoreItem} onClose={()=>setPanel(null)}/>}
-    {(panel==='houses') && <Shop kind="houses" state={state} onBuy={buyItem} onEquip={equipItem} onClose={()=>setPanel(null)}/>}
+    {panel==='houses' && <Shop kind="houses" state={state} onBuy={buyItem} onEquip={equipItem} onClose={()=>setPanel(null)}/>}
     {panel==='rvs' && <Shop kind="rvs" state={state} onBuy={buyItem} onEquip={equipItem} onClose={()=>setPanel(null)}/>}
     {panel==='cars' && <Shop kind="cars" state={state} onBuy={buyItem} onEquip={equipItem} onClose={()=>setPanel(null)}/>}
-    {panel==='phone' && <Phone state={state} setState={setState} onClose={()=>setPanel(null)}/>}
+    {panel==='phone' && <Phone state={state} setState={setState} onClose={()=>setPanel(null)} onTeleport={(id)=>worldRef.current?.teleportTo(id)}/>}
 
     {interviewJob && <Interview job={interviewJob} onResult={interviewResult} onClose={()=>setInterviewJob(null)}/>}
-    {workJob && <WorkGame job={workJob} onDone={(p)=>finishWork(p,false)} onClose={()=>setWorkJob(null)}
-        startDelivery={()=>{ worldRef.current?.startDelivery(); flash('📍 Drive/walk to the glowing marker!'); }}/>}
+    {workJob && <WorkGame job={workJob} onDone={(p)=>finishWork(p,false)} onClose={()=>setWorkJob(null)} startDelivery={()=>{ worldRef.current?.startDelivery(); flash('Drive or walk to the yellow marker on the map.'); }}/>}
     {levelUp && <LevelUp level={levelUp.level} reward={levelUp.reward} onClose={()=>setLevelUp(null)}/>}
     {showGift && <DailyGift day={state.day} onClaim={claimGift} onClose={()=>{ setState(s=>({...s,lastGiftDate:todayStr()})); setShowGift(false); }}/>}
   </div>);
 }
-
 ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
 </script>
 </body>
