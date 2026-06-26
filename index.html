@@ -12,11 +12,35 @@
 <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
-<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.23.10/babel.min.js"></script>
+<script>
+  // Register a React preset that uses the CLASSIC JSX runtime. Newer
+  // @babel/standalone defaults preset-react to the "automatic" runtime, which
+  // emits `import` statements — those throw "Cannot use import statement
+  // outside a module" when the compiled inline script runs, leaving the page
+  // stuck on "Loading...". Registering here (before Babel transforms the page
+  // on DOMContentLoaded) forces the classic runtime so it runs as plain JS.
+  if (window.Babel && Babel.registerPreset) {
+    Babel.registerPreset("react-classic", {
+      presets: [[Babel.availablePresets["react"], { runtime: "classic" }]]
+    });
+  }
+  // If anything goes wrong, show the real error instead of hanging forever.
+  window.addEventListener("error", function (e) {
+    var el = document.getElementById("loading");
+    if (el) {
+      el.style.color = "#FF8A80";
+      el.style.fontSize = "13px";
+      el.style.padding = "12vh 16px 0";
+      el.textContent = "Couldn't start the game: " + (e.message || e.error || "unknown error") +
+        ". Try reloading; if it persists you may be offline (the game loads React/Three from a CDN).";
+    }
+  });
+</script>
 </head>
 <body>
 <div id="root"><div id="loading">Loading Goliath Grouper...</div></div>
-<script type="text/babel" data-presets="react">
+<script type="text/babel" data-presets="react-classic">
 const { useState, useEffect, useRef, useCallback } = React;
 
 // ─── DATA ─────────────────────────────────────────────────────────────────────
