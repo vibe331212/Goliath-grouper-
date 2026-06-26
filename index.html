@@ -3492,7 +3492,9 @@ function RotatableChar({
   const a = (angle % 360 + 360) % 360;
   const rad = a * Math.PI / 180;
   const showBack = a > 90 && a < 270;
-  const sx = Math.max(0.06, Math.abs(Math.cos(rad))); // foreshorten toward the edges
+  // Foreshorten toward the edges, but keep real body depth so the side view
+  // isn't paper-thin — width never drops below ~55% of the front.
+  const sx = 0.55 + 0.45 * Math.abs(Math.cos(rad));
   const label = a <= 45 || a >= 315 ? "Front" : a >= 135 && a <= 225 ? "Back" : "Side";
   return /*#__PURE__*/React.createElement("div", {
     style: {
