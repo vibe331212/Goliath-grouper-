@@ -683,12 +683,15 @@ function CharSVG({ cfg, size=90, facing="front" }) {
   const W=size, H=size*2.6;
   const cx=W/2;
   const back = facing === "back";
+  const hatted = cfg.hat && cfg.hat !== "none";
+  // For boys, a hat tucks away ALL the hair (none pokes out).
+  const hideHair = hatted && cfg.gender === "boy";
   return (
     <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{overflow:"visible",display:"block"}}>
       {/* Shadow */}
       <ellipse cx={cx} cy={H-.5} rx={W*.38} ry={5} fill="rgba(0,0,0,.18)"/>
       {/* Long hair that hangs down the BACK is drawn behind the body (front view only) */}
-      {!back && <Hair cfg={cfg} W={W} H={H} cx={cx} part="fall"/>}
+      {!back && !hideHair && <Hair cfg={cfg} W={W} H={H} cx={cx} part="fall"/>}
       {/* Shoes */}
       <ellipse cx={cx-W*.16} cy={H*0.945} rx={W*.18} ry={W*.08} fill="#1A1A1A"/>
       <ellipse cx={cx+W*.16} cy={H*0.945} rx={W*.18} ry={W*.08} fill="#1A1A1A"/>
@@ -713,17 +716,27 @@ function CharSVG({ cfg, size=90, facing="front" }) {
       {/* Ears */}
       <ellipse cx={cx-W*.28} cy={H*.17} rx={W*.06} ry={W*.08} fill={cfg.skin}/>
       <ellipse cx={cx+W*.28} cy={H*.17} rx={W*.06} ry={W*.08} fill={cfg.skin}/>
-      {/* Hair on the head */}
-      {back ? <Hair cfg={cfg} W={W} H={H} cx={cx} part="backfull"/> : <Hair cfg={cfg} W={W} H={H} cx={cx} part="top"/>}
-      {/* Hat */}
+      {/* Hair on the head (tucked away under a hat for boys) */}
+      {!hideHair && (back ? <Hair cfg={cfg} W={W} H={H} cx={cx} part="backfull"/> : <Hair cfg={cfg} W={W} H={H} cx={cx} part="top"/>)}
+      {/* Hat — crown covers the top of the head so it hides the hair underneath */}
       {cfg.hat==="cap"&&<>
-        <rect x={cx-W*.26} y={H*.055} width={W*.52} height={H*.06} rx={W*.05} fill={cfg.hatColor}/>
-        {!back && <ellipse cx={cx+W*.14} cy={H*.085} rx={W*.28} ry={H*.025} fill={cfg.hatColor}/>}
+        <path d={`M ${cx-W*.31},${H*.165} Q ${cx-W*.33},${H*.02} ${cx},${H*.012} Q ${cx+W*.33},${H*.02} ${cx+W*.31},${H*.165} Q ${cx},${H*.10} ${cx-W*.31},${H*.165} Z`} fill={cfg.hatColor}/>
+        <ellipse cx={cx} cy={H*.07} rx={W*.12} ry={H*.04} fill="rgba(255,255,255,.12)"/>
+        {!back && <ellipse cx={cx+W*.16} cy={H*.135} rx={W*.30} ry={H*.03} fill={shadeHex(cfg.hatColor,-14)}/>}
+        {!back && <circle cx={cx} cy={H*.045} r={W*.025} fill={shadeHex(cfg.hatColor,-22)}/>}
+      </>}
+      {cfg.hat==="wide"&&<>
+        <path d={`M ${cx-W*.28},${H*.13} Q ${cx-W*.30},${H*.0} ${cx},${H*-.01} Q ${cx+W*.30},${H*.0} ${cx+W*.28},${H*.13} Q ${cx},${H*.07} ${cx-W*.28},${H*.13} Z`} fill={cfg.hatColor}/>
+        <ellipse cx={cx} cy={H*.145} rx={W*.50} ry={H*.045} fill={shadeHex(cfg.hatColor,-12)}/>
+        <ellipse cx={cx} cy={H*.135} rx={W*.30} ry={H*.03} fill={cfg.hatColor}/>
+        <rect x={cx-W*.30} y={H*.115} width={W*.60} height={H*.018} fill={shadeHex(cfg.hatColor,-30)}/>
       </>}
       {cfg.hat==="captain"&&<>
-        <rect x={cx-W*.24} y={H*.04} width={W*.48} height={H*.08} rx={W*.04} fill="#1A237E"/>
-        <rect x={cx-W*.28} y={H*.07} width={W*.56} height={H*.025} rx={W*.01} fill="#1A237E"/>
-        {!back && <ellipse cx={cx} cy={H*.04} rx={W*.06} ry={W*.04} fill="#FFD700"/>}
+        <path d={`M ${cx-W*.30},${H*.10} Q ${cx-W*.31},${H*.02} ${cx},${H*.018} Q ${cx+W*.31},${H*.02} ${cx+W*.30},${H*.10} L ${cx+W*.30},${H*.10} L ${cx-W*.30},${H*.10} Z`} fill="#1A237E"/>
+        <rect x={cx-W*.31} y={H*.095} width={W*.62} height={H*.045} rx={W*.01} fill="#0D1657"/>
+        {!back && <rect x={cx-W*.10} y={H*.10} width={W*.20} height={H*.035} fill="#FFD700"/>}
+        {!back && <ellipse cx={cx} cy={H*.055} rx={W*.06} ry={W*.045} fill="#FFD700"/>}
+        {!back && <ellipse cx={cx+W*.18} cy={H*.155} rx={W*.20} ry={H*.022} fill="#0D1657"/>}
       </>}
       {/* Face (front only) */}
       {!back && <>
