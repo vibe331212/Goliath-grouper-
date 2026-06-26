@@ -221,8 +221,88 @@ const SHOPS = [
 ];
 const SKIN  = ["#FDDBB4","#F5C6A0","#E8A87C","#C68642","#8D5524","#4A2912"];
 const SHIRT = ["#2C3E50","#E74C3C","#27AE60","#3498DB","#F39C12","#8E44AD"];
-const PANTS = ["#2C3E50","#795548","#37474F","#1565C0","#4E342E"];
+const PANTS = ["#2C3E50","#795548","#37474F","#1565C0","#4E342E","#212121","#5D4037","#00695C","#455A64","#7B1FA2"];
 const HATC  = ["#8B0000","#1A237E","#2E7D32","#4A3728","#DDDDDD"];
+const HAIRC = ["#2C1A0A","#4A2C12","#6E4218","#A8741A","#D9C27A","#1A1A1A","#6E1A0A","#9A9A9A","#E8E8E8","#C0392B","#5E35B1","#00838F"];
+
+// Lighten/darken a hex color by an amount (for hair/fabric shading).
+function shadeHex(hex, amt){
+  var h=(hex||"#000").replace("#",""); if(h.length===3) h=h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+  function cl(v){ return Math.max(0,Math.min(255,v)); }
+  var r=cl(parseInt(h.slice(0,2),16)+amt), g=cl(parseInt(h.slice(2,4),16)+amt), b=cl(parseInt(h.slice(4,6),16)+amt);
+  function hx(x){ return x.toString(16).padStart(2,"0"); }
+  return "#"+hx(r)+hx(g)+hx(b);
+}
+
+// Hairstyles. Each: {n:name, len:0-5, bangs:0 none/1 straight/2 side/3 center,
+// tie:special, tex:0 straight/1 wavy/2 curly, vol:width}. Girls have 41, boys 21.
+function H(n,len,bangs,tie,tex,vol){ return { n:n, len:len, bangs:bangs, tie:tie||"", tex:tex||0, vol:vol||1 }; }
+const HAIR_GIRL = [
+  H("Long Straight",5,0,"",0,1.0), H("Long Center-Part",5,3,"",0,1.05), H("Long Wavy",5,0,"",1,1.1),
+  H("Voluminous Curls",5,0,"",2,1.3), H("Long Curly",5,3,"",2,1.2), H("Long with Bangs",5,1,"",0,1.05),
+  H("Side-Swept Long",5,2,"",1,1.05), H("Shoulder Length",4,0,"",0,1.0), H("Shoulder Wavy",4,2,"",1,1.05),
+  H("Beach Waves",4,3,"",1,1.15), H("Bob",3,0,"",0,1.0), H("Bob with Bangs",3,1,"",0,1.0),
+  H("Angled Bob",3,2,"",0,0.95), H("Wavy Bob",3,0,"",1,1.05), H("Long Bob (Lob)",4,3,"",0,1.0),
+  H("Pixie",2,2,"",0,0.9), H("Pixie with Bangs",2,1,"",0,0.9), H("Ponytail",3,1,"pony",0,1.0),
+  H("High Ponytail",2,1,"pony",0,1.0), H("Side Ponytail",3,2,"sidepony",0,1.0), H("Long Ponytail",5,0,"pony",1,1.05),
+  H("Pigtails",3,1,"pigtails",0,1.0), H("Long Pigtails",5,1,"pigtails",0,1.05), H("Space Buns",2,1,"spacebuns",0,1.0),
+  H("Single Braid",5,0,"braid",0,1.0), H("Side Braid",5,2,"sidebraid",1,1.05), H("Twin Braids",4,1,"pigtails",0,1.0),
+  H("Crown Braid",2,0,"halfup",0,1.0), H("Bun",2,0,"bun",0,1.0), H("High Bun",2,1,"highbun",0,1.0),
+  H("Low Bun",3,3,"bun",0,1.0), H("Messy Bun",2,2,"highbun",1,1.05), H("Top Knot",2,0,"topknot",0,1.0),
+  H("Half-Up",4,3,"halfup",1,1.1), H("Afro",2,0,"afro",2,1.3), H("Afro Puff",2,0,"topknot",2,1.2),
+  H("Hime Cut",5,1,"",0,1.1), H("Layered Long",5,2,"",1,1.1), H("Curtain Bangs",5,3,"",1,1.05),
+  H("Sleek Straight",5,3,"",0,0.95), H("Wavy Lob",4,0,"",1,1.05),
+];
+const HAIR_BOY = [
+  H("Buzz Cut",1,0,"",0,1.0), H("Crew Cut",1,1,"",0,1.0), H("Short Side Part",2,2,"comb",0,1.0),
+  H("Spiky",2,0,"spiky",0,1.0), H("Faux Hawk",2,0,"fauxhawk",0,1.0), H("Mohawk",1,0,"mohawk",0,1.0),
+  H("Caesar",2,1,"",0,1.0), H("Comb Over",2,2,"comb",0,1.0), H("Quiff",2,0,"quiff",0,1.0),
+  H("Pompadour",2,0,"pomp",0,1.0), H("Slick Back",2,0,"slick",0,1.0), H("Curly Short",2,0,"",2,1.05),
+  H("Afro",2,0,"afro",2,1.25), H("Man Bun",3,0,"manbun",0,1.0), H("Top Knot",3,0,"topknot",0,1.0),
+  H("Short Dreads",2,0,"dreads",2,1.05), H("Fringe",2,1,"",0,1.0), H("Messy Short",2,2,"spiky",1,1.05),
+  H("Flat Top",2,0,"flattop",0,1.0), H("Bald",0,0,"bald",0,1.0), H("Shoulder Length",4,3,"",1,1.05),
+];
+
+// Pants/legwear styles. Each: {n, cut:pants/shorts/skirt, len, wid, acc}. Girls 30, boys 29.
+function P(n,cut,len,wid,acc){ return { n:n, cut:cut, len:len, wid:wid, acc:acc||"" }; }
+const PANTS_GIRL = [
+  P("Skinny Jeans","pants","ankle","skinny",""), P("Straight Jeans","pants","ankle","straight",""),
+  P("Bootcut Jeans","pants","ankle","boot",""), P("Flare Jeans","pants","ankle","flare",""),
+  P("Wide-Leg Pants","pants","ankle","wide",""), P("Mom Jeans","pants","ankle","straight","cuff"),
+  P("Ripped Jeans","pants","ankle","skinny","rip"), P("Capri Pants","pants","capri","straight",""),
+  P("Leggings","pants","ankle","skinny","track"), P("Yoga Pants","pants","ankle","flare","track"),
+  P("Joggers","pants","ankle","straight","cuff"), P("Cargo Pants","pants","ankle","wide","cargo"),
+  P("Denim Shorts","shorts","mini","straight",""), P("Athletic Shorts","shorts","knee","wide","track"),
+  P("Bermuda Shorts","shorts","knee","straight",""), P("Mini Skirt","skirt","mini","straight",""),
+  P("Pleated Skirt","skirt","knee","wide","pleat"), P("A-Line Skirt","skirt","knee","flare",""),
+  P("Maxi Skirt","skirt","maxi","wide",""), P("Pencil Skirt","skirt","pencil","skinny",""),
+  P("Culottes","pants","capri","wide",""), P("Palazzo Pants","pants","ankle","flare",""),
+  P("Overalls","pants","ankle","straight","overall"), P("Cropped Pants","pants","crop","straight",""),
+  P("Bell Bottoms","pants","ankle","flare","flare"), P("Track Pants","pants","ankle","straight","track"),
+  P("Linen Pants","pants","ankle","wide",""), P("Skort","skirt","mini","straight",""),
+  P("Tights","pants","ankle","skinny",""), P("Wide Capris","pants","capri","wide",""),
+];
+const PANTS_BOY = [
+  P("Straight Jeans","pants","ankle","straight",""), P("Skinny Jeans","pants","ankle","skinny",""),
+  P("Slim Jeans","pants","ankle","skinny","cuff"), P("Relaxed Jeans","pants","ankle","wide",""),
+  P("Ripped Jeans","pants","ankle","straight","rip"), P("Bootcut Jeans","pants","ankle","boot",""),
+  P("Cargo Pants","pants","ankle","wide","cargo"), P("Cargo Shorts","shorts","knee","wide","cargo"),
+  P("Chinos","pants","ankle","straight",""), P("Khakis","pants","ankle","straight","cuff"),
+  P("Joggers","pants","ankle","straight","cuff"), P("Sweatpants","pants","ankle","wide","track"),
+  P("Track Pants","pants","ankle","straight","track"), P("Athletic Shorts","shorts","knee","wide","track"),
+  P("Basketball Shorts","shorts","knee","wide",""), P("Denim Shorts","shorts","knee","straight",""),
+  P("Bermuda Shorts","shorts","knee","straight","cuff"), P("Board Shorts","shorts","knee","wide",""),
+  P("Dress Pants","pants","ankle","straight",""), P("Corduroy Pants","pants","ankle","straight","pleat"),
+  P("Overalls","pants","ankle","straight","overall"), P("Carpenter Jeans","pants","ankle","wide","cargo"),
+  P("Cuffed Jeans","pants","ankle","straight","cuff"), P("Linen Pants","pants","ankle","wide",""),
+  P("Capri Pants","pants","capri","straight",""), P("Camo Pants","pants","ankle","wide","camo"),
+  P("Pleated Trousers","pants","ankle","straight","pleat"), P("Wide-Leg Pants","pants","ankle","wide",""),
+  P("Cropped Pants","pants","crop","straight",""),
+];
+function hairListFor(g){ return g==="girl" ? HAIR_GIRL : HAIR_BOY; }
+function pantsListFor(g){ return g==="girl" ? PANTS_GIRL : PANTS_BOY; }
+function curHairStyle(cfg){ var l=hairListFor(cfg.gender||"boy"); return l[Math.min(cfg.hairStyle||0, l.length-1)]; }
+function curPantsStyle(cfg){ var l=pantsListFor(cfg.gender||"boy"); return l[Math.min(cfg.pantsStyle||0, l.length-1)]; }
 
 // Seashells you can find on the sand. Rarer shells are far less common and sell
 // for much more. "shape" drives how the little shell is drawn.
@@ -487,6 +567,106 @@ function BoatSVG({ boat, W=200 }) {
 }
 
 // ─── CHARACTER SVG (detailed, proportional) ───────────────────────────────────
+// Draws hair for the current style on top of the head. Long hair drapes down
+// over the shoulders; ties/buns/braids/afros are added per style.
+function HairLayer({ cfg, W, H, cx }) {
+  const p = curHairStyle(cfg);
+  const col = cfg.hairColor || "#2C1A0A";
+  const hi = shadeHex(col, 26), lo = shadeHex(col, -26);
+  const headCy = H*.17, hrx = W*.30, hry = H*.13, top = H*.035;
+  const vol = p.vol || 1;
+  const els = [];
+  if (p.tie === "bald") {
+    return <g><ellipse cx={cx} cy={headCy-hry*.55} rx={hrx*.5} ry={hry*.25} fill="rgba(255,255,255,.06)"/></g>;
+  }
+  // length of side/back hair falling past the head
+  const fall = p.len>=5 ? H*.50 : p.len===4 ? H*.37 : p.len===3 ? H*.285 : 0;
+  // back/side hair drawn first so the crown sits on top
+  if (fall>0) {
+    const ow = hrx*1.18*vol;       // how far hair sticks out at the sides
+    const bw = (p.tex===2) ? hrx*1.05*vol : hrx*0.92*vol;
+    els.push(<path key="backL" d={`M ${cx-hrx*.96},${headCy-hry*.3} Q ${cx-ow},${(headCy+fall)/2} ${cx-bw},${fall} Q ${cx-hrx*.45},${fall+H*.012} ${cx-hrx*.5},${headCy+hry*.3} Z`} fill={col}/>);
+    els.push(<path key="backR" d={`M ${cx+hrx*.96},${headCy-hry*.3} Q ${cx+ow},${(headCy+fall)/2} ${cx+bw},${fall} Q ${cx+hrx*.45},${fall+H*.012} ${cx+hrx*.5},${headCy+hry*.3} Z`} fill={col}/>);
+    // a center back panel peeking behind the neck
+    els.push(<rect key="backC" x={cx-hrx*.5} y={headCy} width={hrx} height={fall-headCy} fill={lo} opacity=".9"/>);
+    // wave/curl texture hints along the bottom
+    if (p.tex>=1) {
+      for (let w=0; w<5; w++){ els.push(<circle key={"wv"+w} cx={cx-bw + (w*(2*bw)/4)} cy={fall} r={p.tex===2?W*.07:W*.05} fill={p.tex===2?col:hi} opacity=".85"/>); }
+    }
+  }
+  // crown cap over the top of the head
+  els.push(<path key="crown" d={`M ${cx-hrx*1.04},${headCy-hry*.05} Q ${cx-hrx*1.06},${top} ${cx},${top-H*.012} Q ${cx+hrx*1.06},${top} ${cx+hrx*1.04},${headCy-hry*.05} Q ${cx},${headCy-hry*.5} ${cx-hrx*1.04},${headCy-hry*.05} Z`} fill={col}/>);
+  els.push(<ellipse key="crownhi" cx={cx-hrx*.4} cy={top+H*.02} rx={hrx*.34} ry={hry*.26} fill={hi} opacity=".5"/>);
+  // afro: big round volume
+  if (p.tie==="afro") {
+    els.length = 0;
+    els.push(<circle key="afro" cx={cx} cy={headCy-hry*.35} r={hrx*1.35*vol} fill={col}/>);
+    for (let a=0;a<14;a++){ const ang=a/14*Math.PI*2; els.push(<circle key={"ap"+a} cx={cx+Math.cos(ang)*hrx*1.2*vol} cy={headCy-hry*.35+Math.sin(ang)*hrx*1.2*vol} r={hrx*.34} fill={a%2?hi:col}/>); }
+  }
+  // bangs / fringe over the forehead
+  if (p.bangs===1) els.push(<path key="bang" d={`M ${cx-hrx*.95},${headCy-hry*.35} Q ${cx},${headCy+hry*.28} ${cx+hrx*.95},${headCy-hry*.35} L ${cx+hrx*.95},${headCy-hry*.65} L ${cx-hrx*.95},${headCy-hry*.65} Z`} fill={col}/>);
+  else if (p.bangs===2) els.push(<path key="bang" d={`M ${cx-hrx*1.0},${headCy-hry*.55} Q ${cx-hrx*.2},${headCy+hry*.05} ${cx+hrx*.98},${headCy-hry*.2} L ${cx+hrx*.98},${headCy-hry*.7} L ${cx-hrx*1.0},${headCy-hry*.7} Z`} fill={col}/>);
+  else if (p.bangs===3) { els.push(<path key="bangL" d={`M ${cx},${headCy-hry*.7} Q ${cx-hrx*.7},${headCy-hry*.2} ${cx-hrx*.98},${headCy+hry*.05} L ${cx-hrx*.98},${headCy-hry*.7} Z`} fill={col}/>); els.push(<path key="bangR" d={`M ${cx},${headCy-hry*.7} Q ${cx+hrx*.7},${headCy-hry*.2} ${cx+hrx*.98},${headCy+hry*.05} L ${cx+hrx*.98},${headCy-hry*.7} Z`} fill={col}/>); }
+  // ties / buns / hawks
+  const t = p.tie;
+  if (t==="pony" || t==="sidepony") { const px = t==="sidepony"? cx+hrx*.95 : cx; els.push(<ellipse key="ptie" cx={px} cy={t==="sidepony"?headCy:top+H*.02} rx={W*.05} ry={W*.05} fill={lo}/>); els.push(<path key="pony" d={`M ${px},${t==="sidepony"?headCy:top} Q ${px+hrx*.7},${headCy+H*.12} ${px+hrx*.5},${headCy+H*.30}`} stroke={col} strokeWidth={W*.16} fill="none" strokeLinecap="round"/>); }
+  if (t==="pigtails") { [-1,1].forEach(function(s){ els.push(<path key={"pt"+s} d={`M ${cx+s*hrx*.9},${headCy-hry*.1} Q ${cx+s*hrx*1.5},${headCy+H*.10} ${cx+s*hrx*1.25},${headCy+H*.26}`} stroke={col} strokeWidth={W*.14} fill="none" strokeLinecap="round"/>); els.push(<circle key={"pte"+s} cx={cx+s*hrx*.9} cy={headCy-hry*.05} r={W*.045} fill={lo}/>); }); }
+  if (t==="spacebuns") { [-1,1].forEach(function(s){ els.push(<circle key={"sb"+s} cx={cx+s*hrx*.85} cy={top+H*.01} r={W*.13} fill={col}/>); els.push(<circle key={"sbh"+s} cx={cx+s*hrx*.85} cy={top+H*.01} r={W*.13} fill="none" stroke={lo} strokeWidth="1.5"/>); }); }
+  if (t==="bun" || t==="highbun" || t==="topknot" || t==="manbun") { const by = (t==="bun")? top+H*.0 : top-H*.02; els.push(<circle key="bun" cx={cx} cy={by} r={W*.16} fill={col}/>); els.push(<ellipse key="bunh" cx={cx-W*.05} cy={by-W*.04} rx={W*.07} ry={W*.05} fill={hi} opacity=".5"/>); if(t==="manbun"){ els.push(<circle key="mbring" cx={cx} cy={by} r={W*.16} fill="none" stroke={lo} strokeWidth="2"/>); } }
+  if (t==="braid" || t==="sidebraid") { const bx = t==="sidebraid"? cx+hrx*.6 : cx; for (let k=0;k<5;k++){ els.push(<ellipse key={"br"+k} cx={bx + (t==="sidebraid"? k*W*.04 : 0)} cy={headCy+H*.06+k*H*.075} rx={W*.10} ry={W*.06} fill={k%2?hi:col}/>); } }
+  if (t==="halfup") { els.push(<path key="hu" d={`M ${cx-hrx*.9},${headCy-hry*.2} Q ${cx},${top} ${cx+hrx*.9},${headCy-hry*.2}`} stroke={lo} strokeWidth={W*.05} fill="none"/>); els.push(<circle key="hub" cx={cx} cy={top+H*.01} r={W*.07} fill={col}/>); }
+  if (t==="mohawk") els.push(<path key="moh" d={`M ${cx-W*.06},${headCy-hry*.2} L ${cx-W*.10},${top-H*.03} L ${cx+W*.10},${top-H*.03} L ${cx+W*.06},${headCy-hry*.2} Z`} fill={col}/>);
+  if (t==="fauxhawk") els.push(<path key="fh" d={`M ${cx-W*.09},${top+H*.01} Q ${cx},${top-H*.04} ${cx+W*.09},${top+H*.01} L ${cx+W*.05},${top+H*.03} L ${cx-W*.05},${top+H*.03} Z`} fill={hi}/>);
+  if (t==="spiky") { for (let k=0;k<7;k++){ const sx=cx-hrx*.9 + k*(hrx*1.8/6); els.push(<polygon key={"sp"+k} points={`${sx-W*.04},${top+H*.02} ${sx},${top-H*.04} ${sx+W*.04},${top+H*.02}`} fill={col}/>); } }
+  if (t==="quiff" || t==="pomp") els.push(<path key="qf" d={`M ${cx-hrx*.95},${headCy-hry*.45} Q ${cx-hrx*.3},${top-H*.05} ${cx+hrx*.4},${headCy-hry*.5} L ${cx+hrx*.4},${headCy-hry*.2} L ${cx-hrx*.95},${headCy-hry*.2} Z`} fill={hi}/>);
+  if (t==="flattop") els.push(<rect key="ft" x={cx-hrx*1.0} y={top-H*.01} width={hrx*2.0} height={hry*.5} fill={col}/>);
+  if (t==="dreads") { for (let k=0;k<7;k++){ const dx=cx-hrx*.95 + k*(hrx*1.9/6); els.push(<rect key={"dr"+k} x={dx-W*.02} y={top} width={W*.04} height={H*.10} rx={W*.02} fill={k%2?hi:col}/>); } }
+  if (t==="slick" || t==="comb") els.push(<path key="sk" d={`M ${cx-hrx*1.0},${headCy-hry*.55} Q ${cx},${headCy-hry*.85} ${cx+hrx*1.0},${headCy-hry*.45}`} stroke={lo} strokeWidth={W*.02} fill="none"/>);
+  return <g>{els}</g>;
+}
+
+// Draws the chosen pants/shorts/skirt over bare skin legs, with cut/length/
+// width and accents (rips, cargo pockets, cuffs, overall straps, camo, pleats).
+function LegsLayer({ cfg, W, H, cx }) {
+  const p = curPantsStyle(cfg);
+  const fab = cfg.pants || "#37474F";
+  const fabHi = shadeHex(fab, 22), fabLo = shadeHex(fab, -28), skin = cfg.skin || "#F5C6A0";
+  const thighTop = H*.52, hipY = H*.50, ankleY = H*.92;
+  const els = [];
+  // bare legs underneath (so shorts/skirts reveal skin)
+  els.push(<rect key="skL" x={cx-W*.24} y={thighTop} width={W*.20} height={ankleY-thighTop} rx={W*.05} fill={skin}/>);
+  els.push(<rect key="skR" x={cx+W*.04} y={thighTop} width={W*.20} height={ankleY-thighTop} rx={W*.05} fill={skin}/>);
+
+  function bottomY(){ if(p.cut==="shorts"){ return p.len==="mini"? H*.66 : H*.71; } if(p.cut==="skirt"){ return p.len==="maxi"? H*.90 : p.len==="pencil"? H*.84 : H*.70; } return p.len==="capri"? H*.80 : p.len==="crop"? H*.84 : ankleY; }
+  function botHalf(){ switch(p.wid){ case "skinny": return W*.085; case "wide": return W*.135; case "flare": return W*.16; case "boot": return W*.12; default: return W*.105; } }
+  const bY = bottomY(), bh = botHalf(), th = W*.11;
+
+  if (p.cut==="skirt") {
+    const sw = p.wid==="flare"? W*.40 : p.wid==="skinny"? W*.24 : W*.34;
+    els.push(<path key="skirt" d={`M ${cx-W*.30},${hipY} L ${cx+W*.30},${hipY} L ${cx+sw},${bY} L ${cx-sw},${bY} Z`} fill={fab}/>);
+    els.push(<path key="skirtHi" d={`M ${cx-W*.30},${hipY} L ${cx-W*.06},${hipY} L ${cx-sw*.5},${bY} L ${cx-sw},${bY} Z`} fill={fabHi} opacity=".35"/>);
+    if (p.acc==="pleat") { for (let k=0;k<7;k++){ const fx=cx-sw + k*(2*sw/6); els.push(<line key={"pl"+k} x1={cx-W*.26+k*(W*.52/6)} y1={hipY} x2={fx} y2={bY} stroke={fabLo} strokeWidth="1.4" opacity=".7"/>); } }
+    els.push(<rect key="hem" x={cx-sw} y={bY-H*.012} width={sw*2} height={H*.012} fill={fabLo}/>);
+  } else {
+    [-1,1].forEach(function(s){
+      const xc = cx + s*W*.145;
+      els.push(<polygon key={"leg"+s} points={`${xc-th},${thighTop} ${xc+th},${thighTop} ${xc+bh},${bY} ${xc-bh},${bY}`} fill={fab}/>);
+      if (s<0) els.push(<polygon key="legHi" points={`${xc-th},${thighTop} ${xc-th*.3},${thighTop} ${xc-bh*.3},${bY} ${xc-bh},${bY}`} fill={fabHi} opacity=".35"/>);
+      if (p.acc==="rip") { els.push(<rect key={"rip"+s} x={xc-th*.7} y={H*.70} width={th*1.4} height={H*.02} fill={skin}/>); }
+      if (p.acc==="cargo") { els.push(<rect key={"cg"+s} x={xc + (s<0? -bh : bh*.2)} y={H*.62} width={W*.06} height={H*.06} rx={W*.01} fill={fabLo}/>); }
+      if (p.acc==="cuff") { els.push(<rect key={"cf"+s} x={xc-bh} y={bY-H*.022} width={bh*2} height={H*.022} fill={fabLo}/>); }
+      if (p.acc==="track") { els.push(<line key={"tk"+s} x1={xc+ (s<0?-th*.7:th*.7)} y1={thighTop} x2={xc+(s<0?-bh*.7:bh*.7)} y2={bY} stroke="#fff" strokeWidth="2" opacity=".7"/>); }
+      if (p.acc==="pleat") { els.push(<line key={"pp"+s} x1={xc} y1={thighTop} x2={xc} y2={bY} stroke={fabLo} strokeWidth="1.4" opacity=".7"/>); }
+      if (p.acc==="camo") { for (let c=0;c<5;c++){ els.push(<ellipse key={"cm"+s+c} cx={xc-th*.5+Math.random()*th} cy={thighTop+ (c+0.5)*((bY-thighTop)/5)} rx={W*.03} ry={W*.025} fill={shadeHex(fab, c%2?-40:30)} opacity=".8"/>); } }
+    });
+  }
+  // belt for trousers/shorts
+  if (p.cut!=="skirt") { els.push(<rect key="belt" x={cx-W*.28} y={H*.50} width={W*.56} height={H*.03} rx={W*.01} fill="#5D4037"/>); els.push(<rect key="buck" x={cx-W*.04} y={H*.485} width={W*.08} height={H*.04} rx={W*.01} fill="#FFD54F"/>); }
+  // overall straps over the torso
+  if (p.acc==="overall") { [-1,1].forEach(function(s){ els.push(<rect key={"ov"+s} x={cx+s*W*.16-W*.03} y={H*.33} width={W*.06} height={H*.19} fill={fab}/>); }); els.push(<rect key="bib" x={cx-W*.14} y={H*.42} width={W*.28} height={H*.10} rx={W*.02} fill={fab}/>); }
+  return <g>{els}</g>;
+}
+
 function CharSVG({ cfg, size=90 }) {
   const W=size, H=size*2.6;
   const cx=W/2;
@@ -498,18 +678,8 @@ function CharSVG({ cfg, size=90 }) {
       {/* Shoes */}
       <ellipse cx={cx-W*.16} cy={H*0.945} rx={W*.18} ry={W*.08} fill="#1A1A1A"/>
       <ellipse cx={cx+W*.16} cy={H*0.945} rx={W*.18} ry={W*.08} fill="#1A1A1A"/>
-      {/* Lower legs */}
-      <rect x={cx-W*.24} y={H*.72} width={W*.20} height={H*.22} rx={W*.05} fill={cfg.pants}/>
-      <rect x={cx+W*.04} y={H*.72} width={W*.20} height={H*.22} rx={W*.05} fill={cfg.pants}/>
-      {/* Knees highlight */}
-      <ellipse cx={cx-W*.14} cy={H*.72} rx={W*.08} ry={W*.06} fill="rgba(255,255,255,.1)"/>
-      <ellipse cx={cx+W*.14} cy={H*.72} rx={W*.08} ry={W*.06} fill="rgba(255,255,255,.1)"/>
-      {/* Upper legs */}
-      <rect x={cx-W*.26} y={H*.52} width={W*.22} height={H*.22} rx={W*.06} fill={cfg.pants}/>
-      <rect x={cx+W*.04} y={H*.52} width={W*.22} height={H*.22} rx={W*.06} fill={cfg.pants}/>
-      {/* Belt */}
-      <rect x={cx-W*.28} y={H*.51} width={W*.56} height={H*.03} rx={W*.01} fill="#5D4037"/>
-      <rect x={cx-W*.04} y={H*.49} width={W*.08} height={H*.04} rx={W*.01} fill="#FFD54F"/>
+      {/* Legs + chosen pants/shorts/skirt style */}
+      <LegsLayer cfg={cfg} W={W} H={H} cx={cx}/>
       {/* Torso */}
       <rect x={cx-W*.28} y={H*.32} width={W*.56} height={H*.21} rx={W*.07} fill={cfg.shirt}/>
       {/* Shirt shading */}
@@ -530,8 +700,8 @@ function CharSVG({ cfg, size=90 }) {
       <ellipse cx={cx-W*.28} cy={H*.17} rx={W*.06} ry={W*.08} fill={cfg.skin}/>
       {/* Ear right */}
       <ellipse cx={cx+W*.28} cy={H*.17} rx={W*.06} ry={W*.08} fill={cfg.skin}/>
-      {/* Hair */}
-      <ellipse cx={cx} cy={H*.09} rx={W*.30} ry={H*.08} fill="#2C1A0A"/>
+      {/* Hair — chosen style + color */}
+      <HairLayer cfg={cfg} W={W} H={H} cx={cx}/>
       {/* Hat */}
       {cfg.hat==="cap"&&<>
         <rect x={cx-W*.26} y={H*.055} width={W*.52} height={H*.06} rx={W*.05} fill={cfg.hatColor}/>
@@ -3521,7 +3691,7 @@ function ShopView({ shop, money, setMoney, inv, setInv, rodId, setRodId, ownedRo
 function App() {
   const [screen,  setScreen]  = useState("title");
   const [tab,     setTab]     = useState("fish");
-  const [cfg,     setCfg]     = useState({ skin:SKIN[1], shirt:SHIRT[0], pants:PANTS[0], hat:"cap", hatColor:HATC[0], name:"Angler" });
+  const [cfg,     setCfg]     = useState({ skin:SKIN[1], shirt:SHIRT[0], pants:PANTS[0], hat:"none", hatColor:HATC[0], name:"Angler", gender:"boy", hairStyle:2, hairColor:HAIRC[0], pantsStyle:0 });
   const [money,   setMoney]   = useState(10000000000);
   const [boatId,  setBoatId]  = useState("skiff");
   const [homeMode,   setHomeMode]   = useState("boat");   // "boat" = live on the water, "land" = live in a house
@@ -3730,7 +3900,7 @@ function App() {
   if(screen==="character") return (
     <div style={{minHeight:"100vh",background:"linear-gradient(160deg,#0D1B2A,#1A2A3A)",color:"#EEE",display:"flex",flexDirection:"column",alignItems:"center",padding:24,gap:16,fontFamily:"Georgia,serif"}}>
       <h2 style={{color:"#FFD54F",margin:0}}>Create Your Angler</h2>
-      <div style={{background:"linear-gradient(160deg,#142030,#1E3A5A)",borderRadius:16,padding:20,border:"1px solid #2A4A6A",width:"100%",maxWidth:520,boxShadow:"0 8px 32px rgba(0,0,0,.4)"}}>
+      <div style={{background:"linear-gradient(160deg,#142030,#1E3A5A)",borderRadius:16,padding:20,border:"1px solid #2A4A6A",width:"100%",maxWidth:540,boxShadow:"0 8px 32px rgba(0,0,0,.4)"}}>
         <div style={{display:"flex",gap:20,flexWrap:"wrap",justifyContent:"center"}}>
           <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:10}}>
             <div style={{background:"#0D1B2A",borderRadius:14,padding:12,border:"1px solid #2A4A6A"}}>
@@ -3739,15 +3909,24 @@ function App() {
             <input value={cfg.name} onChange={e=>setCfg(c=>(Object.assign({}, c, {name:e.target.value})))} style={{background:"#0D1B2A",border:"1px solid #2A4A6A",color:"#EEE",borderRadius:8,padding:"7px 12px",fontFamily:"Georgia",textAlign:"center",width:130,fontSize:14}} placeholder="Your name"/>
           </div>
           <div style={{flex:1,minWidth:200}}>
-            {[{label:"Skin",key:"skin",opts:SKIN},{label:"Shirt",key:"shirt",opts:SHIRT},{label:"Pants",key:"pants",opts:PANTS},{label:"Hat Color",key:"hatColor",opts:HATC}].map(row=>(
-              <div key={row.key} style={{marginBottom:12}}>
+            {/* Gender — switches hair/pants style lists */}
+            <div style={{marginBottom:12}}>
+              <div style={{fontSize:10,color:"#90CAF9",letterSpacing:1,marginBottom:5}}>GENDER</div>
+              <div style={{display:"flex",gap:8}}>
+                {[["girl","Girl"],["boy","Boy"]].map(([g,label])=>(
+                  <button key={g} onClick={()=>setCfg(c=>Object.assign({},c,{gender:g,hairStyle:0,pantsStyle:0}))} style={{flex:1,padding:"9px 0",background:cfg.gender===g?"linear-gradient(135deg,#FFD54F,#FF8F00)":"#0D1B2A",color:cfg.gender===g?"#1A1A1A":"#90CAF9",border:"1px solid #2A4A6A",borderRadius:9,cursor:"pointer",fontSize:14,fontFamily:"Georgia",fontWeight:"bold"}}>{label}</button>
+                ))}
+              </div>
+            </div>
+            {[{label:"Skin",key:"skin",opts:SKIN},{label:"Shirt",key:"shirt",opts:SHIRT},{label:"Pants Color",key:"pants",opts:PANTS},{label:"Hair Color",key:"hairColor",opts:HAIRC},{label:"Hat Color",key:"hatColor",opts:HATC}].map(row=>(
+              <div key={row.key} style={{marginBottom:10}}>
                 <div style={{fontSize:10,color:"#90CAF9",letterSpacing:1,marginBottom:5}}>{row.label.toUpperCase()}</div>
                 <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
-                  {row.opts.map(c=><div key={c} onClick={()=>setCfg(x=>(Object.assign({}, x, {[row.key]:c})))} style={{width:26,height:26,borderRadius:"50%",background:c,cursor:"pointer",border:cfg[row.key]===c?"3px solid #FFD54F":"3px solid rgba(255,255,255,.1)",boxSizing:"border-box"}}/>)}
+                  {row.opts.map(c=><div key={c} onClick={()=>setCfg(x=>(Object.assign({}, x, {[row.key]:c})))} style={{width:24,height:24,borderRadius:"50%",background:c,cursor:"pointer",border:cfg[row.key]===c?"3px solid #FFD54F":"3px solid rgba(255,255,255,.1)",boxSizing:"border-box"}}/>)}
                 </div>
               </div>
             ))}
-            <div style={{marginBottom:10}}>
+            <div style={{marginBottom:4}}>
               <div style={{fontSize:10,color:"#90CAF9",letterSpacing:1,marginBottom:5}}>HAT</div>
               <div style={{display:"flex",gap:6}}>
                 {["none","cap","wide","captain"].map(h=>(
@@ -3755,6 +3934,26 @@ function App() {
                 ))}
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Hairstyle picker */}
+        <div style={{marginTop:16}}>
+          <div style={{fontSize:10,color:"#90CAF9",letterSpacing:1,marginBottom:6}}>HAIRSTYLE — {hairListFor(cfg.gender).length} STYLES</div>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap",maxHeight:108,overflowY:"auto",padding:"2px 2px 4px"}}>
+            {hairListFor(cfg.gender).map((hs,i)=>(
+              <button key={i} onClick={()=>setCfg(c=>Object.assign({},c,{hairStyle:i}))} style={{padding:"5px 9px",background:cfg.hairStyle===i?"linear-gradient(135deg,#1565C0,#1976D2)":"#0D1B2A",color:cfg.hairStyle===i?"#FFD54F":"#90CAF9",border:`1px solid ${cfg.hairStyle===i?"#FFD54F":"#2A4A6A"}`,borderRadius:7,cursor:"pointer",fontSize:11,fontFamily:"Georgia",whiteSpace:"nowrap"}}>{i+1}. {hs.n}</button>
+            ))}
+          </div>
+        </div>
+
+        {/* Pants style picker */}
+        <div style={{marginTop:12}}>
+          <div style={{fontSize:10,color:"#90CAF9",letterSpacing:1,marginBottom:6}}>PANTS STYLE — {pantsListFor(cfg.gender).length} STYLES</div>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap",maxHeight:108,overflowY:"auto",padding:"2px 2px 4px"}}>
+            {pantsListFor(cfg.gender).map((ps,i)=>(
+              <button key={i} onClick={()=>setCfg(c=>Object.assign({},c,{pantsStyle:i}))} style={{padding:"5px 9px",background:cfg.pantsStyle===i?"linear-gradient(135deg,#1565C0,#1976D2)":"#0D1B2A",color:cfg.pantsStyle===i?"#FFD54F":"#90CAF9",border:`1px solid ${cfg.pantsStyle===i?"#FFD54F":"#2A4A6A"}`,borderRadius:7,cursor:"pointer",fontSize:11,fontFamily:"Georgia",whiteSpace:"nowrap"}}>{i+1}. {ps.n}</button>
+            ))}
           </div>
         </div>
       </div>
