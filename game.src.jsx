@@ -567,53 +567,65 @@ function BoatSVG({ boat, W=200 }) {
 }
 
 // ─── CHARACTER SVG (detailed, proportional) ───────────────────────────────────
-// Draws hair for the current style on top of the head. Long hair drapes down
-// over the shoulders; ties/buns/braids/afros are added per style.
-function HairLayer({ cfg, W, H, cx }) {
+// Hair is split into parts so it layers correctly:
+//   part "fall"     – long hair that hangs down the BACK (drawn behind the body)
+//   part "top"      – crown, bangs, ties/buns/braids (drawn on top, front view)
+//   part "backfull" – full back-of-head hair for the rotated rear view
+function Hair({ cfg, W, H, cx, part }) {
   const p = curHairStyle(cfg);
   const col = cfg.hairColor || "#2C1A0A";
   const hi = shadeHex(col, 26), lo = shadeHex(col, -26);
   const headCy = H*.17, hrx = W*.30, hry = H*.13, top = H*.035;
   const vol = p.vol || 1;
+  const t = p.tie;
+  const fall = p.len>=5 ? H*.52 : p.len===4 ? H*.38 : p.len===3 ? H*.30 : 0;
+
+  // The long mane that hangs down the back. Used behind the body (front view)
+  // and on top of the back (rear view).
+  function fallEls(key) {
+    const e = [];
+    if (p.tie==="bald" || fall<=0) return e;
+    const ow = hrx*1.30*vol, bw = (p.tex===2) ? hrx*1.15*vol : hrx*1.0*vol;
+    e.push(<path key={key+"L"} d={`M ${cx-hrx*1.0},${headCy-hry*.2} Q ${cx-ow},${(headCy+fall)/2} ${cx-bw},${fall} Q ${cx},${fall+H*.02} ${cx+bw},${fall} Q ${cx+ow},${(headCy+fall)/2} ${cx+hrx*1.0},${headCy-hry*.2} Q ${cx},${headCy+hry*.4} ${cx-hrx*1.0},${headCy-hry*.2} Z`} fill={col}/>);
+    e.push(<path key={key+"sh"} d={`M ${cx},${headCy} Q ${cx-bw*.55},${(headCy+fall)/2} ${cx-bw*.4},${fall} L ${cx+bw*.4},${fall} Q ${cx+bw*.55},${(headCy+fall)/2} ${cx},${headCy} Z`} fill={lo} opacity=".55"/>);
+    if (p.tex>=1) for (let w=0; w<5; w++){ e.push(<circle key={key+"wv"+w} cx={cx-bw + (w*(2*bw)/4)} cy={fall} r={p.tex===2?W*.075:W*.055} fill={p.tex===2?col:hi} opacity=".9"/>); }
+    return e;
+  }
+
+  if (part === "fall") return <g>{fallEls("f")}</g>;
+
+  if (part === "backfull") {
+    const e = [];
+    if (p.tie==="bald") return <g/>;
+    e.push.apply(e, fallEls("bf"));
+    // full hair cap covering the whole back of the head (no face shows)
+    e.push(<ellipse key="cap" cx={cx} cy={headCy-hry*.06} rx={hrx*1.06*vol} ry={hry*1.05} fill={col}/>);
+    e.push(<ellipse key="caphi" cx={cx-hrx*.3} cy={headCy-hry*.3} rx={hrx*.4} ry={hry*.4} fill={hi} opacity=".4"/>);
+    if (t==="afro") { e.length=0; e.push(<circle key="afb" cx={cx} cy={headCy-hry*.3} r={hrx*1.4*vol} fill={col}/>); for (let a=0;a<14;a++){ const ang=a/14*Math.PI*2; e.push(<circle key={"afp"+a} cx={cx+Math.cos(ang)*hrx*1.25*vol} cy={headCy-hry*.3+Math.sin(ang)*hrx*1.25*vol} r={hrx*.34} fill={a%2?hi:col}/>); } }
+    if (t==="pony"||t==="sidepony") e.push(<path key="pn" d={`M ${cx},${top} Q ${cx+hrx*.4},${headCy+H*.16} ${cx},${headCy+H*.34}`} stroke={col} strokeWidth={W*.18} fill="none" strokeLinecap="round"/>);
+    if (t==="pigtails") [-1,1].forEach(function(s){ e.push(<path key={"pgb"+s} d={`M ${cx+s*hrx*.8},${headCy} Q ${cx+s*hrx*1.3},${headCy+H*.12} ${cx+s*hrx*1.0},${headCy+H*.30}`} stroke={col} strokeWidth={W*.15} fill="none" strokeLinecap="round"/>); });
+    if (t==="braid"||t==="sidebraid") for (let k=0;k<6;k++){ e.push(<ellipse key={"bbr"+k} cx={cx} cy={headCy+H*.04+k*H*.075} rx={W*.11} ry={W*.06} fill={k%2?hi:col}/>); }
+    if (t==="bun"||t==="highbun"||t==="topknot"||t==="manbun") e.push(<circle key="bbun" cx={cx} cy={top+H*.0} r={W*.16} fill={col}/>);
+    if (t==="spacebuns") [-1,1].forEach(function(s){ e.push(<circle key={"bsb"+s} cx={cx+s*hrx*.85} cy={top+H*.01} r={W*.13} fill={col}/>); });
+    return <g>{e}</g>;
+  }
+
+  // part === "top": crown + bangs + ties on the front-facing head
   const els = [];
-  if (p.tie === "bald") {
-    return <g><ellipse cx={cx} cy={headCy-hry*.55} rx={hrx*.5} ry={hry*.25} fill="rgba(255,255,255,.06)"/></g>;
-  }
-  // length of side/back hair falling past the head
-  const fall = p.len>=5 ? H*.50 : p.len===4 ? H*.37 : p.len===3 ? H*.285 : 0;
-  // back/side hair drawn first so the crown sits on top
-  if (fall>0) {
-    const ow = hrx*1.18*vol;       // how far hair sticks out at the sides
-    const bw = (p.tex===2) ? hrx*1.05*vol : hrx*0.92*vol;
-    els.push(<path key="backL" d={`M ${cx-hrx*.96},${headCy-hry*.3} Q ${cx-ow},${(headCy+fall)/2} ${cx-bw},${fall} Q ${cx-hrx*.45},${fall+H*.012} ${cx-hrx*.5},${headCy+hry*.3} Z`} fill={col}/>);
-    els.push(<path key="backR" d={`M ${cx+hrx*.96},${headCy-hry*.3} Q ${cx+ow},${(headCy+fall)/2} ${cx+bw},${fall} Q ${cx+hrx*.45},${fall+H*.012} ${cx+hrx*.5},${headCy+hry*.3} Z`} fill={col}/>);
-    // a center back panel peeking behind the neck
-    els.push(<rect key="backC" x={cx-hrx*.5} y={headCy} width={hrx} height={fall-headCy} fill={lo} opacity=".9"/>);
-    // wave/curl texture hints along the bottom
-    if (p.tex>=1) {
-      for (let w=0; w<5; w++){ els.push(<circle key={"wv"+w} cx={cx-bw + (w*(2*bw)/4)} cy={fall} r={p.tex===2?W*.07:W*.05} fill={p.tex===2?col:hi} opacity=".85"/>); }
-    }
-  }
-  // crown cap over the top of the head
+  if (p.tie === "bald") return <g><ellipse cx={cx} cy={headCy-hry*.55} rx={hrx*.5} ry={hry*.25} fill="rgba(255,255,255,.06)"/></g>;
   els.push(<path key="crown" d={`M ${cx-hrx*1.04},${headCy-hry*.05} Q ${cx-hrx*1.06},${top} ${cx},${top-H*.012} Q ${cx+hrx*1.06},${top} ${cx+hrx*1.04},${headCy-hry*.05} Q ${cx},${headCy-hry*.5} ${cx-hrx*1.04},${headCy-hry*.05} Z`} fill={col}/>);
   els.push(<ellipse key="crownhi" cx={cx-hrx*.4} cy={top+H*.02} rx={hrx*.34} ry={hry*.26} fill={hi} opacity=".5"/>);
-  // afro: big round volume
   if (p.tie==="afro") {
     els.length = 0;
     els.push(<circle key="afro" cx={cx} cy={headCy-hry*.35} r={hrx*1.35*vol} fill={col}/>);
     for (let a=0;a<14;a++){ const ang=a/14*Math.PI*2; els.push(<circle key={"ap"+a} cx={cx+Math.cos(ang)*hrx*1.2*vol} cy={headCy-hry*.35+Math.sin(ang)*hrx*1.2*vol} r={hrx*.34} fill={a%2?hi:col}/>); }
   }
-  // bangs / fringe over the forehead
   if (p.bangs===1) els.push(<path key="bang" d={`M ${cx-hrx*.95},${headCy-hry*.35} Q ${cx},${headCy+hry*.28} ${cx+hrx*.95},${headCy-hry*.35} L ${cx+hrx*.95},${headCy-hry*.65} L ${cx-hrx*.95},${headCy-hry*.65} Z`} fill={col}/>);
   else if (p.bangs===2) els.push(<path key="bang" d={`M ${cx-hrx*1.0},${headCy-hry*.55} Q ${cx-hrx*.2},${headCy+hry*.05} ${cx+hrx*.98},${headCy-hry*.2} L ${cx+hrx*.98},${headCy-hry*.7} L ${cx-hrx*1.0},${headCy-hry*.7} Z`} fill={col}/>);
   else if (p.bangs===3) { els.push(<path key="bangL" d={`M ${cx},${headCy-hry*.7} Q ${cx-hrx*.7},${headCy-hry*.2} ${cx-hrx*.98},${headCy+hry*.05} L ${cx-hrx*.98},${headCy-hry*.7} Z`} fill={col}/>); els.push(<path key="bangR" d={`M ${cx},${headCy-hry*.7} Q ${cx+hrx*.7},${headCy-hry*.2} ${cx+hrx*.98},${headCy+hry*.05} L ${cx+hrx*.98},${headCy-hry*.7} Z`} fill={col}/>); }
-  // ties / buns / hawks
-  const t = p.tie;
-  if (t==="pony" || t==="sidepony") { const px = t==="sidepony"? cx+hrx*.95 : cx; els.push(<ellipse key="ptie" cx={px} cy={t==="sidepony"?headCy:top+H*.02} rx={W*.05} ry={W*.05} fill={lo}/>); els.push(<path key="pony" d={`M ${px},${t==="sidepony"?headCy:top} Q ${px+hrx*.7},${headCy+H*.12} ${px+hrx*.5},${headCy+H*.30}`} stroke={col} strokeWidth={W*.16} fill="none" strokeLinecap="round"/>); }
-  if (t==="pigtails") { [-1,1].forEach(function(s){ els.push(<path key={"pt"+s} d={`M ${cx+s*hrx*.9},${headCy-hry*.1} Q ${cx+s*hrx*1.5},${headCy+H*.10} ${cx+s*hrx*1.25},${headCy+H*.26}`} stroke={col} strokeWidth={W*.14} fill="none" strokeLinecap="round"/>); els.push(<circle key={"pte"+s} cx={cx+s*hrx*.9} cy={headCy-hry*.05} r={W*.045} fill={lo}/>); }); }
+  if (t==="pony" || t==="sidepony") { const px = t==="sidepony"? cx+hrx*.95 : cx; els.push(<ellipse key="ptie" cx={px} cy={t==="sidepony"?headCy:top+H*.02} rx={W*.05} ry={W*.05} fill={lo}/>); }
   if (t==="spacebuns") { [-1,1].forEach(function(s){ els.push(<circle key={"sb"+s} cx={cx+s*hrx*.85} cy={top+H*.01} r={W*.13} fill={col}/>); els.push(<circle key={"sbh"+s} cx={cx+s*hrx*.85} cy={top+H*.01} r={W*.13} fill="none" stroke={lo} strokeWidth="1.5"/>); }); }
   if (t==="bun" || t==="highbun" || t==="topknot" || t==="manbun") { const by = (t==="bun")? top+H*.0 : top-H*.02; els.push(<circle key="bun" cx={cx} cy={by} r={W*.16} fill={col}/>); els.push(<ellipse key="bunh" cx={cx-W*.05} cy={by-W*.04} rx={W*.07} ry={W*.05} fill={hi} opacity=".5"/>); if(t==="manbun"){ els.push(<circle key="mbring" cx={cx} cy={by} r={W*.16} fill="none" stroke={lo} strokeWidth="2"/>); } }
-  if (t==="braid" || t==="sidebraid") { const bx = t==="sidebraid"? cx+hrx*.6 : cx; for (let k=0;k<5;k++){ els.push(<ellipse key={"br"+k} cx={bx + (t==="sidebraid"? k*W*.04 : 0)} cy={headCy+H*.06+k*H*.075} rx={W*.10} ry={W*.06} fill={k%2?hi:col}/>); } }
   if (t==="halfup") { els.push(<path key="hu" d={`M ${cx-hrx*.9},${headCy-hry*.2} Q ${cx},${top} ${cx+hrx*.9},${headCy-hry*.2}`} stroke={lo} strokeWidth={W*.05} fill="none"/>); els.push(<circle key="hub" cx={cx} cy={top+H*.01} r={W*.07} fill={col}/>); }
   if (t==="mohawk") els.push(<path key="moh" d={`M ${cx-W*.06},${headCy-hry*.2} L ${cx-W*.10},${top-H*.03} L ${cx+W*.10},${top-H*.03} L ${cx+W*.06},${headCy-hry*.2} Z`} fill={col}/>);
   if (t==="fauxhawk") els.push(<path key="fh" d={`M ${cx-W*.09},${top+H*.01} Q ${cx},${top-H*.04} ${cx+W*.09},${top+H*.01} L ${cx+W*.05},${top+H*.03} L ${cx-W*.05},${top+H*.03} Z`} fill={hi}/>);
@@ -667,14 +679,16 @@ function LegsLayer({ cfg, W, H, cx }) {
   return <g>{els}</g>;
 }
 
-function CharSVG({ cfg, size=90 }) {
+function CharSVG({ cfg, size=90, facing="front" }) {
   const W=size, H=size*2.6;
   const cx=W/2;
-  // shadow
+  const back = facing === "back";
   return (
     <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{overflow:"visible",display:"block"}}>
       {/* Shadow */}
       <ellipse cx={cx} cy={H-.5} rx={W*.38} ry={5} fill="rgba(0,0,0,.18)"/>
+      {/* Long hair that hangs down the BACK is drawn behind the body (front view only) */}
+      {!back && <Hair cfg={cfg} W={W} H={H} cx={cx} part="fall"/>}
       {/* Shoes */}
       <ellipse cx={cx-W*.16} cy={H*0.945} rx={W*.18} ry={W*.08} fill="#1A1A1A"/>
       <ellipse cx={cx+W*.16} cy={H*0.945} rx={W*.18} ry={W*.08} fill="#1A1A1A"/>
@@ -684,8 +698,8 @@ function CharSVG({ cfg, size=90 }) {
       <rect x={cx-W*.28} y={H*.32} width={W*.56} height={H*.21} rx={W*.07} fill={cfg.shirt}/>
       {/* Shirt shading */}
       <rect x={cx-W*.28} y={H*.32} width={W*.18} height={H*.21} rx={W*.07} fill="rgba(255,255,255,.08)"/>
-      {/* Collar */}
-      <polygon points={`${cx-W*.06},${H*.32} ${cx},${H*.38} ${cx+W*.06},${H*.32}`} fill="rgba(255,255,255,.15)"/>
+      {/* Collar (front only) */}
+      {!back && <polygon points={`${cx-W*.06},${H*.32} ${cx},${H*.38} ${cx+W*.06},${H*.32}`} fill="rgba(255,255,255,.15)"/>}
       {/* Left arm */}
       <rect x={cx-W*.46} y={H*.33} width={W*.20} height={H*.30} rx={W*.06} fill={cfg.skin}/>
       <ellipse cx={cx-W*.36} cy={H*.63} rx={W*.09} ry={W*.07} fill={cfg.skin}/>
@@ -696,34 +710,61 @@ function CharSVG({ cfg, size=90 }) {
       <rect x={cx-W*.09} y={H*.23} width={W*.18} height={H*.11} rx={W*.05} fill={cfg.skin}/>
       {/* Head */}
       <ellipse cx={cx} cy={H*.17} rx={W*.30} ry={H*.13} fill={cfg.skin}/>
-      {/* Ear left */}
+      {/* Ears */}
       <ellipse cx={cx-W*.28} cy={H*.17} rx={W*.06} ry={W*.08} fill={cfg.skin}/>
-      {/* Ear right */}
       <ellipse cx={cx+W*.28} cy={H*.17} rx={W*.06} ry={W*.08} fill={cfg.skin}/>
-      {/* Hair — chosen style + color */}
-      <HairLayer cfg={cfg} W={W} H={H} cx={cx}/>
+      {/* Hair on the head */}
+      {back ? <Hair cfg={cfg} W={W} H={H} cx={cx} part="backfull"/> : <Hair cfg={cfg} W={W} H={H} cx={cx} part="top"/>}
       {/* Hat */}
       {cfg.hat==="cap"&&<>
         <rect x={cx-W*.26} y={H*.055} width={W*.52} height={H*.06} rx={W*.05} fill={cfg.hatColor}/>
-        <ellipse cx={cx+W*.14} cy={H*.085} rx={W*.28} ry={H*.025} fill={cfg.hatColor}/>
+        {!back && <ellipse cx={cx+W*.14} cy={H*.085} rx={W*.28} ry={H*.025} fill={cfg.hatColor}/>}
       </>}
       {cfg.hat==="captain"&&<>
         <rect x={cx-W*.24} y={H*.04} width={W*.48} height={H*.08} rx={W*.04} fill="#1A237E"/>
         <rect x={cx-W*.28} y={H*.07} width={W*.56} height={H*.025} rx={W*.01} fill="#1A237E"/>
-        <ellipse cx={cx} cy={H*.04} rx={W*.06} ry={W*.04} fill="#FFD700"/>
+        {!back && <ellipse cx={cx} cy={H*.04} rx={W*.06} ry={W*.04} fill="#FFD700"/>}
       </>}
-      {/* Eyes */}
-      <ellipse cx={cx-W*.10} cy={H*.165} rx={W*.065} ry={W*.05} fill="white"/>
-      <ellipse cx={cx+W*.10} cy={H*.165} rx={W*.065} ry={W*.05} fill="white"/>
-      <circle cx={cx-W*.09} cy={H*.167} r={W*.035} fill="#222"/>
-      <circle cx={cx+W*.11} cy={H*.167} r={W*.035} fill="#222"/>
-      <circle cx={cx-W*.075} cy={H*.158} r={W*.012} fill="white"/>
-      <circle cx={cx+W*.125} cy={H*.158} r={W*.012} fill="white"/>
-      {/* Nose */}
-      <ellipse cx={cx} cy={H*.19} rx={W*.03} ry={W*.02} fill="rgba(0,0,0,.12)"/>
-      {/* Smile */}
-      <path d={`M ${cx-W*.08},${H*.21} Q ${cx},${H*.225} ${cx+W*.08},${H*.21}`} stroke="#444" strokeWidth={W*.025} fill="none" strokeLinecap="round"/>
+      {/* Face (front only) */}
+      {!back && <>
+        <ellipse cx={cx-W*.10} cy={H*.165} rx={W*.065} ry={W*.05} fill="white"/>
+        <ellipse cx={cx+W*.10} cy={H*.165} rx={W*.065} ry={W*.05} fill="white"/>
+        <circle cx={cx-W*.09} cy={H*.167} r={W*.035} fill="#222"/>
+        <circle cx={cx+W*.11} cy={H*.167} r={W*.035} fill="#222"/>
+        <circle cx={cx-W*.075} cy={H*.158} r={W*.012} fill="white"/>
+        <circle cx={cx+W*.125} cy={H*.158} r={W*.012} fill="white"/>
+        <ellipse cx={cx} cy={H*.19} rx={W*.03} ry={W*.02} fill="rgba(0,0,0,.12)"/>
+        <path d={`M ${cx-W*.08},${H*.21} Q ${cx},${H*.225} ${cx+W*.08},${H*.21}`} stroke="#444" strokeWidth={W*.025} fill="none" strokeLinecap="round"/>
+      </>}
     </svg>
+  );
+}
+
+// A character you can spin by dragging. Turning it like a turntable: the avatar
+// foreshortens (scaleX = cos angle) and, once you pass the side, swaps to the
+// back view — revealing long hair flowing down the back.
+function RotatableChar({ cfg, size=70 }) {
+  const [angle, setAngle] = useState(0);
+  const st = useRef({ drag:false, last:0 });
+  const W = size, H = size*2.6;
+  function down(e){ e.preventDefault(); st.current.drag=true; st.current.last=e.clientX; try{ e.currentTarget.setPointerCapture(e.pointerId); }catch(_){} }
+  function move(e){ if(!st.current.drag) return; e.preventDefault(); const dx=e.clientX-st.current.last; st.current.last=e.clientX; setAngle(a=>a+dx*1.2); }
+  function up(e){ st.current.drag=false; try{ e.currentTarget.releasePointerCapture(e.pointerId); }catch(_){} }
+  const a = ((angle % 360) + 360) % 360;
+  const rad = a * Math.PI/180;
+  const showBack = a > 90 && a < 270;
+  const sx = Math.max(0.06, Math.abs(Math.cos(rad)));   // foreshorten toward the edges
+  const label = (a<=45||a>=315) ? "Front" : (a>=135&&a<=225) ? "Back" : "Side";
+  return (
+    <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:6 }}>
+      <div onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerLeave={up}
+           style={{ width:W, height:H, touchAction:"none", cursor:"grab", userSelect:"none", display:"flex", justifyContent:"center" }}>
+        <div style={{ transform:`scaleX(${sx})`, transformOrigin:"center", transition: st.current.drag ? "none" : "transform .12s linear" }}>
+          <CharSVG cfg={cfg} size={size} facing={showBack ? "back" : "front"}/>
+        </div>
+      </div>
+      <div style={{ fontSize:9, color:"#607D8B", letterSpacing:1 }}>← DRAG TO SPIN · {label} →</div>
+    </div>
   );
 }
 
@@ -3904,7 +3945,7 @@ function App() {
         <div style={{display:"flex",gap:20,flexWrap:"wrap",justifyContent:"center"}}>
           <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:10}}>
             <div style={{background:"#0D1B2A",borderRadius:14,padding:12,border:"1px solid #2A4A6A"}}>
-              <CharSVG cfg={cfg} size={60}/>
+              <RotatableChar cfg={cfg} size={64}/>
             </div>
             <input value={cfg.name} onChange={e=>setCfg(c=>(Object.assign({}, c, {name:e.target.value})))} style={{background:"#0D1B2A",border:"1px solid #2A4A6A",color:"#EEE",borderRadius:8,padding:"7px 12px",fontFamily:"Georgia",textAlign:"center",width:130,fontSize:14}} placeholder="Your name"/>
           </div>
