@@ -3360,6 +3360,37 @@ function App() {
     return ()=>clearInterval(iv);
   },[]);
 
+  // ── SAVE / LOAD progress to localStorage ───────────────────────────────────
+  const SAVE_KEY = "goliath_grouper_save_v1";
+  const loadedRef = useRef(false);
+  useEffect(()=>{
+    try {
+      const raw = window.localStorage.getItem(SAVE_KEY);
+      if (raw) {
+        const s = JSON.parse(raw);
+        if (s.cfg) setCfg(s.cfg);
+        if (typeof s.money === "number") setMoney(s.money);
+        if (s.boatId) setBoatId(s.boatId);
+        if (s.locId) setLocId(s.locId);
+        if (s.rodId) setRodId(s.rodId);
+        if (Array.isArray(s.inv)) setInv(s.inv);
+        if (Array.isArray(s.goods)) setGoods(s.goods);
+        if (Array.isArray(s.ownedRods)) setOwnedRods(s.ownedRods);
+        if (Array.isArray(s.boughtLures)) setBoughtLures(s.boughtLures);
+        if (Array.isArray(s.boughtBaits)) setBoughtBaits(s.boughtBaits);
+      }
+    } catch(e){ /* ignore corrupt save */ }
+    loadedRef.current = true;
+  },[]);
+  useEffect(()=>{
+    if (!loadedRef.current) return; // don't overwrite save before initial load runs
+    try {
+      window.localStorage.setItem(SAVE_KEY, JSON.stringify({
+        cfg, money, boatId, locId, rodId, inv, goods, ownedRods, boughtLures, boughtBaits
+      }));
+    } catch(e){ /* storage full or unavailable */ }
+  },[cfg, money, boatId, locId, rodId, inv, goods, ownedRods, boughtLures, boughtBaits]);
+
   const onAction = useCallback((action) => {
     if (action === "tacklebox") {
       setRs(s=>(Object.assign({}, s, {tackleboxOpen:!s.tackleboxOpen})));
@@ -3849,8 +3880,9 @@ function App() {
               </div>
             </div>
             <div style={{background:"rgba(255,255,255,.04)",borderRadius:12,padding:"12px 14px",border:"1px solid #1E3A5A",fontSize:12,color:"#90CAF9"}}>
-              Changes apply instantly. Your angler appears in the fishing view, drive view, and header.
+              Changes apply instantly. Your angler appears in the fishing view, drive view, and header. Your progress saves automatically.
             </div>
+            <button onClick={()=>{ if(window.confirm("Reset all progress? This wipes your money, boats, gear, and fish.")){ try{ window.localStorage.removeItem("goliath_grouper_save_v1"); }catch(e){} window.location.reload(); } }} style={{background:"#3A1A1A",color:"#FF8A80",border:"1px solid #5A2A2A",borderRadius:10,padding:"10px 16px",cursor:"pointer",fontSize:12,fontFamily:"Georgia",alignSelf:"flex-start"}}>Reset Game Progress</button>
           </div>
         )}
       </div>
