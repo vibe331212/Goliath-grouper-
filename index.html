@@ -3575,6 +3575,338 @@ function RotatableChar({
   }, "\u2190 DRAG TO SPIN \xB7 ", label, " \u2192"));
 }
 
+// ─── 3D CHARACTER (Three.js) — reflects the chosen look, spins by dragging ────
+function build3DCharacter(cfg) {
+  const g = new THREE.Group();
+  const skin = hexToNum(cfg.skin || "#F5C6A0");
+  const shirt = hexToNum(cfg.shirt || "#2C3E50");
+  const pants = hexToNum(cfg.pants || "#37474F");
+  const hairC = hexToNum(cfg.hairColor || "#2C1A0A");
+  const skinMat = new THREE.MeshPhongMaterial({
+    color: skin
+  });
+  const shirtMat = new THREE.MeshPhongMaterial({
+    color: shirt
+  });
+  const pantsMat = new THREE.MeshPhongMaterial({
+    color: pants
+  });
+  const hairMat = new THREE.MeshPhongMaterial({
+    color: hairC,
+    shininess: 12
+  });
+  const hs = curHairStyle(cfg),
+    hp = curPantsStyle(cfg);
+  const hatted = cfg.hat && cfg.hat !== "none";
+  const hideHair = hatted && cfg.gender === "boy";
+  function box(w, h, d, mat, x, y, z) {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+    m.position.set(x, y, z);
+    g.add(m);
+    return m;
+  }
+
+  // feet
+  [-1, 1].forEach(function (s) {
+    box(0.5, 0.26, 0.95, new THREE.MeshPhongMaterial({
+      color: 0x1c1c1c
+    }), s * 0.30, 0.13, 0.12);
+  });
+
+  // legs / pants / skirt
+  const legW = hp.wid === "skinny" ? 0.42 : hp.wid === "wide" || hp.wid === "flare" ? 0.62 : 0.5;
+  if (hp.cut === "skirt") {
+    [-1, 1].forEach(function (s) {
+      box(0.42, 1.5, 0.42, skinMat, s * 0.28, 0.95, 0);
+    });
+    const rad = hp.wid === "flare" ? 1.15 : hp.wid === "skinny" ? 0.7 : 0.95;
+    const sk = new THREE.Mesh(new THREE.ConeGeometry(rad, 1.4, 18), pantsMat);
+    sk.position.set(0, 1.05, 0);
+    g.add(sk);
+  } else if (hp.cut === "shorts") {
+    [-1, 1].forEach(function (s) {
+      box(legW, 0.75, 0.52, pantsMat, s * 0.28, 1.32, 0);
+      box(0.42, 0.75, 0.42, skinMat, s * 0.28, 0.57, 0);
+    });
+  } else {
+    const botY = hp.len === "capri" ? 0.65 : hp.len === "crop" ? 0.5 : 0.2;
+    [-1, 1].forEach(function (s) {
+      const h = 1.7 - botY;
+      box(legW, h, 0.52, pantsMat, s * 0.28, botY + h / 2, 0);
+    });
+    if (hp.len === "capri" || hp.len === "crop") [-1, 1].forEach(function (s) {
+      box(0.42, botY, 0.42, skinMat, s * 0.28, botY / 2, 0);
+    });
+  }
+
+  // torso (girls a touch narrower), arms, neck
+  const torsoW = cfg.gender === "girl" ? 1.0 : 1.15;
+  box(torsoW, 1.35, 0.62, shirtMat, 0, 2.4, 0);
+  [-1, 1].forEach(function (s) {
+    box(0.3, 1.4, 0.34, skinMat, s * (torsoW / 2 + 0.18), 2.45, 0);
+  });
+  box(0.34, 0.3, 0.34, skinMat, 0, 3.15, 0);
+
+  // head + eyes
+  const headY = 3.7;
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.5, 20, 16), skinMat);
+  head.position.set(0, headY, 0);
+  g.add(head);
+  [-1, 1].forEach(function (s) {
+    const w = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 8), new THREE.MeshPhongMaterial({
+      color: 0xffffff
+    }));
+    w.position.set(s * 0.17, headY + 0.05, 0.44);
+    g.add(w);
+    const e = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), new THREE.MeshPhongMaterial({
+      color: 0x111111
+    }));
+    e.position.set(s * 0.17, headY + 0.05, 0.49);
+    g.add(e);
+  });
+  // ears
+  [-1, 1].forEach(function (s) {
+    const ear = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 8), skinMat);
+    ear.position.set(s * 0.48, headY, 0);
+    g.add(ear);
+  });
+
+  // hair
+  if (!hideHair && hs.tie !== "bald") {
+    const len = hs.len,
+      tie = hs.tie,
+      vol = hs.vol || 1;
+    if (tie === "afro") {
+      const af = new THREE.Mesh(new THREE.SphereGeometry(0.78 * vol, 16, 14), hairMat);
+      af.position.set(0, headY + 0.18, -0.02);
+      g.add(af);
+    } else {
+      // crown cap covering top + back of the head (face stays clear)
+      const cap = new THREE.Mesh(new THREE.SphereGeometry(0.54, 18, 14), hairMat);
+      cap.scale.set(1.04, 1.0, 1.06);
+      cap.position.set(0, headY + 0.12, -0.06);
+      g.add(cap);
+      // back-of-head fill so there's no bald patch behind
+      const bk = new THREE.Mesh(new THREE.SphereGeometry(0.5, 16, 12), hairMat);
+      bk.scale.set(1.02, 1.0, 0.7);
+      bk.position.set(0, headY, -0.22);
+      g.add(bk);
+    }
+    // long mane down the back
+    if (len >= 4 && tie !== "afro") {
+      const maneLen = len >= 5 ? 2.4 : 1.5;
+      const mane = new THREE.Mesh(new THREE.BoxGeometry(0.95 * vol, maneLen, 0.28), hairMat);
+      mane.position.set(0, headY - 0.2 - maneLen / 2 + 0.35, -0.42);
+      g.add(mane);
+      // rounded bottom
+      const tip = new THREE.Mesh(new THREE.CylinderGeometry(0.47 * vol, 0.36 * vol, 0.3, 12), hairMat);
+      tip.position.set(0, headY - 0.2 - maneLen + 0.35, -0.42);
+      g.add(tip);
+    }
+    // ties
+    if (tie === "bun" || tie === "highbun" || tie === "topknot" || tie === "manbun") {
+      const b = new THREE.Mesh(new THREE.SphereGeometry(0.26, 12, 12), hairMat);
+      b.position.set(0, headY + 0.55, tie === "bun" ? -0.2 : -0.05);
+      g.add(b);
+    }
+    if (tie === "pony" || tie === "sidepony") {
+      const pcyl = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.18, 1.3, 10), hairMat);
+      pcyl.position.set(tie === "sidepony" ? 0.4 : 0, headY - 0.2, -0.4);
+      pcyl.rotation.x = 0.25;
+      g.add(pcyl);
+    }
+    if (tie === "pigtails") [-1, 1].forEach(function (s) {
+      const pg = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.16, 1.0, 10), hairMat);
+      pg.position.set(s * 0.55, headY - 0.35, -0.15);
+      pg.rotation.z = s * 0.2;
+      g.add(pg);
+    });
+    if (tie === "spacebuns") [-1, 1].forEach(function (s) {
+      const sb = new THREE.Mesh(new THREE.SphereGeometry(0.2, 10, 10), hairMat);
+      sb.position.set(s * 0.45, headY + 0.5, -0.05);
+      g.add(sb);
+    });
+    if (tie === "spiky") for (let k = 0; k < 6; k++) {
+      const sp = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.4, 6), hairMat);
+      sp.position.set(-0.3 + k * 0.12, headY + 0.55, -0.05);
+      g.add(sp);
+    }
+    if (tie === "mohawk") {
+      const mh = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.5, 0.9), hairMat);
+      mh.position.set(0, headY + 0.55, -0.05);
+      g.add(mh);
+    }
+    if (tie === "braid" || tie === "sidebraid") for (let k = 0; k < 5; k++) {
+      const br = new THREE.Mesh(new THREE.SphereGeometry(0.17, 10, 10), hairMat);
+      br.position.set(0, headY - 0.1 - k * 0.32, -0.45);
+      g.add(br);
+    }
+  }
+
+  // hat (covers the head)
+  if (hatted) {
+    const hatC = hexToNum(cfg.hatColor || "#8B0000");
+    const hatMat = new THREE.MeshPhongMaterial({
+      color: hatC
+    });
+    if (cfg.hat === "cap") {
+      const dome = new THREE.Mesh(new THREE.SphereGeometry(0.58, 18, 12, 0, Math.PI * 2, 0, Math.PI / 2), hatMat);
+      dome.position.set(0, headY + 0.16, -0.02);
+      g.add(dome);
+      const brim = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.08, 0.55), hatMat);
+      brim.position.set(0, headY + 0.18, 0.5);
+      g.add(brim);
+    } else if (cfg.hat === "wide") {
+      const dome = new THREE.Mesh(new THREE.SphereGeometry(0.55, 18, 12, 0, Math.PI * 2, 0, Math.PI / 2), hatMat);
+      dome.position.set(0, headY + 0.18, 0);
+      g.add(dome);
+      const brim = new THREE.Mesh(new THREE.CylinderGeometry(1.15, 1.15, 0.07, 24), hatMat);
+      brim.position.set(0, headY + 0.2, 0);
+      g.add(brim);
+    } else if (cfg.hat === "captain") {
+      const navy = new THREE.MeshPhongMaterial({
+        color: 0x1A237E
+      });
+      const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.56, 0.56, 0.4, 20), navy);
+      crown.position.set(0, headY + 0.35, 0);
+      g.add(crown);
+      const top = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 0.06, 20), navy);
+      top.position.set(0, headY + 0.56, 0);
+      g.add(top);
+      const brim = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.07, 0.7), navy);
+      brim.position.set(0, headY + 0.16, 0.45);
+      g.add(brim);
+      const em = new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 10), new THREE.MeshPhongMaterial({
+        color: 0xFFD700
+      }));
+      em.position.set(0, headY + 0.3, 0.55);
+      g.add(em);
+    }
+  }
+  return g;
+}
+function Char3D({
+  cfg,
+  width = 160,
+  height = 300
+}) {
+  const mount = useRef(null);
+  const refs = useRef({});
+  const rot = useRef({
+    y: 0.5,
+    drag: false,
+    last: 0
+  });
+  useEffect(function () {
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0D1B2A);
+    const camera = new THREE.PerspectiveCamera(42, width / height, 0.1, 100);
+    camera.position.set(0, 2.2, 8.6);
+    camera.lookAt(0, 2.0, 0);
+    const renderer = new THREE.WebGLRenderer({
+      antialias: true
+    });
+    renderer.setSize(width, height);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    if (mount.current) mount.current.appendChild(renderer.domElement);
+    renderer.domElement.style.pointerEvents = "none";
+    const key = new THREE.DirectionalLight(0xffffff, 1.0);
+    key.position.set(4, 7, 7);
+    scene.add(key);
+    const fill = new THREE.DirectionalLight(0x8FB3D9, 0.5);
+    fill.position.set(-5, 3, -4);
+    scene.add(fill);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+    refs.current = {
+      scene: scene,
+      camera: camera,
+      renderer: renderer,
+      charG: null
+    };
+    let raf;
+    (function animate() {
+      raf = requestAnimationFrame(animate);
+      if (!rot.current.drag) rot.current.y += 0.005;
+      if (refs.current.charG) refs.current.charG.rotation.y = rot.current.y;
+      renderer.render(scene, camera);
+    })();
+    return function () {
+      cancelAnimationFrame(raf);
+      renderer.dispose();
+      if (renderer.domElement.parentNode) renderer.domElement.parentNode.removeChild(renderer.domElement);
+    };
+  }, []);
+  // rebuild when the look changes
+  useEffect(function () {
+    const r = refs.current;
+    if (!r.scene) return;
+    if (r.charG) {
+      r.scene.remove(r.charG);
+      r.charG.traverse(function (o) {
+        if (o.geometry) o.geometry.dispose();
+        if (o.material) o.material.dispose();
+      });
+    }
+    const cg = build3DCharacter(cfg);
+    cg.position.y = -0.1;
+    r.charG = cg;
+    r.scene.add(cg);
+  }, [cfg]);
+  function down(e) {
+    rot.current.drag = true;
+    rot.current.last = e.clientX;
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch (_) {}
+  }
+  function move(e) {
+    if (!rot.current.drag) return;
+    const dx = e.clientX - rot.current.last;
+    rot.current.last = e.clientX;
+    rot.current.y += dx * 0.01;
+  }
+  function up(e) {
+    rot.current.drag = false;
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch (_) {}
+  }
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      gap: 6
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    onPointerDown: down,
+    onPointerMove: move,
+    onPointerUp: up,
+    onPointerLeave: up,
+    style: {
+      width: width,
+      height: height,
+      touchAction: "none",
+      cursor: "grab",
+      borderRadius: 10,
+      overflow: "hidden",
+      background: "#0D1B2A"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    ref: mount,
+    style: {
+      width: width,
+      height: height
+    }
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 9,
+      color: "#607D8B",
+      letterSpacing: 1
+    }
+  }, "\u2190 DRAG TO SPIN (3D) \u2192"));
+}
+
 // ─── PHONE SYSTEM ─────────────────────────────────────────────────────────────
 
 const PHONE_CASES = [{
@@ -13037,9 +13369,10 @@ function App() {
       padding: 12,
       border: "1px solid #2A4A6A"
     }
-  }, /*#__PURE__*/React.createElement(RotatableChar, {
+  }, /*#__PURE__*/React.createElement(Char3D, {
     cfg: cfg,
-    size: 64
+    width: 150,
+    height: 290
   })), /*#__PURE__*/React.createElement("input", {
     value: cfg.name,
     onChange: e => setCfg(c => Object.assign({}, c, {
