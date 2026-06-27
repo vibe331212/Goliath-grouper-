@@ -1,0 +1,970 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<title>Farmers Life</title>
+<style>
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { margin:0; padding:0; height:100%; background:#0d1408; font-family:'Segoe UI',system-ui,Arial,sans-serif; overflow:hidden; color:#fff; user-select:none; }
+  #root { position:fixed; inset:0; }
+  #boot { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:14px; background:linear-gradient(160deg,#1b3a12,#0d1408); z-index:80; }
+  .spin { width:54px; height:54px; border:5px solid rgba(255,255,255,.2); border-top-color:#9ccc65; border-radius:50%; animation:spin 1s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg);} }
+  canvas { display:block; }
+  .btn { cursor:pointer; border:none; border-radius:9px; padding:10px 15px; font-size:15px; font-weight:700; background:#5a8f2e; color:#fff; transition:filter .12s, transform .05s; }
+  .btn:hover { filter:brightness(1.12); } .btn:active { transform:translateY(1px); }
+  .btn.brown { background:#8a5a2b; } .btn.gold { background:#e0a51c; color:#241500; } .btn.gray { background:#48506a; }
+  .btn.red { background:#d04a40; } .btn.blue { background:#3577d6; }
+  .btn:disabled { opacity:.4; cursor:not-allowed; }
+  .overlay { position:fixed; inset:0; background:rgba(6,10,4,.72); display:flex; align-items:center; justify-content:center; z-index:40; padding:14px; }
+  .panel { background:#1c2a12; border:2px solid #3f5a26; border-radius:16px; width:100%; max-width:540px; max-height:90vh; overflow:auto; padding:18px; box-shadow:0 18px 50px rgba(0,0,0,.6); animation:pop .18s; }
+  @keyframes pop { from { transform:scale(.94); opacity:0;} to { transform:scale(1); opacity:1;} }
+  .panel h2 { margin:0 0 6px; font-size:21px; color:#cfe8a0; }
+  .panel h3 { margin:14px 0 6px; font-size:15px; color:#a9c97e; }
+  .row { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:9px 11px; background:#26371a; border-radius:9px; margin-bottom:7px; }
+  .row small { color:#9fb888; display:block; font-size:12px; }
+  .grid { display:grid; gap:8px; }
+  .pill { background:#33491f; border-radius:20px; padding:4px 11px; font-size:13px; font-weight:700; }
+  .chip { cursor:pointer; border:2px solid #3f5a26; background:#26371a; border-radius:10px; padding:9px; text-align:center; font-size:13px; font-weight:600; }
+  .chip.sel { border-color:#e0a51c; background:#3a4d22; }
+  ::-webkit-scrollbar { width:8px; } ::-webkit-scrollbar-thumb { background:#3f5a26; border-radius:4px; }
+  .hud { position:fixed; top:0; left:0; right:0; display:flex; gap:8px; align-items:center; padding:8px 10px; z-index:20; pointer-events:none; }
+  .hud .stat { pointer-events:auto; background:rgba(20,30,12,.86); border:1px solid #3f5a26; border-radius:10px; padding:6px 11px; font-weight:700; font-size:14px; }
+  .botbar { position:fixed; bottom:0; left:0; right:0; display:flex; gap:8px; justify-content:center; padding:10px; z-index:20; flex-wrap:wrap; }
+  .dpad { position:fixed; left:14px; bottom:78px; z-index:21; display:grid; grid-template-columns:repeat(3,52px); grid-template-rows:repeat(3,52px); gap:4px; }
+  .dbtn { background:rgba(20,30,12,.85); border:1px solid #3f5a26; border-radius:12px; color:#fff; font-size:22px; font-weight:800; display:flex; align-items:center; justify-content:center; }
+  .dbtn:active { background:rgba(90,143,46,.9); }
+  .actbtns { position:fixed; right:14px; bottom:80px; z-index:21; display:flex; flex-direction:column; gap:8px; align-items:flex-end; }
+  .prompt { position:fixed; left:50%; transform:translateX(-50%); bottom:150px; background:rgba(10,16,6,.9); border:1px solid #e0a51c; border-radius:10px; padding:8px 14px; font-weight:700; z-index:22; }
+  /* Phone */
+  .phone-wrap { position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:60; display:flex; align-items:center; justify-content:center; }
+  .phone { width:300px; height:600px; max-height:94vh; background:#000; border-radius:36px; border:8px solid #1a1a1a; overflow:hidden; position:relative; box-shadow:0 20px 60px rgba(0,0,0,.7); }
+  .phone-screen { position:absolute; inset:0; overflow:hidden; }
+  .pstatus { height:26px; display:flex; align-items:center; justify-content:space-between; padding:0 16px; font-size:12px; font-weight:700; color:#fff; }
+  .appgrid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px 6px; padding:14px 12px; }
+  .app { display:flex; flex-direction:column; align-items:center; gap:4px; cursor:pointer; }
+  .app .ico { width:48px; height:48px; border-radius:13px; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:800; color:#fff; text-align:center; line-height:1.05; padding:3px; box-shadow:0 2px 6px rgba(0,0,0,.4); }
+  .app span { font-size:10px; color:#fff; text-shadow:0 1px 2px rgba(0,0,0,.8); }
+  .appscreen { position:absolute; inset:0; background:#10131a; color:#fff; display:flex; flex-direction:column; }
+  .apphead { display:flex; align-items:center; gap:8px; padding:10px 12px; background:#1a2030; font-weight:700; }
+  .appbody { flex:1; overflow:auto; padding:12px; }
+  .keypad { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; padding:16px 30px; }
+  .key { aspect-ratio:1; border-radius:50%; background:rgba(255,255,255,.16); display:flex; align-items:center; justify-content:center; font-size:24px; font-weight:600; cursor:pointer; color:#fff; }
+  .key:active { background:rgba(255,255,255,.35); }
+  .closeX { position:absolute; top:10px; right:14px; cursor:pointer; font-weight:800; font-size:20px; color:#9fb888; z-index:5; }
+  .toast { position:fixed; top:54px; left:50%; transform:translateX(-50%); background:rgba(10,16,6,.94); border:1px solid #e0a51c; color:#ffe9a8; padding:9px 16px; border-radius:10px; font-weight:700; z-index:90; }
+  .scene { position:fixed; inset:0; z-index:30; display:flex; flex-direction:column; }
+</style>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.23.5/babel.min.js"></script>
+</head>
+<body>
+<div id="boot"><div class="spin"></div><div style="font-size:22px;letter-spacing:1px">Farmers Life</div><div style="opacity:.6;font-size:13px">Growing your world...</div></div>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useRef, useCallback, useMemo } = React;
+
+/* =========================================================================
+   FARMERS LIFE  -  a blocky Minecraft-style farming life sim (no emojis)
+   ========================================================================= */
+
+const money = n => "$"+Math.round(n).toLocaleString();
+const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+const rint = (a,b)=>Math.floor(Math.random()*(b-a+1))+a;
+const pick = a => a[Math.floor(Math.random()*a.length)];
+function hashIdx(i,n){ let h=(i*2654435761)>>>0; return h%n; }
+
+// ---- CROPS -----------------------------------------------------------------
+const CROPS = [
+  {id:'wheat',      name:'Wheat',      seed:8,   sell:18,  days:2, color:'#E8C84A', xp:4},
+  {id:'carrot',     name:'Carrot',     seed:10,  sell:24,  days:2, color:'#E67E22', xp:5},
+  {id:'potato',     name:'Potato',     seed:9,   sell:22,  days:3, color:'#C8A165', xp:5},
+  {id:'corn',       name:'Corn',       seed:14,  sell:34,  days:3, color:'#F4D03F', xp:7},
+  {id:'tomato',     name:'Tomato',     seed:16,  sell:42,  days:3, color:'#E74C3C', xp:8},
+  {id:'strawberry', name:'Strawberry', seed:22,  sell:58,  days:4, color:'#E84060', xp:11},
+  {id:'pumpkin',    name:'Pumpkin',    seed:28,  sell:84,  days:5, color:'#E8821E', xp:16},
+  {id:'watermelon', name:'Watermelon', seed:34,  sell:108, days:5, color:'#2E8B57', xp:20},
+  {id:'grape',      name:'Grapes',     seed:42,  sell:140, days:6, color:'#7D3C98', xp:26},
+  {id:'pineapple',  name:'Pineapple',  seed:55,  sell:190, days:7, color:'#D4AC0D', xp:34},
+];
+const CROP = Object.fromEntries(CROPS.map(c=>[c.id,c]));
+
+// ---- TRACTORS --------------------------------------------------------------
+const TRACTORS = [
+  {id:'rusty', name:'Rusty Old Tractor', price:280,   speed:3.6, color:'#9a8b5a'},
+  {id:'green', name:'Green Field 3000',  price:1400,  speed:4.4, color:'#4f9e2e'},
+  {id:'red',   name:'Red Baron Plow',    price:4800,  speed:5.2, color:'#c0392b'},
+  {id:'blue',  name:'Blue Thunder Diesel',price:13000,speed:6.0, color:'#2e6fd6'},
+  {id:'mega',  name:'Mega Harvester X',  price:42000, speed:7.0, color:'#e0a51c'},
+];
+const TRACTOR = Object.fromEntries(TRACTORS.map(t=>[t.id,t]));
+
+// ---- FARMS -----------------------------------------------------------------
+const FARMS = [
+  {name:'Starter Plot',     plots:4,  price:0},
+  {name:'Small Farm',       plots:8,  price:900},
+  {name:'Family Farm',      plots:15, price:4200},
+  {name:'Big Country Farm', plots:24, price:14000},
+  {name:'Grand Plantation', plots:40, price:48000},
+  {name:'Mega Agro Estate', plots:60, price:160000},
+];
+
+// ---- HOUSES ----------------------------------------------------------------
+const HOUSES = [
+  {name:'Tiny Cabin',    price:0,      size:1, rooms:'1 room',  wall:'#8a6a3a'},
+  {name:'Cozy Cottage',  price:1800,   size:2, rooms:'3 rooms', wall:'#b07a3c'},
+  {name:'Family House',  price:7500,   size:3, rooms:'5 rooms', wall:'#c98a44'},
+  {name:'Country Manor', price:28000,  size:4, rooms:'8 rooms', wall:'#d6a05a'},
+  {name:'Grand Mansion', price:95000,  size:5, rooms:'12 rooms',wall:'#e3c178'},
+  {name:'Luxury Estate', price:350000, size:6, rooms:'20 rooms',wall:'#f0d98c'},
+];
+
+// ---- APPEARANCE ------------------------------------------------------------
+const SKIN = ['#f2c9a0','#e6b088','#cf9b6e','#a9744a','#86512f','#5e3a20'];
+const HAIRCOL = ['#1c1410','#3b2a1a','#6b4423','#a86a32','#d9a441','#e8d27a','#b03030','#7a3a8a','#2e5fa3','#3a8a6a','#bdbdbd','#f0f0f0'];
+const SHIRT = ['#d04a40','#3577d6','#5a8f2e','#e0a51c','#7d3c98','#16a085','#e84060','#34495e','#e67e22','#ecf0f1'];
+
+function combos(adjs, nouns, count){
+  const out=[]; for(const n of nouns){ for(const a of adjs){ const s=a+' '+n; if(!out.includes(s)){ out.push(s); if(out.length>=count) return out; } } }
+  // pad if needed
+  let i=2; while(out.length<count){ for(const n of nouns){ const s=n+' Style '+i; if(!out.includes(s)){ out.push(s); if(out.length>=count) return out; } } i++; }
+  return out;
+}
+const GIRL_HAIR = combos(
+  ['Long','Silky','Flowing','Side','Twin','High','Low','Loose','Beach','Classic','Royal','Wavy','Sleek'],
+  ['Ponytail','Braid','Bun','Curls','Bob','Lob','Waves','Pigtails','Updo','Crown Braid','Layers','Fishtail'], 41);
+const BOY_HAIR = ['Buzz Cut','Crew Cut','Low Fade','Spiky','Slick Back','Side Part','Mohawk','Curly Top','Wavy','Mop Top','Undercut','Pompadour','Flat Top','Caesar','Quiff','Man Bun','Cornrows','Afro','Bald','Comb Over','Textured Crop'];
+const GIRL_PANTS = combos(
+  ['Blue','Black','Pink','White','Ripped','High-Waist','Floral','Khaki','Pastel','Denim'],
+  ['Jeans','Leggings','Skinny Jeans','Capris','Shorts','Skirt','Cargo Pants','Joggers','Flared Jeans','Overalls','Sweatpants','Culottes'], 30);
+const BOY_PANTS = combos(
+  ['Blue','Black','Dark','Ripped','Brown','Gray','Camo','Tan'],
+  ['Jeans','Cargo Pants','Shorts','Joggers','Overalls','Khakis','Sweatpants','Work Pants','Carpenter Jeans','Chinos','Denim Shorts'], 29);
+
+const PANTSCOL = ['#2e3f6b','#1c1c22','#d76a9c','#e8e8e8','#5a6070','#8a5a2b','#b0b0b0','#3a5a3a','#6b4a8a','#c98a44'];
+function pantsColor(name,i){ return PANTSCOL[hashIdx(i+ (name?name.length:0), PANTSCOL.length)]; }
+function isShort(name){ return /Shorts|Skirt|Capris/i.test(name); }
+function hairLen(gender,name){
+  if(gender==='girl'){ if(/Bob|Lob|Pigtails/i.test(name)) return 'med'; if(/Bun|Updo|Crown/i.test(name)) return 'up'; return 'long'; }
+  if(/Bald/i.test(name)) return 'none'; if(/Mohawk/i.test(name)) return 'mohawk'; if(/Afro/i.test(name)) return 'afro';
+  if(/Man Bun/i.test(name)) return 'manbun'; if(/Spiky|Quiff|Pompadour/i.test(name)) return 'spiky'; return 'short';
+}
+
+// ---- PHONE BACKGROUNDS (25, last 8 require level 7) -------------------------
+const PHONE_BGS = [
+  'linear-gradient(160deg,#1e3c72,#2a5298)','linear-gradient(160deg,#0f2027,#2c5364)','linear-gradient(160deg,#42275a,#734b6d)',
+  'linear-gradient(160deg,#114357,#f29492)','linear-gradient(160deg,#3a1c71,#d76d77,#ffaf7b)','linear-gradient(160deg,#000428,#004e92)',
+  'linear-gradient(160deg,#134e5e,#71b280)','linear-gradient(160deg,#5a3f37,#2c7744)','linear-gradient(160deg,#232526,#414345)',
+  'linear-gradient(160deg,#1f1c2c,#928dab)','linear-gradient(160deg,#16222a,#3a6073)','linear-gradient(160deg,#4b6cb7,#182848)',
+  'linear-gradient(160deg,#2b5876,#4e4376)','linear-gradient(160deg,#603813,#b29f94)','linear-gradient(160deg,#1d4350,#a43931)',
+  'linear-gradient(160deg,#283048,#859398)','linear-gradient(160deg,#0b486b,#f56217)',
+  // 8 premium (level 7)
+  'linear-gradient(160deg,#f12711,#f5af19)','linear-gradient(160deg,#8e2de2,#4a00e0)','linear-gradient(160deg,#11998e,#38ef7d)',
+  'linear-gradient(160deg,#ee0979,#ff6a00)','linear-gradient(160deg,#c31432,#240b36)','linear-gradient(160deg,#fc466b,#3f5efb)',
+  'linear-gradient(160deg,#e1eec3,#f05053)','linear-gradient(160deg,#ffd700,#ff8c00,#ff0080)',
+];
+const BG_PREMIUM_FROM = 17; // indices 17..24 (8) locked until level 7
+
+// ---- STORES: physical (in town) + 100+ directory ---------------------------
+const STORE_WORD_A = ['Sunny','Green','Maple','Cedar','Pioneer','Riverbend','Harvest','Country','Golden','Blue Sky','Prairie','Oakwood','Willow','Stone','Hilltop','Sunrise','Meadow','Lakeside','Frontier','Heritage'];
+const STORE_WORD_B = ['Boutique','Goods','Emporium','Outlet','Market','Supply Co','Outfitters','Trading Post','Depot','Bazaar','Mercantile','Shop','Gallery','Warehouse','Corner Store'];
+const STORE_KIND = ['Clothing','Shoes','Electronics','Toys','Books','Pet','Garden','Bakery','Candy','Coffee','Sports','Music','Pharmacy','Jewelry','Art','Furniture','Pizza','Ice Cream','Florist','Gift','Phone','Game','Hardware Annex','Tool','Feed & Seed'];
+function buildDirectory(){
+  const out=[]; let i=0;
+  while(out.length<108){
+    const a=STORE_WORD_A[i%STORE_WORD_A.length];
+    const k=STORE_KIND[Math.floor(i/STORE_WORD_A.length)%STORE_KIND.length];
+    const b=STORE_WORD_B[(i*3)%STORE_WORD_B.length];
+    const name=a+' '+k+' '+b;
+    if(!out.find(s=>s.name===name)) out.push({name, kind:k, price: rint(20,260)});
+    i++; if(i>4000) break;
+  }
+  return out;
+}
+const DIRECTORY = buildDirectory();
+
+// ---- STATE -----------------------------------------------------------------
+function freshPlots(n){ const a=[]; for(let i=0;i<n;i++) a.push({crop:null,stage:0,watered:false,ready:false}); return a; }
+function defaultState(){
+  return {
+    created:false, name:'Farmer', gender:'girl',
+    skin:0, hair:0, hairCol:2, shirt:2, pants:0,
+    money:120, level:1, xp:0, day:1,
+    tractors:[], farmTier:0, houseTier:0,
+    plots:freshPlots(FARMS[0].plots),
+    seeds:{ wheat:3 }, inventory:{},
+    decor:[], bought:[],
+    phone:{ passcode:'1234', bg:0, setup:false },
+  };
+}
+function loadState(){
+  try{ const s=JSON.parse(localStorage.getItem('farmersLife')); if(s&&s.plots) return {...defaultState(),...s, phone:{...defaultState().phone,...(s.phone||{})}}; }catch(e){}
+  return defaultState();
+}
+const xpForLevel = lvl => Math.round(55*Math.pow(lvl,1.55));
+
+// ---- SOUND -----------------------------------------------------------------
+let actx=null;
+function beep(f=440,d=.08,t='sine',v=.05){ try{ actx=actx||new (window.AudioContext||window.webkitAudioContext)(); const o=actx.createOscillator(),g=actx.createGain(); o.type=t;o.frequency.value=f;o.connect(g);g.connect(actx.destination); g.gain.setValueAtTime(v,actx.currentTime); g.gain.exponentialRampToValueAtTime(.0001,actx.currentTime+d); o.start();o.stop(actx.currentTime+d);}catch(e){} }
+const SFX={ click:()=>beep(540,.05,'square',.04), ok:()=>{beep(660,.08);setTimeout(()=>beep(880,.1),80);}, cash:()=>{beep(880,.06);setTimeout(()=>beep(1180,.09),70);}, bad:()=>beep(200,.16,'sawtooth',.05), plant:()=>beep(380,.07,'triangle',.05) };
+
+/* =========================================================================
+   AVATAR DRAWING (blocky)
+   ========================================================================= */
+function drawAvatarFront(ctx, S, ox, oy, u){
+  // u = unit block size. Character ~ 6 wide x 12 tall units.
+  const skin=SKIN[S.skin], hc=HAIRCOL[S.hairCol], shirt=SHIRT[S.shirt];
+  const hairList = S.gender==='girl'?GIRL_HAIR:BOY_HAIR;
+  const hairName = hairList[S.hair%hairList.length]||'';
+  const len=hairLen(S.gender,hairName);
+  const pl = S.gender==='girl'?GIRL_PANTS:BOY_PANTS;
+  const pn = pl[S.pants%pl.length]||'';
+  const pc = pantsColor(pn,S.pants), shorts=isShort(pn);
+  const px=(x,y,w,h,c)=>{ ctx.fillStyle=c; ctx.fillRect(ox+x*u, oy+y*u, w*u, h*u); };
+  // back hair (girl long)
+  if(len==='long'){ px(-0.4,2.6,6.8,7,hc); }
+  else if(len==='med'){ px(-0.2,2.6,6.4,3.4,hc); }
+  // legs / pants
+  const legBot = shorts?9.2:11.4;
+  px(0.7,8.4,1.9,legBot-8.4,pc); px(3.4,8.4,1.9,legBot-8.4,pc);
+  if(shorts){ px(0.7,legBot,1.9,2.2,skin); px(3.4,legBot,1.9,2.2,skin); }
+  // shoes
+  px(0.6,11.0,2.1,0.8,'#2a2a2a'); px(3.3,11.0,2.1,0.8,'#2a2a2a');
+  // body/shirt
+  px(0.7,5.2,4.6,3.4,shirt);
+  // arms
+  px(-0.4,5.2,1.1,3.0,shirt); px(5.3,5.2,1.1,3.0,shirt);
+  px(-0.4,8.0,1.1,0.9,skin); px(5.3,8.0,1.1,0.9,skin);
+  // neck
+  px(2.4,4.6,1.2,0.8,skin);
+  // head
+  px(1.4,1.6,3.2,3.2,skin);
+  // hair top/sides by style
+  if(len!=='none'){
+    px(1.2,1.0,3.6,1.2,hc); // top cap
+    if(len==='afro'){ px(0.6,0.4,4.8,2.2,hc); }
+    if(len==='mohawk'){ px(2.6,0.0,0.8,1.6,hc); }
+    if(len==='spiky'){ px(1.2,0.5,0.6,0.8,hc); px(2.2,0.2,0.6,1.0,hc); px(3.2,0.2,0.6,1.0,hc); px(4.2,0.5,0.6,0.8,hc); }
+    if(len==='manbun'){ px(2.6,0.2,0.9,0.9,hc); }
+    // side burns / frame
+    px(1.2,1.6,0.5,2.0,hc); px(4.3,1.6,0.5,2.0,hc);
+    if(len==='long'||len==='med'){ px(1.0,1.6,0.6,3.6,hc); px(4.4,1.6,0.6,3.6,hc); }
+    // bangs
+    if(/Bang|Bob|Caesar|Crop|Comb/i.test(hairName)) px(1.4,1.6,3.2,0.7,hc);
+    if(/Ponytail/i.test(hairName)) px(4.7,2.2,0.7,4,hc);
+    if(/Pigtails|Twin/i.test(hairName)){ px(0.4,2.6,0.7,2.6,hc); px(4.9,2.6,0.7,2.6,hc); }
+  }
+  // eyes
+  px(2.0,2.7,0.55,0.55,'#1a1a1a'); px(3.45,2.7,0.55,0.55,'#1a1a1a');
+  // mouth
+  px(2.5,3.7,1.0,0.3,'#7a4030');
+}
+function drawAvatarTop(ctx, cx, cy, S, r){
+  const hc=HAIRCOL[S.hairCol], shirt=SHIRT[S.shirt], skin=SKIN[S.skin];
+  ctx.fillStyle=shirt; ctx.fillRect(cx-r, cy-r*0.4, r*2, r*1.5); // body
+  ctx.fillStyle=hc; ctx.beginPath(); ctx.arc(cx,cy-r*0.3,r*0.95,0,7); ctx.fill(); // hair ring
+  ctx.fillStyle=skin; ctx.beginPath(); ctx.arc(cx,cy-r*0.3,r*0.6,0,7); ctx.fill(); // face
+}
+
+/* =========================================================================
+   WORLD ENGINE (canvas, top-down, drive to town)
+   ========================================================================= */
+const BUILDINGS = [
+  {id:'house',     name:'Your House',        x:150, y:340, w:200, h:150, color:'#b07a3c', door:{x:230,y:490,w:40,h:24}},
+  {id:'super',     name:'Supermarket',       x:980, y:200, w:230, h:160, color:'#c0392b', door:{x:1075,y:360,w:40,h:24}},
+  {id:'hardware',  name:'Hardware Store',    x:1300,y:200, w:210, h:160, color:'#e0a51c', door:{x:1385,y:360,w:40,h:24}},
+  {id:'tractor',   name:'Tractor Dealership',x:1600,y:200, w:240, h:170, color:'#4f9e2e', door:{x:1700,y:370,w:40,h:24}},
+  {id:'realestate',name:'Real Estate Office',x:980, y:560, w:200, h:150, color:'#2e6fd6', door:{x:1060,y:710,w:40,h:24}},
+  {id:'barber',    name:'Barber Shop',       x:1240,y:560, w:170, h:150, color:'#7d3c98', door:{x:1305,y:710,w:40,h:24}},
+  {id:'clothing',  name:'Clothing Store',    x:1470,y:560, w:190, h:150, color:'#e84060', door:{x:1545,y:710,w:40,h:24}},
+  {id:'furniture', name:'Furniture Store',   x:1720,y:560, w:190, h:150, color:'#8a5a2b', door:{x:1795,y:710,w:40,h:24}},
+  {id:'mall',      name:'Shopping Mall',     x:980, y:880, w:520, h:180, color:'#34495e', door:{x:1220,y:1060,w:50,h:26}},
+  {id:'phonestore',name:'Phone Store',       x:1580,y:880, w:180, h:160, color:'#16a085', door:{x:1650,y:1040,w:40,h:24}},
+  {id:'diner',     name:'Country Diner',     x:1820,y:880, w:170, h:160, color:'#e67e22', door:{x:1885,y:1040,w:40,h:24}},
+];
+
+function World({S, onEnter, onPlotTap, driveRef}){
+  const cref=useRef(null);
+  const keys=useRef({});
+  const player=useRef({x:250,y:560,dir:'down',driving:false});
+  const cam=useRef({x:250,y:560});
+  const nearRef=useRef(null);
+  const [near,setNear]=useState(null);
+  const dpad=useRef({x:0,y:0});
+  const sizeRef=useRef({w:innerWidth,h:innerHeight});
+
+  driveRef.current = { toggleDrive(){ if(S.tractors.length>0){ player.current.driving=!player.current.driving; SFX.click(); } } };
+
+  // farm plot layout (near house)
+  const farmGeom = useMemo(()=>{
+    const n=S.plots.length; const cols=Math.ceil(Math.sqrt(n)); const ps=46;
+    const ox=120, oy=130; const out=[];
+    for(let i=0;i<n;i++){ const c=i%cols, r=Math.floor(i/cols); out.push({i, x:ox+c*ps, y:oy+r*ps, s:ps-4}); }
+    return out;
+  },[S.plots.length]);
+
+  useEffect(()=>{
+    const c=cref.current; const ctx=c.getContext('2d');
+    function resize(){ sizeRef.current={w:innerWidth,h:innerHeight}; c.width=innerWidth; c.height=innerHeight; }
+    resize(); window.addEventListener('resize',resize);
+    const kd=e=>{ keys.current[e.key.toLowerCase()]=true; if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(e.key.toLowerCase())) e.preventDefault();
+      if(e.key.toLowerCase()==='e'){ if(nearRef.current) onEnter(nearRef.current); }
+      if(e.key.toLowerCase()==='f') driveRef.current.toggleDrive();
+    };
+    const ku=e=>{ keys.current[e.key.toLowerCase()]=false; };
+    window.addEventListener('keydown',kd); window.addEventListener('keyup',ku);
+
+    const solids = BUILDINGS.map(b=>({x:b.x,y:b.y,w:b.w,h:b.h}));
+    function blocked(nx,ny){ for(const s of solids){ if(nx>s.x-12&&nx<s.x+s.w+12&&ny>s.y-12&&ny<s.y+s.h+12) return true; } return false; }
+
+    let raf;
+    function loop(){
+      const p=player.current; const k=keys.current; const d=dpad.current;
+      let vx=0,vy=0;
+      if(k['arrowup']||k['w']||d.y<0) vy=-1; if(k['arrowdown']||k['s']||d.y>0) vy=1;
+      if(k['arrowleft']||k['a']||d.x<0) vx=-1; if(k['arrowright']||k['d']||d.x>0) vx=1;
+      const spd = p.driving? (TRACTOR[S.tractors[0]]?.speed||4)+1 : 2.4;
+      if(vx||vy){ const m=Math.hypot(vx,vy)||1; const nx=p.x+vx/m*spd, ny=p.y+vy/m*spd;
+        if(!blocked(nx,p.y)) p.x=clamp(nx,20,1990); if(!blocked(p.x,ny)) p.y=clamp(ny,20,1090);
+        if(Math.abs(vx)>Math.abs(vy)) p.dir=vx>0?'right':'left'; else p.dir=vy>0?'down':'up';
+      }
+      // camera
+      cam.current.x += (p.x-cam.current.x)*0.12; cam.current.y += (p.y-cam.current.y)*0.12;
+      // near building door
+      let foundNear=null;
+      for(const b of BUILDINGS){ const dz=b.door; if(p.x>dz.x-30&&p.x<dz.x+dz.w+30&&p.y>dz.y-30&&p.y<dz.y+dz.h+40){ foundNear=b; break; } }
+      if((foundNear&&foundNear.id)!==(nearRef.current&&nearRef.current.id)){ nearRef.current=foundNear; setNear(foundNear); }
+
+      draw(ctx);
+      raf=requestAnimationFrame(loop);
+    }
+    function draw(ctx){
+      const {w,h}=sizeRef.current; const camX=cam.current.x-w/2, camY=cam.current.y-h/2;
+      const sx=x=>x-camX, sy=y=>y-camY;
+      // grass field (blocky)
+      const tile=40;
+      const x0=Math.floor(camX/tile)*tile, y0=Math.floor(camY/tile)*tile;
+      for(let x=x0; x<camX+w+tile; x+=tile){ for(let y=y0; y<camY+h+tile; y+=tile){
+        const inTown = x>900;
+        const c=((x/tile+y/tile)&1)? (inTown?'#7fae4d':'#6da043') : (inTown?'#76a647':'#669a3f');
+        ctx.fillStyle=c; ctx.fillRect(sx(x),sy(y),tile,tile);
+      }}
+      // roads (gray) - vertical main + horizontal to town
+      ctx.fillStyle='#5a5a5e';
+      ctx.fillRect(sx(420),sy(0),70,1100); // farm-to-road vertical near farm
+      ctx.fillRect(sx(420),sy(540),560,70); // horizontal to town
+      ctx.fillRect(sx(940),sy(0),60,1100); // town main road
+      // road dashes
+      ctx.fillStyle='#e8e8c0';
+      for(let y=0;y<1100;y+=60){ ctx.fillRect(sx(451),sy(y+12),8,30); }
+      // farm fence
+      ctx.strokeStyle='#5a3a1a'; ctx.lineWidth=5; ctx.strokeRect(sx(95),sy(105),360,420);
+      // farm plots
+      for(const g of farmGeom){ const pl=S.plots[g.i];
+        ctx.fillStyle='#6b4a2a'; ctx.fillRect(sx(g.x),sy(g.y),g.s,g.s); // tilled soil
+        ctx.fillStyle=pl.watered?'#4a3418':'#7a5832'; ctx.fillRect(sx(g.x)+3,sy(g.y)+3,g.s-6,g.s-6);
+        if(pl.crop){ const cr=CROP[pl.crop]; const t=pl.ready?1:Math.min(1,(pl.stage)/cr.days);
+          const ph=Math.max(5,(g.s-10)*t); ctx.fillStyle=cr.color; ctx.fillRect(sx(g.x)+g.s/2-4,sy(g.y)+g.s-6-ph,8,ph);
+          ctx.fillStyle='#3a7a30'; ctx.fillRect(sx(g.x)+g.s/2-7,sy(g.y)+g.s-10,14,5);
+          if(pl.ready){ ctx.fillStyle='rgba(224,165,28,.9)'; ctx.fillRect(sx(g.x),sy(g.y),g.s,4); }
+        }
+      }
+      // buildings
+      for(const b of BUILDINGS){
+        ctx.fillStyle='rgba(0,0,0,.25)'; ctx.fillRect(sx(b.x)+6,sy(b.y)+8,b.w,b.h);
+        ctx.fillStyle=b.color; ctx.fillRect(sx(b.x),sy(b.y),b.w,b.h);
+        // roof
+        ctx.fillStyle='rgba(0,0,0,.22)'; ctx.fillRect(sx(b.x),sy(b.y),b.w,26);
+        // windows
+        ctx.fillStyle='#cfe8ff'; for(let wx=b.x+18; wx<b.x+b.w-30; wx+=46){ ctx.fillRect(sx(wx),sy(b.y+40),26,26); }
+        // door
+        ctx.fillStyle='#3a2410'; ctx.fillRect(sx(b.door.x),sy(b.door.y),b.door.w,b.door.h);
+        // label
+        ctx.fillStyle='rgba(10,16,6,.8)'; const tw=ctx.measureText(b.name).width+14;
+        ctx.fillRect(sx(b.x+b.w/2)-tw/2, sy(b.y)-22, tw, 18);
+        ctx.fillStyle='#ffe9a8'; ctx.font='12px Segoe UI'; ctx.textAlign='center'; ctx.fillText(b.name, sx(b.x+b.w/2), sy(b.y)-9);
+        ctx.textAlign='left';
+      }
+      // tractor parked on farm (if owned and not driving)
+      const p=player.current;
+      if(S.tractors.length>0 && !p.driving){ drawTractor(ctx,sx(360),sy(150),TRACTOR[S.tractors[0]].color); }
+      // player
+      if(p.driving){ drawTractor(ctx,sx(p.x)-22,sy(p.y)-16,TRACTOR[S.tractors[0]].color); }
+      else { drawAvatarTop(ctx,sx(p.x),sy(p.y),S,11); }
+    }
+    function drawTractor(ctx,x,y,col){
+      ctx.fillStyle=col; ctx.fillRect(x,y,44,28);
+      ctx.fillStyle='#222'; ctx.beginPath(); ctx.arc(x+10,y+30,9,0,7); ctx.fill(); ctx.beginPath(); ctx.arc(x+34,y+30,12,0,7); ctx.fill();
+      ctx.fillStyle='#cfe8ff'; ctx.fillRect(x+26,y-6,14,12);
+    }
+    loop();
+    return ()=>{ cancelAnimationFrame(raf); window.removeEventListener('resize',resize); window.removeEventListener('keydown',kd); window.removeEventListener('keyup',ku); };
+  // eslint-disable-next-line
+  },[S.plots,S.tractors,S.skin,S.hair,S.hairCol,S.shirt,S.gender,farmGeom]);
+
+  // pointer -> world (plot tap or dpad handled separately)
+  function onCanvasClick(e){
+    const {w,h}=sizeRef.current; const camX=cam.current.x-w/2, camY=cam.current.y-h/2;
+    const wx=e.clientX+camX, wy=e.clientY+camY;
+    for(const g of farmGeom){ if(wx>g.x&&wx<g.x+g.s&&wy>g.y&&wy<g.y+g.s){ onPlotTap(g.i); return; } }
+  }
+
+  return (<>
+    <canvas ref={cref} onClick={onCanvasClick} style={{position:'fixed',inset:0}}/>
+    {near && <div className="prompt">Press E / ENTER to visit {near.name}</div>}
+    <div className="dpad">
+      <div></div><div className="dbtn" onPointerDown={()=>dpad.current.y=-1} onPointerUp={()=>dpad.current.y=0} onPointerLeave={()=>dpad.current.y=0}>^</div><div></div>
+      <div className="dbtn" onPointerDown={()=>dpad.current.x=-1} onPointerUp={()=>dpad.current.x=0} onPointerLeave={()=>dpad.current.x=0}>&lt;</div>
+      <div className="dbtn" style={{opacity:.5}}></div>
+      <div className="dbtn" onPointerDown={()=>dpad.current.x=1} onPointerUp={()=>dpad.current.x=0} onPointerLeave={()=>dpad.current.x=0}>&gt;</div>
+      <div></div><div className="dbtn" onPointerDown={()=>dpad.current.y=1} onPointerUp={()=>dpad.current.y=0} onPointerLeave={()=>dpad.current.y=0}>v</div><div></div>
+    </div>
+    <div className="actbtns">
+      {near && <button className="btn gold" onClick={()=>onEnter(near)}>ENTER</button>}
+      {S.tractors.length>0 && <button className="btn brown" onClick={()=>driveRef.current.toggleDrive()}>{player.current.driving?'PARK':'DRIVE'}</button>}
+    </div>
+  </>);
+}
+
+/* =========================================================================
+   CHARACTER CREATION
+   ========================================================================= */
+function AvatarBox({S,size=170}){
+  const ref=useRef(null);
+  useEffect(()=>{ const c=ref.current,ctx=c.getContext('2d'); ctx.clearRect(0,0,c.width,c.height);
+    ctx.fillStyle='#26371a'; ctx.fillRect(0,0,c.width,c.height);
+    drawAvatarFront(ctx,S,c.width/2-3*(size/14),size*0.06,size/14);
+  },[S.gender,S.skin,S.hair,S.hairCol,S.shirt,S.pants,size]);
+  return <canvas ref={ref} width={size} height={size} style={{borderRadius:12,border:'2px solid #3f5a26'}}/>;
+}
+
+function Creation({S,setS,onDone}){
+  const hairList=S.gender==='girl'?GIRL_HAIR:BOY_HAIR;
+  const pantsList=S.gender==='girl'?GIRL_PANTS:BOY_PANTS;
+  const [tab,setTab]=useState('hair');
+  function setGender(g){ setS(s=>({...s,gender:g,hair:0,pants:0})); SFX.click(); }
+  return (<div className="overlay" style={{alignItems:'flex-start'}}>
+    <div className="panel" style={{maxWidth:560}}>
+      <h2>Create Your Farmer</h2>
+      <div style={{display:'flex',gap:14,alignItems:'flex-start',flexWrap:'wrap'}}>
+        <div style={{textAlign:'center'}}>
+          <AvatarBox S={S}/>
+          <input value={S.name} onChange={e=>setS(s=>({...s,name:e.target.value}))} maxLength={14}
+            style={{marginTop:8,width:160,padding:8,borderRadius:8,border:'1px solid #3f5a26',background:'#10160a',color:'#fff',textAlign:'center',fontWeight:700}}/>
+        </div>
+        <div style={{flex:1,minWidth:230}}>
+          <h3>Gender</h3>
+          <div style={{display:'flex',gap:8}}>
+            <button className={'chip'+(S.gender==='girl'?' sel':'')} style={{flex:1}} onClick={()=>setGender('girl')}>Girl ({GIRL_HAIR.length} hair)</button>
+            <button className={'chip'+(S.gender==='boy'?' sel':'')} style={{flex:1}} onClick={()=>setGender('boy')}>Boy ({BOY_HAIR.length} hair)</button>
+          </div>
+          <div style={{display:'flex',gap:6,marginTop:12,flexWrap:'wrap'}}>
+            {['hair','haircolor','pants','shirt','skin'].map(t=>(
+              <button key={t} className={'chip'+(tab===t?' sel':'')} style={{flex:'1 0 auto',padding:'6px 9px'}} onClick={()=>setTab(t)}>
+                {t==='haircolor'?'Hair Color':t[0].toUpperCase()+t.slice(1)}</button>))}
+          </div>
+        </div>
+      </div>
+
+      <div style={{marginTop:12}}>
+        {tab==='hair' && <>
+          <h3>Hair Style ({hairList.length} styles) - {hairList[S.hair%hairList.length]}</h3>
+          <div className="grid" style={{gridTemplateColumns:'repeat(3,1fr)',maxHeight:200,overflow:'auto'}}>
+            {hairList.map((h,i)=>(<div key={i} className={'chip'+(S.hair===i?' sel':'')} onClick={()=>{setS(s=>({...s,hair:i}));SFX.click();}}>{h}</div>))}
+          </div></>}
+        {tab==='haircolor' && <><h3>Hair Color</h3>
+          <div className="grid" style={{gridTemplateColumns:'repeat(6,1fr)'}}>
+            {HAIRCOL.map((c,i)=>(<div key={i} className={'chip'+(S.hairCol===i?' sel':'')} style={{height:40,background:c}} onClick={()=>setS(s=>({...s,hairCol:i}))}></div>))}
+          </div></>}
+        {tab==='pants' && <>
+          <h3>Pants Style ({pantsList.length} styles) - {pantsList[S.pants%pantsList.length]}</h3>
+          <div className="grid" style={{gridTemplateColumns:'repeat(3,1fr)',maxHeight:200,overflow:'auto'}}>
+            {pantsList.map((p,i)=>(<div key={i} className={'chip'+(S.pants===i?' sel':'')} onClick={()=>{setS(s=>({...s,pants:i}));SFX.click();}}>{p}</div>))}
+          </div></>}
+        {tab==='shirt' && <><h3>Shirt Color</h3>
+          <div className="grid" style={{gridTemplateColumns:'repeat(5,1fr)'}}>
+            {SHIRT.map((c,i)=>(<div key={i} className={'chip'+(S.shirt===i?' sel':'')} style={{height:40,background:c}} onClick={()=>setS(s=>({...s,shirt:i}))}></div>))}
+          </div></>}
+        {tab==='skin' && <><h3>Skin Tone</h3>
+          <div className="grid" style={{gridTemplateColumns:'repeat(6,1fr)'}}>
+            {SKIN.map((c,i)=>(<div key={i} className={'chip'+(S.skin===i?' sel':'')} style={{height:40,background:c}} onClick={()=>setS(s=>({...s,skin:i}))}></div>))}
+          </div></>}
+      </div>
+      <button className="btn gold" style={{width:'100%',marginTop:16,fontSize:17,padding:14}} onClick={onDone}>Start Farming</button>
+    </div>
+  </div>);
+}
+
+/* =========================================================================
+   PHONE
+   ========================================================================= */
+function Phone({S,setS,onClose,toast}){
+  const [unlocked,setUnlocked]=useState(false);
+  const [entry,setEntry]=useState('');
+  const [app,setApp]=useState(null);
+  const bg=PHONE_BGS[S.phone.bg];
+  function tryUnlock(e){ const ne=entry+e; if(ne.length>=4){ if(ne===S.phone.passcode){ SFX.ok(); setUnlocked(true);} else { SFX.bad(); toast('Wrong passcode'); } setEntry(''); } else setEntry(ne); }
+  const apps = APPS;
+  return (<div className="phone-wrap" onClick={onClose}>
+    <div className="phone" onClick={e=>e.stopPropagation()}>
+      <div className="phone-screen" style={{background:bg}}>
+        <div className="pstatus"><span>9:41</span><span>Lv {S.level}  {money(S.money)}</span></div>
+        {!unlocked ? (
+          <div style={{display:'flex',flexDirection:'column',height:'100%',alignItems:'center'}}>
+            <div style={{marginTop:30,fontSize:40,fontWeight:300}}>9:41</div>
+            <div style={{opacity:.85,marginBottom:6}}>Enter Passcode</div>
+            <div style={{fontSize:24,letterSpacing:6,minHeight:30}}>{'*'.repeat(entry.length)}</div>
+            <div style={{fontSize:11,opacity:.6,marginBottom:4}}>(default is 1234)</div>
+            <div className="keypad">
+              {[1,2,3,4,5,6,7,8,9].map(n=>(<div key={n} className="key" onClick={()=>tryUnlock(''+n)}>{n}</div>))}
+              <div></div><div className="key" onClick={()=>tryUnlock('0')}>0</div>
+              <div className="key" style={{fontSize:14}} onClick={()=>setEntry(entry.slice(0,-1))}>del</div>
+            </div>
+          </div>
+        ) : app ? (
+          <AppScreen app={app} S={S} setS={setS} onBack={()=>setApp(null)} toast={toast}/>
+        ) : (
+          <div style={{height:'100%',display:'flex',flexDirection:'column'}}>
+            <div className="appgrid" style={{flex:1,alignContent:'flex-start'}}>
+              {apps.map(a=>(<div key={a.id} className="app" onClick={()=>{SFX.click();setApp(a);}}>
+                <div className="ico" style={{background:a.color}}>{a.short}</div><span>{a.name}</span></div>))}
+            </div>
+          </div>
+        )}
+        <div className="closeX" onClick={onClose} style={{color:'#fff'}}>x</div>
+      </div>
+    </div>
+  </div>);
+}
+
+// 25 apps (Games app contains 5 games; Settings handles background + passcode)
+const APPS = [
+  {id:'messages',name:'Messages',short:'MSG',color:'#34c759'},
+  {id:'phone',name:'Phone',short:'CALL',color:'#30b94d'},
+  {id:'camera',name:'Camera',short:'CAM',color:'#636366'},
+  {id:'photos',name:'Photos',short:'PIC',color:'#ff9f0a'},
+  {id:'clock',name:'Clock',short:'TIME',color:'#1c1c1e'},
+  {id:'weather',name:'Weather',short:'SUN',color:'#5ac8fa'},
+  {id:'calc',name:'Calculator',short:'1+2',color:'#ff9500'},
+  {id:'notes',name:'Notes',short:'NOTE',color:'#ffd60a'},
+  {id:'maps',name:'Maps',short:'MAP',color:'#34c759'},
+  {id:'bank',name:'Bank',short:'BANK',color:'#0a84ff'},
+  {id:'calendar',name:'Calendar',short:'DATE',color:'#ff3b30'},
+  {id:'music',name:'Music',short:'SONG',color:'#fa233b'},
+  {id:'browser',name:'Browser',short:'WEB',color:'#0a84ff'},
+  {id:'email',name:'Email',short:'MAIL',color:'#1d9bf0'},
+  {id:'health',name:'Health',short:'HP',color:'#ff2d55'},
+  {id:'wallet',name:'Wallet',short:'PAY',color:'#1c1c1e'},
+  {id:'reminders',name:'Reminders',short:'TODO',color:'#ff9500'},
+  {id:'files',name:'Files',short:'FILE',color:'#0a84ff'},
+  {id:'contacts',name:'Contacts',short:'PPL',color:'#8e8e93'},
+  {id:'news',name:'News',short:'NEWS',color:'#fd4f57'},
+  {id:'podcasts',name:'Podcasts',short:'POD',color:'#9b59b6'},
+  {id:'fitness',name:'Fitness',short:'FIT',color:'#a3e635'},
+  {id:'market',name:'Market',short:'CROP',color:'#5a8f2e'},
+  {id:'games',name:'Games',short:'PLAY',color:'#af52de'},
+  {id:'settings',name:'Settings',short:'SET',color:'#8e8e93'},
+];
+
+function AppScreen({app,S,setS,onBack,toast}){
+  return (<div className="appscreen">
+    <div className="apphead"><span onClick={onBack} style={{cursor:'pointer'}}>&lt; Back</span><span>{app.name}</span></div>
+    <div className="appbody">{renderApp(app.id,S,setS,toast)}</div>
+  </div>);
+}
+
+function renderApp(id,S,setS,toast){
+  switch(id){
+    case 'settings': return <SettingsApp S={S} setS={setS} toast={toast}/>;
+    case 'games': return <GamesApp S={S} setS={setS} toast={toast}/>;
+    case 'market': return (<div>
+      <h3 style={{marginTop:0}}>Crop Market Prices</h3>
+      {CROPS.map(c=>(<div className="row" key={c.id}><span>{c.name}</span><span className="pill">{money(c.sell)} each</span></div>))}
+      <p style={{opacity:.7,fontSize:13}}>Sell harvested crops at the Supermarket.</p></div>);
+    case 'bank': return (<div><h3 style={{marginTop:0}}>Farm Bank</h3>
+      <div className="row"><span>Balance</span><span className="pill">{money(S.money)}</span></div>
+      <div className="row"><span>Level</span><span className="pill">{S.level}</span></div>
+      <div className="row"><span>Net Worth (farm + house)</span><span className="pill">{money(FARMS[S.farmTier].price+HOUSES[S.houseTier].price+S.money)}</span></div></div>);
+    case 'weather': { const w=pick(['Sunny','Partly Cloudy','Clear Skies','Light Breeze','Warm']); return (<div style={{textAlign:'center'}}>
+      <h3>{w}</h3><div style={{fontSize:46,fontWeight:200}}>{rint(64,86)}F</div><p style={{opacity:.7}}>Great day to water the crops on the farm.</p></div>); }
+    case 'calc': return <CalcApp/>;
+    case 'notes': return <NotesApp S={S} setS={setS}/>;
+    case 'clock': return (<div style={{textAlign:'center'}}><h3>Farm Time</h3><div style={{fontSize:40,fontWeight:200}}>9:41 AM</div><p style={{opacity:.7}}>Day {S.day} on the farm</p></div>);
+    case 'health': return (<div><h3 style={{marginTop:0}}>Health</h3><div className="row"><span>Steps today</span><span className="pill">{rint(2000,12000)}</span></div><div className="row"><span>Energy</span><span className="pill">Good</span></div><p style={{opacity:.7,fontSize:13}}>Farming keeps you active.</p></div>);
+    case 'fitness': return (<div><h3 style={{marginTop:0}}>Fitness</h3><div className="row"><span>Move</span><span className="pill">{rint(200,600)} cal</span></div><div className="row"><span>Farm Workout</span><span className="pill">{rint(20,90)} min</span></div></div>);
+    case 'maps': return (<div><h3 style={{marginTop:0}}>Town Map</h3>{BUILDINGS.filter(b=>b.id!=='house').map(b=>(<div className="row" key={b.id}><span>{b.name}</span><span className="pill">Open</span></div>))}<p style={{opacity:.7,fontSize:13}}>Drive your tractor to visit them.</p></div>);
+    case 'messages': return (<div>{['Mom: How is the farm going?','Neighbor: Your corn looks great!','Seed Co: New seeds in stock','Bank: Balance updated','Mayor: Welcome to town!'].map((m,i)=>(<div className="row" key={i}><span style={{fontSize:13}}>{m}</span></div>))}</div>);
+    case 'email': return (<div>{['Newsletter: Top farming tips','Receipt: Hardware Store','Weekly market report','Tractor Dealership: Sale on now'].map((m,i)=>(<div className="row" key={i}><span style={{fontSize:13}}>{m}</span></div>))}</div>);
+    case 'contacts': return (<div>{['Mom','Neighbor Joe','Seed Supplier','Tractor Dealer','Town Mayor','Best Friend'].map((m,i)=>(<div className="row" key={i}><span>{m}</span><span className="pill">Call</span></div>))}</div>);
+    case 'music': return (<div><h3 style={{marginTop:0}}>Now Playing</h3>{['Country Roads','Sunrise on the Farm','Harvest Moon','Open Fields','Tractor Ride'].map((m,i)=>(<div className="row" key={i}><span>{m}</span><span className="pill">Play</span></div>))}</div>);
+    case 'podcasts': return (<div>{['The Daily Harvest','Farm Talk Radio','Soil & Seed','Country Living'].map((m,i)=>(<div className="row" key={i}><span>{m}</span><span className="pill">Listen</span></div>))}</div>);
+    case 'news': return (<div>{['Crop prices rise this season','New tractor models unveiled','Best year for pumpkins','Town fair coming soon'].map((m,i)=>(<div className="row" key={i}><span style={{fontSize:13}}>{m}</span></div>))}</div>);
+    case 'photos': return (<div className="grid" style={{gridTemplateColumns:'repeat(3,1fr)'}}>{Array.from({length:9}).map((_,i)=>(<div key={i} style={{aspectRatio:1,borderRadius:8,background:PHONE_BGS[i%PHONE_BGS.length]}}></div>))}</div>);
+    case 'wallet': return (<div><h3 style={{marginTop:0}}>Wallet</h3><div className="row"><span>Cash</span><span className="pill">{money(S.money)}</span></div><div className="row"><span>Farm Card</span><span className="pill">Active</span></div></div>);
+    case 'calendar': return (<div><h3 style={{marginTop:0}}>Day {S.day}</h3><p style={{opacity:.8}}>Sleep in your house to advance to the next day. Remember to water your crops daily.</p></div>);
+    default: return (<div style={{textAlign:'center',opacity:.8,paddingTop:30}}><h3>{APPS.find(a=>a.id===id)?.name||'App'}</h3><p>This app is installed and ready.</p></div>);
+  }
+}
+
+function CalcApp(){ const [v,setV]=useState('0'); const press=k=>{ if(k==='C'){setV('0');return;} if(k==='='){ try{ setV(''+eval(v.replace(/[^-+*/.0-9]/g,''))); }catch(e){ setV('0'); } return;} setV(v==='0'&&'0123456789'.includes(k)?k:v+k); };
+  return (<div><div style={{background:'#000',padding:14,borderRadius:8,textAlign:'right',fontSize:28,marginBottom:8,overflow:'hidden'}}>{v}</div>
+   <div className="grid" style={{gridTemplateColumns:'repeat(4,1fr)'}}>{['7','8','9','/','4','5','6','*','1','2','3','-','0','.','=','+','C'].map(k=>(<button key={k} className="btn gray" onClick={()=>press(k)}>{k}</button>))}</div></div>);
+}
+function NotesApp({S,setS}){ const [t,setT]=useState(S.note||'My farm goals...');
+  return (<div><textarea value={t} onChange={e=>{setT(e.target.value); setS(s=>({...s,note:e.target.value}));}} style={{width:'100%',height:200,background:'#1a1a1a',color:'#fff',border:'1px solid #333',borderRadius:8,padding:10}}/></div>);
+}
+
+function SettingsApp({S,setS,toast}){
+  const [sub,setSub]=useState(null);
+  const [pc,setPc]=useState(''); const [npc,setNpc]=useState('');
+  if(sub==='bg'){
+    return (<div><h3 style={{marginTop:0}}>Wallpaper (25)</h3>
+      <button className="btn gray" style={{marginBottom:8}} onClick={()=>setSub(null)}>Back</button>
+      <div className="grid" style={{gridTemplateColumns:'repeat(3,1fr)'}}>
+        {PHONE_BGS.map((b,i)=>{ const locked=i>=BG_PREMIUM_FROM && S.level<7;
+          return (<div key={i} onClick={()=>{ if(locked){ toast('Reach level 7 to unlock'); SFX.bad(); return;} setS(s=>({...s,phone:{...s.phone,bg:i}})); SFX.click(); }}
+            style={{height:64,borderRadius:8,background:b,border:S.phone.bg===i?'3px solid #e0a51c':'2px solid #333',position:'relative',opacity:locked?.45:1,display:'flex',alignItems:'flex-end',justifyContent:'center'}}>
+            {locked && <span style={{fontSize:10,background:'rgba(0,0,0,.6)',width:'100%',textAlign:'center'}}>Lv 7</span>}</div>); })}
+      </div>
+      <p style={{opacity:.7,fontSize:12}}>8 premium wallpapers unlock at level 7.</p></div>);
+  }
+  if(sub==='pc'){
+    return (<div><h3 style={{marginTop:0}}>Change Passcode</h3>
+      <button className="btn gray" style={{marginBottom:8}} onClick={()=>setSub(null)}>Back</button>
+      <p style={{fontSize:13,opacity:.8}}>Current passcode: {S.phone.passcode}</p>
+      <input placeholder="Current passcode" value={pc} onChange={e=>setPc(e.target.value)} maxLength={4} style={inp}/>
+      <input placeholder="New 4-digit passcode" value={npc} onChange={e=>setNpc(e.target.value.replace(/\D/g,''))} maxLength={4} style={inp}/>
+      <button className="btn" style={{width:'100%',marginTop:8}} onClick={()=>{ if(pc!==S.phone.passcode){ toast('Current passcode wrong'); SFX.bad(); return;} if(npc.length!==4){ toast('Use 4 digits'); return;} setS(s=>({...s,phone:{...s.phone,passcode:npc}})); toast('Passcode changed'); SFX.ok(); setSub(null); setPc('');setNpc(''); }}>Save Passcode</button></div>);
+  }
+  return (<div><h3 style={{marginTop:0}}>Settings</h3>
+    <div className="row" onClick={()=>setSub('bg')} style={{cursor:'pointer'}}><span>Wallpaper</span><span className="pill">25</span></div>
+    <div className="row" onClick={()=>setSub('pc')} style={{cursor:'pointer'}}><span>Change Passcode</span><span className="pill">{S.phone.passcode}</span></div>
+    <div className="row"><span>Level</span><span className="pill">{S.level}</span></div>
+    <div className="row"><span>About</span><span className="pill" style={{fontSize:11}}>Farmers Life Phone</span></div></div>);
+}
+const inp={width:'100%',padding:10,marginBottom:8,borderRadius:8,border:'1px solid #333',background:'#1a1a1a',color:'#fff'};
+
+/* ---- 5 PHONE GAMES -------------------------------------------------------- */
+function GamesApp({S,setS,toast}){
+  const [g,setG]=useState(null);
+  const games=[['catch','Crop Catch'],['memory','Memory Match'],['guess','Number Guess'],['ttt','Tic-Tac-Toe'],['react','Reaction Test']];
+  if(g==='catch') return <CatchGame onBack={()=>setG(null)} reward={(n)=>{setS(s=>({...s,money:s.money+n}));toast('Won '+money(n));}}/>;
+  if(g==='memory') return <MemoryGame onBack={()=>setG(null)} reward={(n)=>{setS(s=>({...s,money:s.money+n}));toast('Won '+money(n));}}/>;
+  if(g==='guess') return <GuessGame onBack={()=>setG(null)}/>;
+  if(g==='ttt') return <TTTGame onBack={()=>setG(null)}/>;
+  if(g==='react') return <ReactGame onBack={()=>setG(null)}/>;
+  return (<div><h3 style={{marginTop:0}}>Games (5)</h3>{games.map(([id,n])=>(<div className="row" key={id} style={{cursor:'pointer'}} onClick={()=>{SFX.click();setG(id);}}><span>{n}</span><span className="pill">Play</span></div>))}</div>);
+}
+function GameWrap({title,onBack,children}){ return (<div><div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}><h3 style={{margin:0}}>{title}</h3><button className="btn gray" onClick={onBack}>Back</button></div><div style={{marginTop:10}}>{children}</div></div>); }
+
+function CatchGame({onBack,reward}){
+  const [score,setScore]=useState(0); const [t,setT]=useState(20); const [pos,setPos]=useState([]); const run=useRef(true);
+  useEffect(()=>{ run.current=true; const tk=setInterval(()=>setT(x=>{ if(x<=1){ run.current=false; clearInterval(tk); return 0;} return x-1; }),1000);
+    const sp=setInterval(()=>{ if(run.current) setPos(p=>[...p.filter(o=>o.y<100),{id:Math.random(),x:rint(5,85),y:0,v:rint(2,5)}]); },700);
+    const mv=setInterval(()=>setPos(p=>p.map(o=>({...o,y:o.y+o.v}))),120);
+    return ()=>{ clearInterval(tk);clearInterval(sp);clearInterval(mv); }; },[]);
+  useEffect(()=>{ if(t===0){ reward(score*3); } },[t]);
+  return (<GameWrap title="Crop Catch" onBack={onBack}><div style={{display:'flex',justifyContent:'space-between'}}><span>Score {score}</span><span>Time {t}</span></div>
+    <div style={{position:'relative',height:240,background:'#16240c',borderRadius:8,overflow:'hidden',marginTop:6}}>
+      {pos.map(o=>(<div key={o.id} onClick={()=>{ if(t>0){ setScore(s=>s+1); SFX.cash(); setPos(p=>p.filter(x=>x.id!==o.id)); } }}
+        style={{position:'absolute',left:o.x+'%',top:o.y+'%',width:26,height:26,borderRadius:6,background:pick(['#E8821E','#E84060','#F4D03F','#2E8B57']),cursor:'pointer'}}></div>))}
+      {t===0 && <div style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',background:'rgba(0,0,0,.6)'}}><div>Time! Score {score}</div><div className="pill" style={{marginTop:8}}>Won {money(score*3)}</div></div>}
+    </div><p style={{opacity:.7,fontSize:12}}>Tap the falling crops before they drop.</p></GameWrap>);
+}
+function MemoryGame({onBack,reward}){
+  const init=()=>{ const v=['A','B','C','D','E','F']; const d=[...v,...v].map((x,i)=>({i,v:x,up:false,done:false})); for(let i=d.length-1;i>0;i--){const j=rint(0,i);[d[i],d[j]]=[d[j],d[i]];} return d; };
+  const [cards,setCards]=useState(init); const [sel,setSel]=useState([]); const [moves,setMoves]=useState(0); const [won,setWon]=useState(false);
+  function flip(i){ if(cards[i].up||cards[i].done||sel.length>=2) return; const nc=cards.map((c,k)=>k===i?{...c,up:true}:c); setCards(nc); const ns=[...sel,i];
+    if(ns.length===2){ setMoves(m=>m+1); const [a,b]=ns; if(nc[a].v===nc[b].v){ setTimeout(()=>{ setCards(cs=>{ const r=cs.map((c,k)=>(k===a||k===b)?{...c,done:true}:c); if(r.every(x=>x.done)){ setWon(true); reward(40);} return r;}); setSel([]); },300); }
+      else { setTimeout(()=>{ setCards(cs=>cs.map((c,k)=>(k===a||k===b)?{...c,up:false}:c)); setSel([]); },650); } } else setSel(ns); }
+  return (<GameWrap title="Memory Match" onBack={onBack}><div>Moves: {moves}</div>
+    <div className="grid" style={{gridTemplateColumns:'repeat(4,1fr)',marginTop:8}}>{cards.map((c,i)=>(<div key={i} onClick={()=>flip(i)} style={{aspectRatio:1,borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,fontWeight:800,cursor:'pointer',background:c.done?'#5a8f2e':(c.up?'#e0a51c':'#33491f'),color:c.up||c.done?'#000':'#33491f'}}>{(c.up||c.done)?c.v:'?'}</div>))}</div>
+    {won && <div className="pill" style={{marginTop:10,display:'inline-block'}}>You matched all pairs! Won $40</div>}</GameWrap>);
+}
+function GuessGame({onBack}){ const [tgt,setTgt]=useState(()=>rint(1,100)); const [g,setG]=useState(''); const [msg,setMsg]=useState('Guess 1-100'); const [tries,setTries]=useState(0);
+  function go(){ const n=parseInt(g); if(!n){return;} setTries(t=>t+1); if(n===tgt){ setMsg('Correct in '+(tries+1)+' tries!'); SFX.ok(); } else { setMsg(n<tgt?'Higher':'Lower'); SFX.click(); } setG(''); }
+  return (<GameWrap title="Number Guess" onBack={onBack}><p>{msg}</p><input value={g} onChange={e=>setG(e.target.value.replace(/\D/g,''))} style={inp}/>
+    <button className="btn" style={{width:'100%'}} onClick={go}>Guess</button>
+    <button className="btn gray" style={{width:'100%',marginTop:6}} onClick={()=>{setTgt(rint(1,100));setMsg('New number! Guess 1-100');setTries(0);}}>New Game</button></GameWrap>);
+}
+function TTTGame({onBack}){ const [b,setB]=useState(Array(9).fill('')); const [msg,setMsg]=useState('Your turn (X)');
+  function win(bd){ const L=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]]; for(const [a,c,d] of L){ if(bd[a]&&bd[a]===bd[c]&&bd[a]===bd[d]) return bd[a]; } return null; }
+  function play(i){ if(b[i]||win(b)) return; const nb=[...b]; nb[i]='X'; let w=win(nb); if(w){ setB(nb); setMsg('You win!'); SFX.ok(); return; }
+    const empty=nb.map((v,k)=>v?null:k).filter(v=>v!==null); if(empty.length){ nb[pick(empty)]='O'; } setB(nb); w=win(nb); setMsg(w?'Computer wins':(nb.every(x=>x)?'Draw':'Your turn (X)')); }
+  return (<GameWrap title="Tic-Tac-Toe" onBack={onBack}><p>{msg}</p>
+    <div className="grid" style={{gridTemplateColumns:'repeat(3,1fr)',maxWidth:200,margin:'0 auto'}}>{b.map((v,i)=>(<div key={i} onClick={()=>play(i)} style={{aspectRatio:1,background:'#33491f',borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',fontSize:34,fontWeight:800,cursor:'pointer'}}>{v}</div>))}</div>
+    <button className="btn gray" style={{width:'100%',marginTop:8}} onClick={()=>{setB(Array(9).fill(''));setMsg('Your turn (X)');}}>Reset</button></GameWrap>);
+}
+function ReactGame({onBack}){ const [state,setState]=useState('idle'); const [t0,setT0]=useState(0); const [ms,setMs]=useState(null); const tm=useRef(null);
+  function start(){ setState('wait'); setMs(null); tm.current=setTimeout(()=>{ setT0(performance.now()); setState('go'); },rint(1200,4000)); }
+  function clickArea(){ if(state==='wait'){ clearTimeout(tm.current); setState('idle'); setMs('Too soon!'); } else if(state==='go'){ setMs(Math.round(performance.now()-t0)+' ms'); setState('idle'); SFX.ok(); } }
+  return (<GameWrap title="Reaction Test" onBack={onBack}>
+    <div onClick={state==='idle'?start:clickArea} style={{height:200,borderRadius:10,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',fontWeight:800,fontSize:20,background:state==='go'?'#5a8f2e':(state==='wait'?'#c0392b':'#33491f')}}>
+      {state==='idle'?(ms||'Tap to start'):(state==='wait'?'Wait...':'TAP NOW')}</div></GameWrap>);
+}
+
+/* =========================================================================
+   HOUSE INTERIOR SCENE
+   ========================================================================= */
+function HouseScene({S,onSleep,onClose,onPhone}){
+  const h=HOUSES[S.houseTier]; const ref=useRef(null);
+  useEffect(()=>{ const c=ref.current,ctx=c.getContext('2d'); function draw(){ c.width=innerWidth; c.height=innerHeight;
+    const W=c.width,H=c.height; const roomW=Math.min(W*0.9, 260+h.size*120), roomH=Math.min(H*0.7, 200+h.size*70);
+    const ox=(W-roomW)/2, oy=(H-roomH)/2-10;
+    ctx.fillStyle='#1a130c'; ctx.fillRect(0,0,W,H);
+    // floor
+    ctx.fillStyle='#8a6a3a'; ctx.fillRect(ox,oy,roomW,roomH);
+    for(let x=ox;x<ox+roomW;x+=40){ ctx.strokeStyle='rgba(0,0,0,.15)'; ctx.beginPath();ctx.moveTo(x,oy);ctx.lineTo(x,oy+roomH);ctx.stroke(); }
+    // walls
+    ctx.fillStyle=h.wall; ctx.fillRect(ox,oy,roomW,28);
+    ctx.fillStyle='rgba(0,0,0,.2)'; ctx.fillRect(ox,oy,roomW,28);
+    // bed
+    ctx.fillStyle='#c0392b'; ctx.fillRect(ox+24,oy+50,90,54); ctx.fillStyle='#fff'; ctx.fillRect(ox+24,oy+50,90,18);
+    // rug
+    ctx.fillStyle='#5a8f2e'; ctx.fillRect(ox+roomW/2-50,oy+roomH/2,100,50);
+    // furniture scales with size
+    if(h.size>=2){ ctx.fillStyle='#8a5a2b'; ctx.fillRect(ox+roomW-120,oy+60,80,40); } // table
+    if(h.size>=3){ ctx.fillStyle='#2e6fd6'; ctx.fillRect(ox+roomW-120,oy+roomH-90,90,50); } // couch
+    if(h.size>=4){ ctx.fillStyle='#7d3c98'; ctx.fillRect(ox+40,oy+roomH-90,70,50); } // shelf
+    if(h.size>=5){ ctx.fillStyle='#e0a51c'; ctx.fillRect(ox+roomW/2-30,oy+40,60,30); } // tv
+    // character standing
+    drawAvatarFront(ctx,S,ox+roomW/2-20,oy+roomH-130,9);
+    // labels
+    ctx.fillStyle='#ffe9a8'; ctx.font='13px Segoe UI'; ctx.fillText('Bed (sleep to advance day)', ox+24, oy+44);
+  } draw(); window.addEventListener('resize',draw); return ()=>window.removeEventListener('resize',draw);
+  },[S.houseTier,S.skin,S.hair,S.hairCol,S.shirt,S.gender,S.pants]);
+  return (<div className="scene">
+    <canvas ref={ref} style={{position:'absolute',inset:0}}/>
+    <div className="hud"><div className="stat">{h.name} - {h.rooms}</div><div className="stat">Day {S.day}</div></div>
+    <div className="botbar">
+      <button className="btn gold" onClick={onSleep}>Sleep (Next Day)</button>
+      <button className="btn blue" onClick={onPhone}>Phone</button>
+      <button className="btn gray" onClick={onClose}>Go Outside</button>
+    </div>
+  </div>);
+}
+
+/* =========================================================================
+   STORE PANELS
+   ========================================================================= */
+function Store({type,S,setS,onClose,toast,act}){
+  const T=PHONE_BGS; // unused
+  function buy(cost,fn,label){ if(S.money<cost){ toast('Not enough money'); SFX.bad(); return; } SFX.cash(); fn(); toast(label); }
+  // SUPERMARKET: sell crops + buy a couple seeds + eat
+  if(type==='super'){ const inv=S.inventory; const has=Object.keys(inv).filter(k=>inv[k]>0);
+    function sellAll(){ let g=0,xp=0; has.forEach(k=>{ g+=CROP[k].sell*inv[k]; xp+=CROP[k].xp*inv[k]; }); if(g<=0){toast('Nothing to sell');return;} SFX.cash(); setS(s=>({...s,money:s.money+g,xp:s.xp+xp,inventory:{}})); toast('Sold crops for '+money(g)); act.checkLevel(); }
+    return (<Panel title="Supermarket" onClose={onClose}>
+      <h3>Sell Your Harvest</h3>
+      {has.length===0? <p style={{opacity:.7}}>You have no harvested crops. Grow and harvest some first.</p> :
+        has.map(k=>(<div className="row" key={k}><span>{CROP[k].name} x{inv[k]}</span><span className="pill">{money(CROP[k].sell*inv[k])}</span></div>))}
+      {has.length>0 && <button className="btn gold" style={{width:'100%'}} onClick={sellAll}>Sell All</button>}
+      <h3>Buy Seeds</h3>
+      {CROPS.slice(0,4).map(c=>(<div className="row" key={c.id}><span>{c.name} Seeds<small>Grows in {c.days} days</small></span><button className="btn" onClick={()=>buy(c.seed,()=>setS(s=>({...s,money:s.money-c.seed,seeds:{...s.seeds,[c.id]:(s.seeds[c.id]||0)+1}})),'Bought '+c.name+' seeds')}>{money(c.seed)}</button></div>))}
+    </Panel>);
+  }
+  // HARDWARE: all seeds + tools
+  if(type==='hardware'){ return (<Panel title="Hardware Store" onClose={onClose}>
+      <h3>Seeds (need a tractor to plant)</h3>
+      {CROPS.map(c=>(<div className="row" key={c.id}><span>{c.name} Seeds<small>Sells for {money(c.sell)} - {c.days} days</small></span>
+        <button className="btn" onClick={()=>buy(c.seed,()=>setS(s=>({...s,money:s.money-c.seed,seeds:{...s.seeds,[c.id]:(s.seeds[c.id]||0)+1}})),'Bought '+c.name+' seeds')}>{money(c.seed)}</button></div>))}
+    </Panel>);
+  }
+  // TRACTOR DEALERSHIP
+  if(type==='tractor'){ return (<Panel title="Tractor Dealership" onClose={onClose}>
+      <p style={{opacity:.8,fontSize:13}}>You need a tractor AND seeds to grow crops. A faster tractor lets you drive around town quicker.</p>
+      {TRACTORS.map(t=>{ const owned=S.tractors.includes(t.id); return (<div className="row" key={t.id}>
+        <span>{t.name}<small>Drive speed {t.speed}</small></span>
+        {owned? <span className="pill">Owned</span> :
+         <button className="btn green" onClick={()=>buy(t.price,()=>setS(s=>({...s,money:s.money-t.price,tractors:[t.id,...s.tractors]})),'Bought '+t.name)}>{money(t.price)}</button>}</div>); })}
+    </Panel>);
+  }
+  // REAL ESTATE: bigger farms + houses
+  if(type==='realestate'){ return (<Panel title="Real Estate Office" onClose={onClose}>
+      <h3>Upgrade Your Farm</h3>
+      {FARMS.map((f,i)=>{ const owned=i<=S.farmTier; const next=i===S.farmTier+1; return (<div className="row" key={i}>
+        <span>{f.name}<small>{f.plots} plots</small></span>
+        {owned? <span className="pill">{i===S.farmTier?'Current':'Owned'}</span> : next?
+          <button className="btn green" onClick={()=>buy(f.price,()=>setS(s=>{ const np=freshPlots(f.plots); for(let k=0;k<s.plots.length&&k<np.length;k++) np[k]=s.plots[k]; return {...s,money:s.money-f.price,farmTier:i,plots:np}; }),'Upgraded to '+f.name)}>{money(f.price)}</button>
+          : <span className="pill" style={{opacity:.5}}>Locked</span>}</div>); })}
+      <h3>Upgrade Your House</h3>
+      {HOUSES.map((hh,i)=>{ const owned=i<=S.houseTier; const next=i===S.houseTier+1; return (<div className="row" key={i}>
+        <span>{hh.name}<small>{hh.rooms} - bigger interior</small></span>
+        {owned? <span className="pill">{i===S.houseTier?'Current':'Owned'}</span> : next?
+          <button className="btn green" onClick={()=>buy(hh.price,()=>setS(s=>({...s,money:s.money-hh.price,houseTier:i})),'Moved into '+hh.name)}>{money(hh.price)}</button>
+          : <span className="pill" style={{opacity:.5}}>Locked</span>}</div>); })}
+    </Panel>);
+  }
+  // BARBER: hair
+  if(type==='barber'){ const list=S.gender==='girl'?GIRL_HAIR:BOY_HAIR; return (<Panel title="Barber Shop" onClose={onClose}>
+      <div style={{textAlign:'center',marginBottom:8}}><AvatarBox S={S} size={130}/></div>
+      <h3>Hair Color</h3>
+      <div className="grid" style={{gridTemplateColumns:'repeat(6,1fr)'}}>{HAIRCOL.map((c,i)=>(<div key={i} className={'chip'+(S.hairCol===i?' sel':'')} style={{height:34,background:c}} onClick={()=>setS(s=>({...s,hairCol:i}))}></div>))}</div>
+      <h3>Hair Style ({list.length}) - {list[S.hair%list.length]}</h3>
+      <div className="grid" style={{gridTemplateColumns:'repeat(3,1fr)',maxHeight:220,overflow:'auto'}}>{list.map((hn,i)=>(<div key={i} className={'chip'+(S.hair===i?' sel':'')} onClick={()=>{setS(s=>({...s,hair:i}));SFX.click();}}>{hn}</div>))}</div>
+    </Panel>);
+  }
+  // CLOTHING: gender, pants, shirt
+  if(type==='clothing'){ const list=S.gender==='girl'?GIRL_PANTS:BOY_PANTS; return (<Panel title="Clothing Store" onClose={onClose}>
+      <div style={{textAlign:'center',marginBottom:8}}><AvatarBox S={S} size={130}/></div>
+      <h3>Gender</h3>
+      <div style={{display:'flex',gap:8}}>
+        <button className={'chip'+(S.gender==='girl'?' sel':'')} style={{flex:1}} onClick={()=>setS(s=>({...s,gender:'girl',hair:0,pants:0}))}>Girl</button>
+        <button className={'chip'+(S.gender==='boy'?' sel':'')} style={{flex:1}} onClick={()=>setS(s=>({...s,gender:'boy',hair:0,pants:0}))}>Boy</button>
+      </div>
+      <h3>Shirt Color</h3>
+      <div className="grid" style={{gridTemplateColumns:'repeat(5,1fr)'}}>{SHIRT.map((c,i)=>(<div key={i} className={'chip'+(S.shirt===i?' sel':'')} style={{height:34,background:c}} onClick={()=>setS(s=>({...s,shirt:i}))}></div>))}</div>
+      <h3>Pants Style ({list.length}) - {list[S.pants%list.length]}</h3>
+      <div className="grid" style={{gridTemplateColumns:'repeat(3,1fr)',maxHeight:200,overflow:'auto'}}>{list.map((pn,i)=>(<div key={i} className={'chip'+(S.pants===i?' sel':'')} onClick={()=>{setS(s=>({...s,pants:i}));SFX.click();}}>{pn}</div>))}</div>
+    </Panel>);
+  }
+  // FURNITURE
+  if(type==='furniture'){ const items=[['Comfy Couch',180],['Oak Table',140],['Bookshelf',120],['Flat TV',420],['Floor Rug',90],['Lamp',60],['Painting',150],['Plant Pot',45]];
+    return (<Panel title="Furniture Store" onClose={onClose}>
+      <p style={{opacity:.8,fontSize:13}}>Decorate your home. Bigger houses show more furniture.</p>
+      {items.map(([n,p])=>{ const owned=S.decor.includes(n); return (<div className="row" key={n}><span>{n}</span>
+        {owned?<span className="pill">Owned</span>:<button className="btn" onClick={()=>buy(p,()=>setS(s=>({...s,money:s.money-p,decor:[...s.decor,n]})),'Bought '+n)}>{money(p)}</button>}</div>); })}
+    </Panel>);
+  }
+  // PHONE STORE
+  if(type==='phonestore'){ return (<Panel title="Phone Store" onClose={onClose}>
+      <p style={{opacity:.8}}>Your phone has 25 apps and 5 games built in. Open it with the PHONE button. Change your wallpaper and passcode in Settings.</p>
+      <div className="row"><span>Phone Plan</span><span className="pill">Active</span></div>
+      <div className="row"><span>Apps installed</span><span className="pill">25</span></div>
+      <div className="row"><span>Games installed</span><span className="pill">5</span></div>
+      <div className="row"><span>Wallpapers</span><span className="pill">25 (8 at Lv7)</span></div>
+    </Panel>);
+  }
+  // DINER (eat - small money for fun / no-op flavor)
+  if(type==='diner'){ const food=[['Pancakes',12],['Farm Burger',18],['Veggie Plate',15],['Pie Slice',9],['Coffee',5]];
+    return (<Panel title="Country Diner" onClose={onClose}>
+      <p style={{opacity:.8}}>Grab a bite in town.</p>
+      {food.map(([n,p])=>(<div className="row" key={n}><span>{n}</span><button className="btn" onClick={()=>buy(p,()=>setS(s=>({...s,money:s.money-p})),'Enjoyed '+n)}>{money(p)}</button></div>))}
+    </Panel>);
+  }
+  // MALL DIRECTORY (100+ stores)
+  if(type==='mall'){ const [page,setPage]=useState(0); const per=12; const slice=DIRECTORY.slice(page*per,page*per+per); const pages=Math.ceil(DIRECTORY.length/per);
+    return (<Panel title={'Shopping Mall ('+DIRECTORY.length+' stores)'} onClose={onClose}>
+      <p style={{opacity:.8,fontSize:13}}>Browse over {DIRECTORY.length} stores. Buy a souvenir to support local shops.</p>
+      {slice.map((st,i)=>(<div className="row" key={i}><span style={{fontSize:14}}>{st.name}<small>{st.kind}</small></span>
+        <button className="btn" onClick={()=>buy(st.price,()=>setS(s=>({...s,money:s.money-st.price})),'Shopped at '+st.name)}>{money(st.price)}</button></div>))}
+      <div style={{display:'flex',justifyContent:'space-between',marginTop:8}}>
+        <button className="btn gray" disabled={page===0} onClick={()=>setPage(page-1)}>Prev</button>
+        <span className="pill">Page {page+1} / {pages}</span>
+        <button className="btn gray" disabled={page>=pages-1} onClick={()=>setPage(page+1)}>Next</button>
+      </div>
+    </Panel>);
+  }
+  return null;
+}
+function Panel({title,onClose,children}){ return (<div className="overlay" onClick={onClose}><div className="panel" onClick={e=>e.stopPropagation()}>
+  <div className="closeX" onClick={onClose}>x</div><h2>{title}</h2>{children}
+  <button className="btn gray" style={{width:'100%',marginTop:12}} onClick={onClose}>Leave</button></div></div>); }
+
+/* =========================================================================
+   FARM PANEL (plant / water / harvest)
+   ========================================================================= */
+function FarmPanel({S,setS,onClose,toast,act,plotFocus}){
+  const hasTractor=S.tractors.length>0;
+  const seedKeys=Object.keys(S.seeds).filter(k=>S.seeds[k]>0);
+  const [selSeed,setSelSeed]=useState(seedKeys[0]||null);
+  function plant(i){ if(!hasTractor){ toast('Buy a tractor first'); SFX.bad(); return; } if(!selSeed||S.seeds[selSeed]<=0){ toast('No seeds selected'); SFX.bad(); return; }
+    setS(s=>{ const pl=[...s.plots]; pl[i]={crop:selSeed,stage:0,watered:false,ready:false}; return {...s,plots:pl,seeds:{...s.seeds,[selSeed]:s.seeds[selSeed]-1}}; }); SFX.plant(); toast('Planted '+CROP[selSeed].name); }
+  function water(i){ setS(s=>{ const pl=[...s.plots]; if(pl[i].crop&&!pl[i].ready) pl[i]={...pl[i],watered:true}; return {...s,plots:pl}; }); beep(500,.05,'sine',.04); }
+  function waterAll(){ setS(s=>({...s,plots:s.plots.map(p=>p.crop&&!p.ready?{...p,watered:true}:p)})); toast('Watered all crops'); SFX.ok(); }
+  function harvest(i){ const pl=S.plots[i]; if(!pl.ready) return; const cr=CROP[pl.crop];
+    setS(s=>{ const plots=[...s.plots]; plots[i]={crop:null,stage:0,watered:false,ready:false}; return {...s,plots,inventory:{...s.inventory,[pl.crop]:(s.inventory[pl.crop]||0)+1},xp:s.xp+cr.xp}; });
+    SFX.cash(); toast('Harvested '+cr.name+' (+'+cr.xp+' XP)'); act.checkLevel(); }
+  function harvestAll(){ const ready=S.plots.filter(p=>p.ready).length; if(ready===0){ toast('No crops ready'); return; }
+    setS(s=>{ const inv={...s.inventory}; let xp=s.xp; const plots=s.plots.map(p=>{ if(p.ready){ inv[p.crop]=(inv[p.crop]||0)+1; xp+=CROP[p.crop].xp; return {crop:null,stage:0,watered:false,ready:false}; } return p; }); return {...s,plots,inventory:inv,xp}; });
+    SFX.cash(); toast('Harvested '+ready+' crops'); act.checkLevel(); }
+  const readyCount=S.plots.filter(p=>p.ready).length;
+  return (<div className="overlay" onClick={onClose}><div className="panel" onClick={e=>e.stopPropagation()}>
+    <div className="closeX" onClick={onClose}>x</div>
+    <h2>{FARMS[S.farmTier].name}</h2>
+    {!hasTractor && <div className="row" style={{background:'#5a2b1a'}}><span>You need a tractor to plant. Visit the Tractor Dealership.</span></div>}
+    <h3>Select Seed to Plant</h3>
+    {seedKeys.length===0? <p style={{opacity:.7}}>No seeds. Buy seeds at the Hardware Store or Supermarket.</p> :
+      <div className="grid" style={{gridTemplateColumns:'repeat(3,1fr)'}}>
+        {seedKeys.map(k=>(<div key={k} className={'chip'+(selSeed===k?' sel':'')} onClick={()=>setSelSeed(k)}>{CROP[k].name}<br/><small>x{S.seeds[k]}</small></div>))}
+      </div>}
+    <div style={{display:'flex',gap:8,margin:'10px 0'}}>
+      <button className="btn blue" style={{flex:1}} onClick={waterAll}>Water All</button>
+      <button className="btn gold" style={{flex:1}} onClick={harvestAll} disabled={readyCount===0}>Harvest All ({readyCount})</button>
+    </div>
+    <h3>Your Plots</h3>
+    <div className="grid" style={{gridTemplateColumns:'repeat(4,1fr)'}}>
+      {S.plots.map((p,i)=>{ const cr=p.crop?CROP[p.crop]:null; const focus=plotFocus===i;
+        return (<div key={i} style={{border:focus?'2px solid #e0a51c':'2px solid #3f5a26',borderRadius:9,padding:6,textAlign:'center',background:p.ready?'#3a4d22':'#26371a'}}>
+          {!cr? <><div style={{fontSize:11,opacity:.7,height:28}}>Empty</div><button className="btn" style={{width:'100%',padding:'5px 0',fontSize:12}} onClick={()=>plant(i)}>Plant</button></>
+          : p.ready? <><div style={{fontSize:11,height:28,color:cr.color}}>{cr.name}<br/>Ready!</div><button className="btn gold" style={{width:'100%',padding:'5px 0',fontSize:12}} onClick={()=>harvest(i)}>Harvest</button></>
+          : <><div style={{fontSize:11,height:28}}>{cr.name}<br/>{p.stage}/{cr.days}d {p.watered?'(wet)':'(dry)'}</div><button className="btn blue" style={{width:'100%',padding:'5px 0',fontSize:12}} disabled={p.watered} onClick={()=>water(i)}>{p.watered?'Watered':'Water'}</button></>}
+        </div>); })}
+    </div>
+    <p style={{opacity:.65,fontSize:12,marginTop:10}}>Water crops every day. Sleep in your house to advance the day - watered crops grow, dry ones wait.</p>
+  </div></div>);
+}
+
+/* =========================================================================
+   APP ROOT
+   ========================================================================= */
+function App(){
+  const [S,setS]=useState(loadState);
+  const [overlay,setOverlay]=useState(null); // {type}
+  const [phoneOpen,setPhoneOpen]=useState(false);
+  const [inHouse,setInHouse]=useState(false);
+  const [farmOpen,setFarmOpen]=useState(false);
+  const [plotFocus,setPlotFocus]=useState(null);
+  const [toastMsg,setToastMsg]=useState(null);
+  const [levelUp,setLevelUp]=useState(null);
+  const driveRef=useRef({});
+  const toastTmr=useRef(null);
+
+  useEffect(()=>{ document.getElementById('boot').style.display='none'; },[]);
+  useEffect(()=>{ try{ localStorage.setItem('farmersLife',JSON.stringify(S)); }catch(e){} },[S]);
+
+  const toast=useCallback((m)=>{ setToastMsg(m); clearTimeout(toastTmr.current); toastTmr.current=setTimeout(()=>setToastMsg(null),2200); },[]);
+
+  const act={ checkLevel(){ setS(s=>{ let lvl=s.level, xp=s.xp; while(xp>=xpForLevel(lvl)){ xp-=xpForLevel(lvl); lvl++; setTimeout(()=>{ setLevelUp(lvl); SFX.ok(); },50); } return {...s,level:lvl,xp}; }); } };
+
+  function enter(b){ SFX.click(); if(b.id==='house'){ setInHouse(true); return; } setOverlay({type:b.id}); }
+  function sleep(){ setS(s=>{ const plots=s.plots.map(p=>{ if(!p.crop||p.ready) return p; if(p.watered){ const ns=p.stage+1; const ready=ns>=CROP[p.crop].days; return {...p,stage:ns,ready,watered:false}; } return {...p,watered:false}; }); return {...s,day:s.day+1,plots}; }); toast('A new day on the farm. Day '+(S.day+1)); SFX.ok(); }
+
+  if(!S.created){ return <Creation S={S} setS={setS} onDone={()=>{ if(!S.name.trim()) setS(s=>({...s,name:'Farmer'})); setS(s=>({...s,created:true})); SFX.ok(); }}/>; }
+
+  const need=xpForLevel(S.level);
+  return (<div>
+    {!inHouse && <World S={S} onEnter={enter} onPlotTap={(i)=>{ setPlotFocus(i); setFarmOpen(true); }} driveRef={driveRef}/>}
+
+    {!inHouse && <>
+      <div className="hud">
+        <div className="stat">{money(S.money)}</div>
+        <div className="stat">Lv {S.level} <span style={{opacity:.6,fontSize:11}}>({S.xp}/{need})</span></div>
+        <div className="stat">Day {S.day}</div>
+        <div className="stat" style={{fontSize:12}}>{S.name}</div>
+      </div>
+      <div className="botbar">
+        <button className="btn green" onClick={()=>{ setPlotFocus(null); setFarmOpen(true); }}>FARM</button>
+        <button className="btn blue" onClick={()=>setPhoneOpen(true)}>PHONE</button>
+        <button className="btn gold" onClick={()=>enter(BUILDINGS[0])}>HOUSE</button>
+      </div>
+    </>}
+
+    {inHouse && <HouseScene S={S} onSleep={sleep} onClose={()=>setInHouse(false)} onPhone={()=>setPhoneOpen(true)}/>}
+
+    {farmOpen && <FarmPanel S={S} setS={setS} onClose={()=>setFarmOpen(false)} toast={toast} act={act} plotFocus={plotFocus}/>}
+    {overlay && <Store type={overlay.type} S={S} setS={setS} onClose={()=>setOverlay(null)} toast={toast} act={act}/>}
+    {phoneOpen && <Phone S={S} setS={setS} onClose={()=>setPhoneOpen(false)} toast={toast}/>}
+
+    {toastMsg && <div className="toast">{toastMsg}</div>}
+    {levelUp && <div className="overlay" onClick={()=>setLevelUp(null)}><div className="panel" style={{maxWidth:340,textAlign:'center'}}>
+      <h2>Level Up!</h2><div style={{fontSize:44,fontWeight:800,color:'#e0a51c'}}>{levelUp}</div>
+      <p>{levelUp>=7?'You unlocked 8 premium phone wallpapers!':'Keep farming to grow your fortune.'}</p>
+      <button className="btn gold" style={{width:'100%'}} onClick={()=>setLevelUp(null)}>Continue</button></div></div>}
+  </div>);
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
