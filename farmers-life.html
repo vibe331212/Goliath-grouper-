@@ -93,7 +93,7 @@ const CROP = Object.fromEntries(CROPS.map(c=>[c.id,c]));
 
 // ---- TRACTORS --------------------------------------------------------------
 const TRACTORS = [
-  {id:'rusty', name:'Rusty Old Tractor', price:280,   speed:3.6, color:'#9a8b5a'},
+  {id:'rusty', name:'Rusty Old Tractor', price:150,   speed:3.6, color:'#9a8b5a'},
   {id:'green', name:'Green Field 3000',  price:1400,  speed:4.4, color:'#4f9e2e'},
   {id:'red',   name:'Red Baron Plow',    price:4800,  speed:5.2, color:'#c0392b'},
   {id:'blue',  name:'Blue Thunder Diesel',price:13000,speed:6.0, color:'#2e6fd6'},
@@ -191,7 +191,7 @@ function defaultState(){
   return {
     created:false, name:'Farmer', gender:'girl',
     skin:0, hair:0, hairCol:2, shirt:2, pants:0,
-    money:120, level:1, xp:0, day:1,
+    money:230, level:1, xp:0, day:1,
     tractors:[], farmTier:0, houseTier:0,
     plots:freshPlots(FARMS[0].plots),
     seeds:{ wheat:3 }, inventory:{},
@@ -564,6 +564,9 @@ const APPS = [
   {id:'podcasts',name:'Podcasts',short:'POD',color:'#9b59b6'},
   {id:'fitness',name:'Fitness',short:'FIT',color:'#a3e635'},
   {id:'market',name:'Market',short:'CROP',color:'#5a8f2e'},
+  {id:'guide',name:'Guide',short:'HELP',color:'#0a84ff'},
+  {id:'farm',name:'Farm',short:'FARM',color:'#5a8f2e'},
+  {id:'almanac',name:'Almanac',short:'TIPS',color:'#8a5a2b'},
   {id:'games',name:'Games',short:'PLAY',color:'#af52de'},
   {id:'settings',name:'Settings',short:'SET',color:'#8e8e93'},
 ];
@@ -583,6 +586,36 @@ function renderApp(id,S,setS,toast){
       <h3 style={{marginTop:0}}>Crop Market Prices</h3>
       {CROPS.map(c=>(<div className="row" key={c.id}><span>{c.name}</span><span className="pill">{money(c.sell)} each</span></div>))}
       <p style={{opacity:.7,fontSize:13}}>Sell harvested crops at the Supermarket.</p></div>);
+    case 'guide': return (<div>
+      <h3 style={{marginTop:0}}>How to Play</h3>
+      {[['Move','Use the arrow keys / WASD or the on-screen pad to walk around.'],
+        ['Get a tractor','Walk to the Tractor Dealership in town and buy one. You need a tractor AND seeds to plant.'],
+        ['Buy seeds','Buy seeds at the Hardware Store or Supermarket.'],
+        ['Plant','Tap the FARM button, pick a seed, and press Plant on an empty plot.'],
+        ['Water daily','Press Water (or Water All) every day, or crops will not grow.'],
+        ['Next day','Go in your HOUSE and Sleep. Watered crops grow one stage.'],
+        ['Harvest & sell','When a crop is Ready, Harvest it, then sell at the Supermarket for money and XP.'],
+        ['Grow','Spend money at the Real Estate Office for bigger farms and houses, and on faster tractors.'],
+        ['Customize','Change your look at the Barber and Clothing Store any time.']
+      ].map((r,i)=>(<div className="row" key={i} style={{flexDirection:'column',alignItems:'flex-start'}}><b style={{color:'#cfe8a0'}}>{i+1}. {r[0]}</b><small>{r[1]}</small></div>))}</div>);
+    case 'farm': { const plots=S.plots; const empty=plots.filter(p=>!p.crop).length; const ready=plots.filter(p=>p.ready).length; const growing=plots.filter(p=>p.crop&&!p.ready).length;
+      const seedKeys=Object.keys(S.seeds).filter(k=>S.seeds[k]>0);
+      return (<div><h3 style={{marginTop:0}}>Farm Status</h3>
+        <div className="row"><span>Day</span><span className="pill">{S.day}</span></div>
+        <div className="row"><span>Money</span><span className="pill">{money(S.money)}</span></div>
+        <div className="row"><span>Tractor</span><span className="pill">{S.tractors.length?TRACTOR[S.tractors[0]].name:'None - buy one!'}</span></div>
+        <div className="row"><span>Plots</span><span className="pill">{plots.length}</span></div>
+        <div className="row"><span>Ready to harvest</span><span className="pill">{ready}</span></div>
+        <div className="row"><span>Growing</span><span className="pill">{growing}</span></div>
+        <div className="row"><span>Empty</span><span className="pill">{empty}</span></div>
+        <h3>Seeds in bag</h3>
+        {seedKeys.length===0? <p style={{opacity:.7,fontSize:13}}>No seeds. Buy some at the Hardware Store.</p> :
+          seedKeys.map(k=>(<div className="row" key={k}><span>{CROP[k].name}</span><span className="pill">x{S.seeds[k]}</span></div>))}</div>); }
+    case 'almanac': return (<div><h3 style={{marginTop:0}}>Crop Almanac</h3>
+      <p style={{opacity:.75,fontSize:13}}>Profit per seed = sell price minus seed cost. Higher crops need more days.</p>
+      {CROPS.map(c=>(<div className="row" key={c.id} style={{flexDirection:'column',alignItems:'flex-start'}}>
+        <b style={{color:c.color}}>{c.name}</b>
+        <small>Seed {money(c.seed)} - Sells {money(c.sell)} - {c.days} days - Profit {money(c.sell-c.seed)} - {c.xp} XP</small></div>))}</div>);
     case 'bank': return (<div><h3 style={{marginTop:0}}>Farm Bank</h3>
       <div className="row"><span>Balance</span><span className="pill">{money(S.money)}</span></div>
       <div className="row"><span>Level</span><span className="pill">{S.level}</span></div>
@@ -829,9 +862,9 @@ function Store({type,S,setS,onClose,toast,act}){
   }
   // PHONE STORE
   if(type==='phonestore'){ return (<Panel title="Phone Store" onClose={onClose}>
-      <p style={{opacity:.8}}>Your phone has 25 apps and 5 games built in. Open it with the PHONE button. Change your wallpaper and passcode in Settings.</p>
+      <p style={{opacity:.8}}>Your phone has 28 apps and 5 games built in. Open it with the PHONE button. Change your wallpaper and passcode in Settings.</p>
       <div className="row"><span>Phone Plan</span><span className="pill">Active</span></div>
-      <div className="row"><span>Apps installed</span><span className="pill">25</span></div>
+      <div className="row"><span>Apps installed</span><span className="pill">28</span></div>
       <div className="row"><span>Games installed</span><span className="pill">5</span></div>
       <div className="row"><span>Wallpapers</span><span className="pill">25 (8 at Lv7)</span></div>
     </Panel>);
@@ -929,7 +962,7 @@ function App(){
   const act={ checkLevel(){ setS(s=>{ let lvl=s.level, xp=s.xp; while(xp>=xpForLevel(lvl)){ xp-=xpForLevel(lvl); lvl++; setTimeout(()=>{ setLevelUp(lvl); SFX.ok(); },50); } return {...s,level:lvl,xp}; }); } };
 
   function enter(b){ SFX.click(); if(b.id==='house'){ setInHouse(true); return; } setOverlay({type:b.id}); }
-  function sleep(){ setS(s=>{ const plots=s.plots.map(p=>{ if(!p.crop||p.ready) return p; if(p.watered){ const ns=p.stage+1; const ready=ns>=CROP[p.crop].days; return {...p,stage:ns,ready,watered:false}; } return {...p,watered:false}; }); return {...s,day:s.day+1,plots}; }); toast('A new day on the farm. Day '+(S.day+1)); SFX.ok(); }
+  function sleep(){ setS(s=>{ const plots=s.plots.map(p=>{ if(!p.crop||p.ready) return p; if(p.watered){ const ns=p.stage+1; const ready=ns>=CROP[p.crop].days; return {...p,stage:ns,ready,watered:false}; } return {...p,watered:false}; }); return {...s,day:s.day+1,plots,money:s.money+15}; }); toast('A new day on the farm. Day '+(S.day+1)+' (+$15 from eggs)'); SFX.ok(); }
 
   if(!S.created){ return <Creation S={S} setS={setS} onDone={()=>{ if(!S.name.trim()) setS(s=>({...s,name:'Farmer'})); setS(s=>({...s,created:true})); SFX.ok(); }}/>; }
 
