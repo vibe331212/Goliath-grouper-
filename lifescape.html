@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<title>Lifescape</title>
+<style>
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { margin:0; padding:0; height:100%; background:#0b1020; overflow:hidden;
+    font-family:'Segoe UI',system-ui,Arial,sans-serif; color:#fff; user-select:none; -webkit-user-select:none; }
+  #game { position:fixed; inset:0; }
+  canvas { display:block; width:100%; height:100%; }
+
+  /* boot */
+  #boot { position:fixed; inset:0; z-index:60; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px;
+    background:radial-gradient(circle at 50% 30%,#1b3358,#0a1326 70%); }
+  #boot h1 { margin:0; font-size:54px; letter-spacing:4px; font-weight:800;
+    background:linear-gradient(90deg,#5ad1ff,#7affc4,#ffd86b); -webkit-background-clip:text; background-clip:text; color:transparent;
+    text-shadow:0 8px 40px rgba(90,209,255,.25); }
+  #boot p { margin:0; opacity:.65; font-size:14px; letter-spacing:1px; }
+  .spinner { width:48px; height:48px; border:5px solid rgba(255,255,255,.18); border-top-color:#5ad1ff; border-radius:50%; animation:spin 1s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg);} }
+
+  /* HUD */
+  #hud { position:fixed; top:0; left:0; right:0; z-index:20; display:flex; gap:8px; align-items:flex-start;
+    padding:10px 12px; pointer-events:none; flex-wrap:wrap; }
+  .chip { background:rgba(12,20,40,.78); border:1px solid rgba(255,255,255,.12); border-radius:12px;
+    padding:7px 11px; font-size:13px; font-weight:700; display:flex; align-items:center; gap:6px; backdrop-filter:blur(6px); }
+  .chip small { font-weight:600; opacity:.6; font-size:11px; }
+  .dot { width:9px; height:9px; border-radius:50%; }
+  .bars { display:flex; flex-direction:column; gap:5px; }
+  .bar { width:104px; height:8px; border-radius:6px; background:rgba(255,255,255,.14); overflow:hidden; }
+  .bar > i { display:block; height:100%; border-radius:6px; transition:width .3s; }
+  .barlabel { font-size:10px; opacity:.7; margin-bottom:1px; font-weight:600; letter-spacing:.5px; }
+
+  /* speedometer */
+  #speedo { position:fixed; right:14px; bottom:120px; z-index:18; text-align:center; pointer-events:none;
+    background:rgba(12,20,40,.7); border:1px solid rgba(255,255,255,.12); border-radius:14px; padding:8px 14px; min-width:90px; display:none; }
+  #speedo b { font-size:30px; font-weight:800; display:block; line-height:1; }
+  #speedo span { font-size:10px; opacity:.6; letter-spacing:1px; }
+
+  /* prompt */
+  #prompt { position:fixed; left:50%; bottom:150px; transform:translateX(-50%); z-index:19;
+    background:rgba(20,30,55,.92); border:1px solid rgba(120,200,255,.4); border-radius:30px; padding:10px 20px;
+    font-size:14px; font-weight:700; display:none; align-items:center; gap:8px; box-shadow:0 8px 30px rgba(0,0,0,.4); }
+  #prompt b { background:#3b8cff; border-radius:8px; padding:3px 9px; font-size:12px; }
+
+  /* toast */
+  #toasts { position:fixed; top:62px; left:50%; transform:translateX(-50%); z-index:30; display:flex; flex-direction:column; gap:6px; align-items:center; pointer-events:none; }
+  .toast { background:rgba(15,25,45,.95); border:1px solid rgba(255,255,255,.14); border-radius:12px; padding:9px 16px; font-size:13px; font-weight:600;
+    animation:tin .3s ease, tout .4s ease 2.6s forwards; max-width:88vw; }
+  .toast.good { border-color:#2ec26b; } .toast.bad { border-color:#ff5a4a; } .toast.gold { border-color:#ffcf4a; }
+  @keyframes tin { from{opacity:0;transform:translateY(-8px);} } @keyframes tout { to{opacity:0;transform:translateY(-8px);} }
+
+  /* controls */
+  #controls { position:fixed; inset:0; z-index:15; pointer-events:none; }
+  #joy { position:absolute; left:22px; bottom:30px; width:130px; height:130px; border-radius:50%;
+    background:rgba(20,30,55,.45); border:1px solid rgba(255,255,255,.16); pointer-events:auto; touch-action:none; }
+  #knob { position:absolute; left:38px; top:38px; width:54px; height:54px; border-radius:50%;
+    background:rgba(90,170,255,.85); box-shadow:0 4px 14px rgba(0,0,0,.4); }
+  .rbtns { position:absolute; right:18px; bottom:26px; display:flex; flex-direction:column; gap:10px; align-items:flex-end; }
+  .gbtn { pointer-events:auto; touch-action:none; width:74px; height:74px; border-radius:50%; border:1px solid rgba(255,255,255,.18);
+    background:rgba(20,30,55,.65); color:#fff; font-size:13px; font-weight:800; display:flex; align-items:center; justify-content:center; }
+  .gbtn:active { background:rgba(90,170,255,.7); }
+  .gbtn.act { background:rgba(46,194,107,.55); width:84px; height:84px; font-size:14px; }
+  .gbtn.brk { background:rgba(255,90,74,.45); }
+
+  /* modal */
+  #modalWrap { position:fixed; inset:0; z-index:40; display:none; align-items:center; justify-content:center; padding:16px;
+    background:rgba(5,10,22,.6); backdrop-filter:blur(3px); }
+  .modal { width:min(540px,96vw); max-height:88vh; overflow:auto; background:linear-gradient(170deg,#16223e,#0e1830);
+    border:1px solid rgba(255,255,255,.14); border-radius:20px; padding:18px; box-shadow:0 30px 80px rgba(0,0,0,.6); }
+  .modal h2 { margin:0 0 4px; font-size:22px; }
+  .modal .sub { opacity:.6; font-size:13px; margin-bottom:14px; }
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .card { background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.09); border-radius:14px; padding:12px; }
+  .card h3 { margin:0 0 3px; font-size:15px; } .card p { margin:0 0 9px; font-size:12px; opacity:.7; line-height:1.4; }
+  .price { font-weight:800; color:#ffd86b; }
+  .btn { cursor:pointer; border:none; border-radius:11px; padding:10px 15px; font-size:14px; font-weight:700; color:#fff;
+    background:#2e7dff; transition:filter .12s, transform .05s; width:100%; }
+  .btn:hover { filter:brightness(1.12); } .btn:active { transform:translateY(1px); }
+  .btn.green { background:#23b26d; } .btn.gold { background:#e6a417; color:#1a1200; } .btn.red { background:#e0524a; } .btn.gray { background:#424c68; }
+  .btn:disabled { opacity:.4; cursor:not-allowed; }
+  .row { display:flex; gap:8px; align-items:center; }
+  .closeX { float:right; cursor:pointer; opacity:.6; font-size:24px; line-height:1; margin-top:-4px; }
+  .closeX:hover { opacity:1; }
+  .flag { font-size:26px; }
+  .tag { display:inline-block; font-size:11px; padding:2px 7px; border-radius:6px; background:rgba(255,255,255,.12); margin-right:5px; }
+  .owned { color:#2ec26b; font-weight:700; }
+</style>
+</head>
+<body>
+<div id="game"><canvas id="cv"></canvas></div>
+
+<div id="boot">
+  <div class="spinner"></div>
+  <h1>LIFESCAPE</h1>
+  <p>Live your life anywhere in the world…</p>
+</div>
+
+<div id="hud"></div>
+<div id="speedo"><b id="spd">0</b><span>KM/H</span></div>
+<div id="prompt"></div>
+<div id="toasts"></div>
+
+<div id="controls">
+  <div id="joy"><div id="knob"></div></div>
+  <div class="rbtns">
+    <div class="gbtn act" id="btnAct">ACT</div>
+    <div class="gbtn brk" id="btnBrk">BRAKE</div>
+  </div>
+</div>
+
+<div id="modalWrap"><div class="modal" id="modal"></div></div>
+
+<script>
+/* ============================================================================
+   LIFESCAPE — a top-down driving life-sim. Drive cars, buy houses, go shopping,
+   and fly anywhere in the world: every country shows its own buildings.
+   Single-file, vanilla JS + Canvas. Keyboard + touch.
+   ========================================================================== */
+(function(){
+'use strict';
+
+const SAVE = 'lifescape_save_v1';
+const TAU = Math.PI*2;
+const clamp = (v,a,b)=>v<a?a:v>b?b:v;
+const lerp = (a,b,t)=>a+(b-a)*t;
+const dist = (ax,ay,bx,by)=>Math.hypot(ax-bx,ay-by);
+const rint = (a,b)=>Math.floor(Math.random()*(b-a+1))+a;
+const pick = a=>a[Math.floor(Math.random()*a.length)];
+const fmt = n=>'$'+Math.round(n).toLocaleString();
+
+/* ---------- audio (tiny beeps) ---------- */
+let AC=null;
+function beep(freq=440,dur=.08,type='sine',vol=.05){
+  try{ AC=AC||new (window.AudioContext||window.webkitAudioContext)();
+    const o=AC.createOscillator(), g=AC.createGain();
+    o.type=type; o.frequency.value=freq; o.connect(g); g.connect(AC.destination);
+    g.gain.setValueAtTime(vol,AC.currentTime); g.gain.exponentialRampToValueAtTime(.0001,AC.currentTime+dur);
+    o.start(); o.stop(AC.currentTime+dur);
+  }catch(e){}
+}
+const SFX={ ok:()=>beep(660,.08,'square'), buy:()=>{beep(523,.09);setTimeout(()=>beep(784,.12),90);},
+  bad:()=>beep(150,.18,'sawtooth',.06), open:()=>beep(420,.06), engine:()=>beep(90,.05,'sawtooth',.02) };
+
+/* ============================================================================
+   COUNTRY THEMES — palette + landmark + building style per destination
+   ========================================================================== */
+const COUNTRIES = [
+  { key:'USA',    flag:'🇺🇸', city:'New York', cost:0,
+    grass:'#3f5a3a', road:'#2b2f38', line:'#c7b24a', sidewalk:'#5a6070',
+    wall:['#8893a8','#9aa6bd','#6f7c93'], roof:'#48506a', accent:'#bcd2ee',
+    style:'skyscraper', landmark:'liberty', sky:['#9fc4e8','#dfeefb'] },
+  { key:'JAPAN',  flag:'🇯🇵', city:'Tokyo', cost:1200,
+    grass:'#516e48', road:'#33363f', line:'#dddddd', sidewalk:'#6b7180',
+    wall:['#efe7d8','#f4eee2','#e3d8c4'], roof:'#a8302a', accent:'#ffffff',
+    style:'pagoda', landmark:'torii', sky:['#ffd0d8','#fff0e8'] },
+  { key:'CHINA',  flag:'🇨🇳', city:'Beijing', cost:1200,
+    grass:'#5a6e3a', road:'#34323a', line:'#e0c24a', sidewalk:'#70695a',
+    wall:['#a8302a','#bf3a2a','#922824'], roof:'#d4af37', accent:'#ffd700',
+    style:'temple', landmark:'pagoda', sky:['#f3d9a0','#fdeecb'] },
+  { key:'FRANCE', flag:'🇫🇷', city:'Paris', cost:1500,
+    grass:'#4f6a44', road:'#3a3e46', line:'#dadada', sidewalk:'#8a8678',
+    wall:['#e8e0d0','#efe7d8','#d8cdb8'], roof:'#4a5568', accent:'#c4b49a',
+    style:'mansard', landmark:'eiffel', sky:['#bcd0e0','#eef3f8'] },
+  { key:'EGYPT',  flag:'🇪🇬', city:'Cairo', cost:1800,
+    grass:'#b9a36a', road:'#7d6f50', line:'#e8d8a0', sidewalk:'#cdb888',
+    wall:['#d8c298','#e2cfa6','#c4ab78'], roof:'#b09868', accent:'#e8d4a0',
+    style:'sand', landmark:'pyramid', sky:['#f6dca0','#fdf0cc'] },
+  { key:'ITALY',  flag:'🇮🇹', city:'Rome', cost:1500,
+    grass:'#6a7a40', road:'#41423c', line:'#d8d2b0', sidewalk:'#9a8e6a',
+    wall:['#e0d2b0','#e8dcbc','#cdba94'], roof:'#a85b3a', accent:'#c0a070',
+    style:'roman', landmark:'colosseum', sky:['#cfe0c0','#f4f6e6'] },
+  { key:'BRAZIL', flag:'🇧🇷', city:'Rio', cost:1600,
+    grass:'#2f8a4a', road:'#34373c', line:'#e8e848', sidewalk:'#6a7058',
+    wall:['#f0d878','#7ad0c0','#f08a6a'], roof:'#2aa86b', accent:'#ffff66',
+    style:'favela', landmark:'christ', sky:['#9fe0c8','#eafbf0'] },
+  { key:'UK',     flag:'🇬🇧', city:'London', cost:1400,
+    grass:'#46663f', road:'#33363c', line:'#cccccc', sidewalk:'#71757c',
+    wall:['#b08868','#bd9374','#9a7355'], roof:'#5b3020', accent:'#8b5a3a',
+    style:'brick', landmark:'bigben', sky:['#b8c0c8','#e4e8ec'] },
+];
+function country(key){ return COUNTRIES.find(c=>c.key===key)||COUNTRIES[0]; }
+
+/* ============================================================================
+   CARS
+   ========================================================================== */
+const CARS = [
+  { id:'starter', name:'City Hatch',   price:0,     top:165, accel:0.26, grip:0.86, color:'#d8d8e0', w:30, l:54 },
+  { id:'sedan',   name:'Comfort Sedan',price:9000,  top:185, accel:0.30, grip:0.88, color:'#3a6db0', w:32, l:60 },
+  { id:'suv',     name:'Family SUV',   price:18000, top:175, accel:0.28, grip:0.91, color:'#2a2a30', w:36, l:66 },
+  { id:'sport',   name:'Sport Coupe',  price:42000, top:230, accel:0.42, grip:0.83, color:'#e03b3b', w:30, l:56 },
+  { id:'super',   name:'Hyper GT',     price:140000,top:300, accel:0.55, grip:0.80, color:'#ffcf3a', w:32, l:58 },
+];
+function carDef(id){ return CARS.find(c=>c.id===id)||CARS[0]; }
+
+/* ============================================================================
+   SHOPPING
+   ========================================================================== */
+const SHOP_ITEMS = [
+  { id:'coffee',  name:'Coffee',        price:6,    fun:6,   energy:18 },
+  { id:'burger',  name:'Burger Combo',  price:14,   fun:10,  energy:30 },
+  { id:'sushi',   name:'Fancy Dinner',  price:65,   fun:26,  energy:38 },
+  { id:'clothes', name:'New Outfit',    price:220,  fun:30,  energy:0  },
+  { id:'phone',   name:'Smartphone',    price:1100, fun:42,  energy:0  },
+  { id:'tv',      name:'Giant TV',      price:2400, fun:55,  energy:0  },
+];
+
+/* ============================================================================
+   STATE
+   ========================================================================== */
+function defaultState(){
+  return {
+    money: 2500,
+    fun: 70, energy: 85,
+    countryKey: 'USA',
+    cars: ['starter'], car: 'starter',
+    houses: {},          // "USA:home_2": true
+    items: {},           // owned shop items
+    day: 1, clock: 8*60, // minutes
+  };
+}
+let S = load();
+function load(){
+  try{ const j=JSON.parse(localStorage.getItem(SAVE)); if(j) return Object.assign(defaultState(), j); }catch(e){}
+  return defaultState();
+}
+function save(){ try{ localStorage.setItem(SAVE, JSON.stringify(S)); }catch(e){} }
+
+/* ============================================================================
+   WORLD GENERATION — a city grid for the active country
+   ========================================================================== */
+const BLOCK = 320;        // block size
+const ROAD = 92;          // road width
+const GRID = 5;           // blocks per side
+const WORLD = GRID*(BLOCK+ROAD)+ROAD;
+
+let world = null;
+function genWorld(key){
+  const th = country(key);
+  const buildings=[], specials=[];
+  // road network: roads at every (BLOCK+ROAD) interval
+  const roadsAt=[]; for(let i=0;i<=GRID;i++) roadsAt.push(ROAD/2 + i*(BLOCK+ROAD));
+  // Decide special lots — fixed positions so the player can always find them
+  const lots=[]; // {bx,by, x,y,w,h}
+  for(let by=0;by<GRID;by++) for(let bx=0;bx<GRID;bx++){
+    const x = ROAD + bx*(BLOCK+ROAD), y = ROAD + by*(BLOCK+ROAD);
+    lots.push({bx,by,x,y,w:BLOCK,h:BLOCK});
+  }
+  // center lot reserved for landmark/park
+  const cIdx = lots.findIndex(l=>l.bx===2&&l.by===2);
+  const center = lots[cIdx];
+  // assign special service buildings
+  const svc = [
+    { kind:'dealer', name:'Car Dealership', color:'#2e7dff', bx:1, by:1 },
+    { kind:'mall',   name:'Shopping Mall',  color:'#23b26d', bx:3, by:1 },
+    { kind:'airport',name:'Airport',        color:'#e6a417', bx:1, by:3 },
+    { kind:'bank',   name:'Bank / Jobs',    color:'#9b5de5', bx:3, by:3 },
+  ];
+  const used=new Set([`2,2`]);
+  svc.forEach(s=>{
+    const lot = lots.find(l=>l.bx===s.bx&&l.by===s.by);
+    used.add(`${s.bx},${s.by}`);
+    specials.push({ kind:s.kind, name:s.name, color:s.color,
+      x:lot.x, y:lot.y, w:lot.w, h:lot.h, cx:lot.x+lot.w/2, cy:lot.y+lot.h/2 });
+  });
+  // houses for sale — a few ownable homes scattered
+  let homeN=0;
+  const homePrices=[35000,52000,78000,120000,260000];
+  // fill remaining lots with buildings; mark some as ownable homes
+  lots.forEach(l=>{
+    const kk=`${l.bx},${l.by}`;
+    if(kk==='2,2') return; // park
+    if(used.has(kk)) return; // service buildings drawn separately
+    // subdivide lot into a few footprints
+    const cols=rint(2,3), rows=rint(2,3);
+    const pad=14, gw=(l.w-pad*2)/cols, gh=(l.h-pad*2)/rows;
+    for(let r=0;r<rows;r++) for(let c=0;c<cols;c++){
+      const m=rint(8,16);
+      const bx=l.x+pad+c*gw+m/2, by=l.y+pad+r*gh+m/2;
+      const bw=gw-m, bh=gh-m;
+      const h=rint(20,70)+ (th.style==='skyscraper'?rint(0,90):0);
+      // chance to be an ownable home (only smaller ones, a couple per city)
+      let home=null;
+      if(homeN<5 && Math.random()<0.16 && bw<150 && (l.bx+l.by)%2===0){
+        const id=`${key}:home_${homeN}`;
+        home={ id, price: homePrices[homeN]||100000, owned: !!S.houses[id] };
+        homeN++;
+      }
+      buildings.push({ x:bx,y:by,w:bw,h:bh, height:h,
+        wall: th.wall[(r+c)%th.wall.length], roof: th.roof, style:th.style, home });
+    }
+  });
+  // a couple guaranteed homes if generation gave too few
+  while(homeN<3){
+    const b=pick(buildings.filter(b=>!b.home && b.w<150));
+    if(!b) break;
+    const id=`${key}:home_${homeN}`;
+    b.home={ id, price:homePrices[homeN]||100000, owned:!!S.houses[id] }; homeN++;
+  }
+  world = { key, th, buildings, specials, center, roadsAt,
+    spawn:{ x: ROAD/2, y: ROAD + 2*(BLOCK+ROAD) + BLOCK/2 } };
+  return world;
+}
+
+/* ============================================================================
+   ENTITIES — player + car
+   ========================================================================== */
+const player = { x:0, y:0, angle:0, inCar:true, walkR:11 };
+const car = { x:0, y:0, angle:-Math.PI/2, speed:0, steer:0 };
+
+function spawnInWorld(){
+  const sp=world.spawn;
+  car.x=sp.x; car.y=sp.y; car.angle=-Math.PI/2; car.speed=0;
+  player.x=sp.x; player.y=sp.y; player.inCar=true;
+}
+
+/* ============================================================================
+   INPUT
+   ========================================================================== */
+const keys={};
+addEventListener('keydown',e=>{ keys[e.key.toLowerCase()]=true;
+  if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(e.key.toLowerCase())) e.preventDefault();
+  if(e.key.toLowerCase()==='e') doAction();
+}, {passive:false});
+addEventListener('keyup',e=>{ keys[e.key.toLowerCase()]=false; });
+
+// virtual joystick
+let joyVec={x:0,y:0}, joyId=null;
+const joy=document.getElementById('joy'), knob=document.getElementById('knob');
+function joyMove(cx,cy){
+  const r=joy.getBoundingClientRect();
+  let dx=cx-(r.left+r.width/2), dy=cy-(r.top+r.height/2);
+  const mag=Math.hypot(dx,dy), max=r.width/2-10;
+  if(mag>max){ dx*=max/mag; dy*=max/mag; }
+  knob.style.left=(38+dx)+'px'; knob.style.top=(38+dy)+'px';
+  joyVec.x=dx/max; joyVec.y=dy/max;
+}
+function joyEnd(){ joyVec.x=0; joyVec.y=0; knob.style.left='38px'; knob.style.top='38px'; joyId=null; }
+joy.addEventListener('touchstart',e=>{ e.preventDefault(); const t=e.changedTouches[0]; joyId=t.identifier; joyMove(t.clientX,t.clientY); },{passive:false});
+joy.addEventListener('touchmove',e=>{ for(const t of e.changedTouches) if(t.identifier===joyId){ e.preventDefault(); joyMove(t.clientX,t.clientY); } },{passive:false});
+joy.addEventListener('touchend',e=>{ for(const t of e.changedTouches) if(t.identifier===joyId) joyEnd(); });
+joy.addEventListener('mousedown',e=>{ joyId='m'; joyMove(e.clientX,e.clientY); });
+addEventListener('mousemove',e=>{ if(joyId==='m') joyMove(e.clientX,e.clientY); });
+addEventListener('mouseup',()=>{ if(joyId==='m') joyEnd(); });
+
+let braking=false;
+const btnBrk=document.getElementById('btnBrk');
+['touchstart','mousedown'].forEach(ev=>btnBrk.addEventListener(ev,e=>{e.preventDefault(); braking=true;},{passive:false}));
+['touchend','mouseup','mouseleave'].forEach(ev=>btnBrk.addEventListener(ev,()=>braking=false));
+document.getElementById('btnAct').addEventListener('click',e=>{ e.preventDefault(); doAction(); });
+
+/* ============================================================================
+   CANVAS / CAMERA
+   ========================================================================== */
+const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
+let VW=0,VH=0,DPR=1;
+function resize(){ DPR=Math.min(devicePixelRatio||1,2);
+  cv.width=innerWidth*DPR; cv.height=innerHeight*DPR; ctx.setTransform(DPR,0,0,DPR,0,0);
+  VW=innerWidth; VH=innerHeight; }
+addEventListener('resize',resize); resize();
+const cam={ x:0, y:0, zoom:1 };
+
+/* ============================================================================
+   INTERACTION
+   ========================================================================== */
+let nearest=null; // {type, target, label}
+function updateNearest(){
+  const px = player.inCar?car.x:player.x, py = player.inCar?car.y:player.y;
+  nearest=null; let best=120*120;
+  // services
+  for(const s of world.specials){
+    const d=(px-s.cx)**2+(py-s.cy)**2;
+    // distance to lot edge-ish (use center but generous radius via lot size)
+    const rr=Math.max(s.w,s.h)*0.6;
+    if(d < rr*rr && d<best){ best=d; nearest={ type:s.kind, target:s, label:s.name }; }
+  }
+  // homes for sale
+  for(const b of world.buildings){
+    if(!b.home) continue;
+    const cx=b.x+b.w/2, cy=b.y+b.h/2, d=(px-cx)**2+(py-cy)**2;
+    if(d<130*130 && d<best){ best=d; nearest={ type:'home', target:b, label:(b.home.owned?'Your Home':'House For Sale') }; }
+  }
+  // car re-enter (on foot near car)
+  if(!player.inCar){
+    const d=(player.x-car.x)**2+(player.y-car.y)**2;
+    if(d<70*70 && d<best){ best=d; nearest={ type:'car', label:'Enter Car' }; }
+  }
+  renderPrompt();
+}
+function renderPrompt(){
+  const p=document.getElementById('prompt');
+  if(modalOpen){ p.style.display='none'; return; }
+  if(player.inCar && (!nearest)){ // show exit hint only when stopped near nothing? show generic
+    p.style.display='none'; return;
+  }
+  if(!nearest){ p.style.display='none'; return; }
+  let verb = nearest.type==='home' ? (nearest.target.home.owned?'Rest at Home':'View House')
+           : nearest.type==='car' ? 'Enter Car'
+           : 'Enter '+nearest.label;
+  p.innerHTML = `<b>E</b> ${verb}`;
+  p.style.display='flex';
+}
+
+function doAction(){
+  if(modalOpen){ return; }
+  if(!nearest){
+    // toggle exit car if in car & stopped
+    if(player.inCar && Math.abs(car.speed)<0.4){ exitCar(); }
+    return;
+  }
+  SFX.open();
+  switch(nearest.type){
+    case 'car': enterCar(); break;
+    case 'dealer': openDealer(); break;
+    case 'mall': openMall(); break;
+    case 'airport': openAirport(); break;
+    case 'bank': openBank(); break;
+    case 'home': openHome(nearest.target); break;
+  }
+}
+function enterCar(){ player.inCar=true; toast('Got in the '+carDef(S.car).name); }
+function exitCar(){ player.inCar=false; player.x=car.x+Math.cos(car.angle+Math.PI/2)*30; player.y=car.y+Math.sin(car.angle+Math.PI/2)*30; toast('Stepped out'); }
+
+/* ============================================================================
+   ECONOMY HELPERS
+   ========================================================================== */
+function spend(n){ if(S.money<n){ SFX.bad(); toast('Not enough money',-1); return false; } S.money-=n; save(); SFX.buy(); refreshHUD(); return true; }
+function earn(n){ S.money+=n; save(); refreshHUD(); }
+
+/* ============================================================================
+   MODALS / UI
+   ========================================================================== */
+let modalOpen=false;
+const modalWrap=document.getElementById('modalWrap'), modalEl=document.getElementById('modal');
+function showModal(html){ modalEl.innerHTML=html; modalWrap.style.display='flex'; modalOpen=true; renderPrompt(); }
+function closeModal(){ modalWrap.style.display='none'; modalOpen=false; }
+modalWrap.addEventListener('click',e=>{ if(e.target===modalWrap) closeModal(); });
+window.LS={ closeModal }; // for inline onclick
+
+function openDealer(){
+  let rows=CARS.map(c=>{
+    const owned=S.cars.includes(c.id), active=S.car===c.id;
+    const btn = active?`<button class="btn gray" disabled>Driving</button>`
+      : owned?`<button class="btn green" onclick="LS.driveCar('${c.id}')">Drive</button>`
+      : `<button class="btn gold" onclick="LS.buyCar('${c.id}')">Buy ${fmt(c.price)}</button>`;
+    return `<div class="card">
+      <h3>${c.name} ${active?'<span class="owned">●</span>':''}</h3>
+      <p><span class="tag">Top ${c.top}</span><span class="tag">Accel ${Math.round(c.accel*100)}</span><span class="tag">Grip ${Math.round(c.grip*100)}</span></p>
+      <div style="height:34px;border-radius:7px;background:${c.color};margin-bottom:9px;border:1px solid rgba(0,0,0,.3)"></div>
+      ${btn}</div>`;
+  }).join('');
+  showModal(`<span class="closeX" onclick="LS.closeModal()">×</span>
+    <h2>Car Dealership</h2><div class="sub">Buy a ride. Better cars = faster, better handling.</div>
+    <div class="grid">${rows}</div>`);
+}
+LS.buyCar=id=>{ const c=carDef(id); if(spend(c.price)){ S.cars.push(id); S.car=id; save(); toast('Bought '+c.name+'!',1); openDealer(); } };
+LS.driveCar=id=>{ S.car=id; save(); SFX.ok(); toast('Now driving '+carDef(id).name); openDealer(); };
+
+function openMall(){
+  let rows=SHOP_ITEMS.map(it=>{
+    const owned=S.items[it.id];
+    return `<div class="card">
+      <h3>${it.name}</h3>
+      <p>${it.fun?`+${it.fun} Fun `:''}${it.energy?`+${it.energy} Energy`:''}</p>
+      <div class="row"><span class="price">${fmt(it.price)}</span>
+      <button class="btn ${owned&&it.energy===0?'gray':'green'}" onclick="LS.buyItem('${it.id}')">${owned&&it.energy===0?'Owned':'Buy'}</button></div></div>`;
+  }).join('');
+  showModal(`<span class="closeX" onclick="LS.closeModal()">×</span>
+    <h2>Shopping Mall</h2><div class="sub">Spend your cash. Food restores energy, treats boost fun.</div>
+    <div class="grid">${rows}</div>`);
+}
+LS.buyItem=id=>{ const it=SHOP_ITEMS.find(i=>i.id===id);
+  if(it.energy===0 && S.items[id]){ toast('Already owned',-1); SFX.bad(); return; }
+  if(spend(it.price)){ S.items[id]=true; S.fun=clamp(S.fun+it.fun,0,100); S.energy=clamp(S.energy+it.energy,0,100);
+    save(); toast('Enjoyed '+it.name+'!',1); refreshHUD(); openMall(); } };
+
+function openAirport(){
+  let rows=COUNTRIES.map(c=>{
+    const here=S.countryKey===c.key;
+    return `<div class="card">
+      <h3><span class="flag">${c.flag}</span> ${c.city}</h3>
+      <p>${c.key} · ${c.style} buildings${c.landmark?` · ${c.landmark}`:''}</p>
+      <div class="row"><span class="price">${c.cost?fmt(c.cost):'Home'}</span>
+      <button class="btn ${here?'gray':'gold'}" ${here?'disabled':''} onclick="LS.fly('${c.key}')">${here?'You are here':'Fly'}</button></div></div>`;
+  }).join('');
+  showModal(`<span class="closeX" onclick="LS.closeModal()">×</span>
+    <h2>Airport ✈</h2><div class="sub">Fly anywhere in the world. Each country has its own buildings & landmarks.</div>
+    <div class="grid">${rows}</div>`);
+}
+LS.fly=key=>{ const c=country(key);
+  if(c.cost && !spend(c.cost)) return;
+  S.countryKey=key; save(); closeModal();
+  genWorld(key); spawnInWorld();
+  toast('Welcome to '+c.city+'! '+c.flag,1); refreshHUD();
+};
+
+function openBank(){
+  // simple jobs: do a delivery for cash, or a quick "work shift" mini reward
+  showModal(`<span class="closeX" onclick="LS.closeModal()">×</span>
+    <h2>Bank & Jobs</h2><div class="sub">Earn money to fund your life.</div>
+    <div class="grid">
+      <div class="card"><h3>Delivery Job</h3><p>A drop-off marker appears on the map. Drive there to get paid (~$400–$900).</p>
+        <button class="btn green" onclick="LS.startDelivery()">Start Delivery</button></div>
+      <div class="card"><h3>Work a Shift</h3><p>Put in some hours. Costs energy, pays steady cash.</p>
+        <button class="btn gold" onclick="LS.workShift()">Work ( -25 energy )</button></div>
+      <div class="card"><h3>Daily Stipend</h3><p>Collect once per day just for showing up.</p>
+        <button class="btn" onclick="LS.stipend()">Collect $300</button></div>
+      <div class="card"><h3>Balance</h3><p>Cash on hand.</p><div class="price" style="font-size:22px">${fmt(S.money)}</div></div>
+    </div>`);
+}
+LS.workShift=()=>{ if(S.energy<25){ toast('Too tired — rest first',-1); SFX.bad(); return; }
+  S.energy=clamp(S.energy-25,0,100); const pay=rint(350,650); earn(pay); advanceTime(180);
+  toast('Worked a shift: +'+fmt(pay),1); openBank(); };
+let stipendDay=-1;
+LS.stipend=()=>{ if(stipendDay===S.day){ toast('Already collected today',-1); SFX.bad(); return; }
+  stipendDay=S.day; earn(300); toast('Stipend +$300',1); openBank(); };
+
+/* delivery quest */
+let delivery=null;
+LS.startDelivery=()=>{
+  // pick a random road intersection far from player
+  const px=player.inCar?car.x:player.x, py=player.inCar?car.y:player.y;
+  let best=null,bd=-1;
+  for(let i=0;i<12;i++){
+    const tx=ROAD/2 + rint(0,GRID)*(BLOCK+ROAD), ty=ROAD/2 + rint(0,GRID)*(BLOCK+ROAD);
+    const d=(tx-px)**2+(ty-py)**2; if(d>bd){ bd=d; best={x:tx,y:ty}; }
+  }
+  delivery={ x:best.x, y:best.y, pay:rint(400,900) };
+  closeModal(); toast('Delivery started — follow the gold marker',1);
+};
+function checkDelivery(){
+  if(!delivery) return;
+  const px=player.inCar?car.x:player.x, py=player.inCar?car.y:player.y;
+  if(dist(px,py,delivery.x,delivery.y)<70){ earn(delivery.pay); S.fun=clamp(S.fun+8,0,100);
+    toast('Delivered! +'+fmt(delivery.pay),1); delivery=null; refreshHUD(); }
+}
+
+function openHome(b){
+  const h=b.home;
+  if(h.owned){
+    showModal(`<span class="closeX" onclick="LS.closeModal()">×</span>
+      <h2>🏠 Your Home</h2><div class="sub">${country(world.key).city}</div>
+      <div class="grid">
+        <div class="card"><h3>Sleep</h3><p>Rest until morning. Fully restores energy, advances the day.</p>
+          <button class="btn green" onclick="LS.sleep()">Sleep</button></div>
+        <div class="card"><h3>Relax</h3><p>Watch your giant TV, chill out. +Fun.</p>
+          <button class="btn" onclick="LS.relax()">Relax (+20 Fun)</button></div>
+      </div>`);
+  } else {
+    const can=S.money>=h.price;
+    showModal(`<span class="closeX" onclick="LS.closeModal()">×</span>
+      <h2>🏷 House For Sale</h2><div class="sub">${country(world.key).city} · a place to call home</div>
+      <div class="card">
+        <h3>Charming ${country(world.key).style} home</h3>
+        <p>Own property here so you can sleep, relax and restore energy any time.</p>
+        <div class="row"><span class="price" style="font-size:20px">${fmt(h.price)}</span>
+        <button class="btn ${can?'gold':'gray'}" ${can?'':'disabled'} onclick="LS.buyHome('${h.id}')">${can?'Buy House':'Not enough'}</button></div>
+      </div>`);
+  }
+}
+LS.buyHome=id=>{ const b=world.buildings.find(x=>x.home&&x.home.id===id); if(!b) return;
+  if(spend(b.home.price)){ S.houses[id]=true; b.home.owned=true; save(); toast('You bought a house! 🏠',1); openHome(b); } };
+LS.sleep=()=>{ S.energy=100; S.day++; S.clock=7*60; save(); toast('Slept well. Day '+S.day,1); refreshHUD(); closeModal(); };
+LS.relax=()=>{ S.fun=clamp(S.fun+20,0,100); advanceTime(60); save(); toast('Feeling great (+20 Fun)',1); refreshHUD(); openHome(nearest&&nearest.target||{home:{owned:true}}); };
+
+/* ============================================================================
+   TIME / STATS
+   ========================================================================== */
+function advanceTime(mins){ S.clock+=mins; while(S.clock>=1440){ S.clock-=1440; S.day++; } }
+function clockStr(){ const h=Math.floor(S.clock/60)%24, m=Math.floor(S.clock%60); const ap=h<12?'AM':'PM'; const hh=((h+11)%12)+1; return hh+':'+String(m).padStart(2,'0')+' '+ap; }
+
+/* ============================================================================
+   HUD
+   ========================================================================== */
+const hud=document.getElementById('hud');
+function refreshHUD(){
+  const c=country(S.countryKey);
+  hud.innerHTML=`
+    <div class="chip"><span class="dot" style="background:#ffd86b"></span>${fmt(S.money)}</div>
+    <div class="chip">${c.flag} ${c.city}</div>
+    <div class="chip"><small>DAY</small> ${S.day} <small>·</small> ${clockStr()}</div>
+    <div class="chip bars">
+      <div><div class="barlabel">FUN</div><div class="bar"><i style="width:${S.fun}%;background:#ff7ad0"></i></div></div>
+      <div><div class="barlabel">ENERGY</div><div class="bar"><i style="width:${S.energy}%;background:#5ad1ff"></i></div></div>
+    </div>`;
+}
+
+/* ============================================================================
+   TOASTS
+   ========================================================================== */
+const toastBox=document.getElementById('toasts');
+function toast(msg,kind=0){ const d=document.createElement('div');
+  d.className='toast '+(kind>0?'good':kind<0?'bad':'');
+  if(typeof kind==='string') d.className='toast '+kind;
+  d.textContent=msg; toastBox.appendChild(d); setTimeout(()=>d.remove(),3200);
+}
+
+/* ============================================================================
+   GAME LOOP — physics + camera + stats
+   ========================================================================== */
+let lastT=performance.now();
+function update(dt){
+  // input vector
+  let ix=0, iy=0;
+  if(keys['arrowleft']||keys['a']) ix-=1;
+  if(keys['arrowright']||keys['d']) ix+=1;
+  if(keys['arrowup']||keys['w']) iy-=1;
+  if(keys['arrowdown']||keys['s']) iy+=1;
+  ix+=joyVec.x; iy+=joyVec.y;
+  ix=clamp(ix,-1,1); iy=clamp(iy,-1,1);
+
+  if(player.inCar){
+    const def=carDef(S.car);
+    const throttle = -iy; // up = forward
+    const steerIn = ix;
+    // acceleration
+    if(throttle>0.1) car.speed += def.accel*throttle*dt*60*0.06*Math.min(def.top, def.top);
+    else if(throttle<-0.1) car.speed += def.accel*throttle*dt*60*0.05*def.top; // reverse/brake
+    // natural drag
+    car.speed *= (1 - 0.018*dt*60);
+    if(braking||keys[' ']){ car.speed *= (1 - 0.10*dt*60); }
+    car.speed = clamp(car.speed, -def.top*0.4, def.top);
+    if(Math.abs(car.speed)<0.6) car.speed=0;
+    // steering scaled by speed
+    const speedFactor = clamp(Math.abs(car.speed)/def.top,0,1);
+    const turn = steerIn * 0.045 * (0.4+speedFactor) * (car.speed<0?-1:1);
+    car.angle += turn * dt*60 * (Math.abs(car.speed)>1?1:0);
+    // move (angle: -PI/2 = up). forward dir:
+    const fx=Math.cos(car.angle), fy=Math.sin(car.angle);
+    let nx=car.x + fx*car.speed*dt, ny=car.y + fy*car.speed*dt;
+    // collision against buildings (simple): block movement, kill speed
+    if(!blocked(nx,ny,16)){ car.x=nx; car.y=ny; }
+    else { // try axis slide
+      if(!blocked(nx,car.y,16)) car.x=nx;
+      else if(!blocked(car.x,ny,16)) car.y=ny;
+      else car.speed*=-0.2;
+    }
+    // keep in world
+    car.x=clamp(car.x,40,WORLD-40); car.y=clamp(car.y,40,WORLD-40);
+    player.x=car.x; player.y=car.y; player.angle=car.angle;
+    if(Math.abs(car.speed)>2 && Math.random()<0.04) SFX.engine();
+  } else {
+    const sp=150;
+    let nx=player.x+ix*sp*dt, ny=player.y+iy*sp*dt;
+    if(!blocked(nx,player.y,player.walkR)) player.x=nx;
+    if(!blocked(player.x,ny,player.walkR)) player.y=ny;
+    player.x=clamp(player.x,20,WORLD-20); player.y=clamp(player.y,20,WORLD-20);
+    if(ix||iy) player.angle=Math.atan2(iy,ix);
+  }
+
+  // camera follows, zoom out a touch at speed
+  const tz = player.inCar ? clamp(1.0 - Math.abs(car.speed)/1400, 0.78, 1.0) : 1.05;
+  cam.zoom=lerp(cam.zoom,tz,0.05);
+  cam.x=lerp(cam.x, (player.inCar?car.x:player.x), 0.12);
+  cam.y=lerp(cam.y, (player.inCar?car.y:player.y), 0.12);
+
+  // time + stats decay
+  advanceTime(dt*0.6); // ~ game minutes
+  statTimer+=dt;
+  if(statTimer>4){ statTimer=0;
+    S.fun=clamp(S.fun-1,0,100); S.energy=clamp(S.energy-1,0,100);
+    if(S.energy<=0){ S.energy=8; toast('Exhausted! Rest at home or grab food',-1); }
+    refreshHUD(); save();
+  }
+
+  checkDelivery();
+  updateNearest();
+  // speedometer
+  const sd=document.getElementById('speedo');
+  if(player.inCar){ sd.style.display='block'; document.getElementById('spd').textContent=Math.round(Math.abs(car.speed)); }
+  else sd.style.display='none';
+}
+let statTimer=0;
+
+function blocked(x,y,r){
+  for(const b of world.buildings){
+    if(x> b.x-r && x< b.x+b.w+r && y> b.y-r && y< b.y+b.h+r) return true;
+  }
+  for(const s of world.specials){
+    // leave a doorway: only block the building footprint inset
+    const ix=s.x+30, iy=s.y+30, iw=s.w-60, ih=s.h-60;
+    if(x>ix-r && x<ix+iw+r && y>iy-r && y<iy+ih+r) return true;
+  }
+  return false;
+}
+
+/* ============================================================================
+   RENDER
+   ========================================================================== */
+function render(){
+  const th=world.th;
+  // sky/ground base
+  ctx.fillStyle=th.grass; ctx.fillRect(0,0,VW,VH);
+  ctx.save();
+  ctx.translate(VW/2,VH/2); ctx.scale(cam.zoom,cam.zoom); ctx.translate(-cam.x,-cam.y);
+
+  // visible bounds for culling
+  const halfW=VW/2/cam.zoom, halfH=VH/2/cam.zoom;
+  const vb={ l:cam.x-halfW-80, r:cam.x+halfW+80, t:cam.y-halfH-80, b:cam.y+halfH+80 };
+
+  drawGround(th,vb);
+  drawRoads(th,vb);
+  drawLandmark(th);
+  // buildings sorted by y for slight depth
+  const vis=world.buildings.filter(b=>b.x<vb.r&&b.x+b.w>vb.l&&b.y<vb.b&&b.y+b.h>vb.t);
+  vis.sort((a,b)=>a.y-b.y);
+  for(const b of vis) drawBuilding(b,th);
+  for(const s of world.specials) if(s.x<vb.r&&s.x+s.w>vb.l&&s.y<vb.b&&s.y+s.h>vb.t) drawSpecial(s,th);
+
+  // delivery marker
+  if(delivery) drawMarker(delivery.x,delivery.y);
+
+  // car + player
+  drawCar();
+  if(!player.inCar) drawPerson(player.x,player.y,player.angle);
+
+  ctx.restore();
+
+  // night overlay
+  const h=Math.floor(S.clock/60)%24;
+  let dark=0;
+  if(h>=20||h<5) dark=0.45; else if(h>=18) dark=0.25; else if(h<7) dark=0.2;
+  if(dark>0){ ctx.fillStyle=`rgba(6,10,30,${dark})`; ctx.fillRect(0,0,VW,VH); }
+}
+
+function drawGround(th,vb){
+  // subtle grass texture grid
+  ctx.fillStyle=th.grass; ctx.fillRect(vb.l,vb.t,vb.r-vb.l,vb.b-vb.t);
+}
+function drawRoads(th,vb){
+  ctx.fillStyle=th.road;
+  // vertical roads
+  for(const rx of world.roadsAt){
+    ctx.fillRect(rx-ROAD/2, vb.t, ROAD, vb.b-vb.t);
+  }
+  for(const ry of world.roadsAt){
+    ctx.fillRect(vb.l, ry-ROAD/2, vb.r-vb.l, ROAD);
+  }
+  // lane dashes
+  ctx.strokeStyle=th.line; ctx.lineWidth=3; ctx.setLineDash([18,20]);
+  ctx.beginPath();
+  for(const rx of world.roadsAt){ ctx.moveTo(rx, vb.t); ctx.lineTo(rx, vb.b); }
+  for(const ry of world.roadsAt){ ctx.moveTo(vb.l, ry); ctx.lineTo(vb.r, ry); }
+  ctx.stroke(); ctx.setLineDash([]);
+  // sidewalks (thin borders around blocks)
+  ctx.fillStyle=th.sidewalk;
+}
+
+function drawBuilding(b,th){
+  const h=b.height*0.5; // pseudo-3D extrusion offset (up-left)
+  // shadow
+  ctx.fillStyle='rgba(0,0,0,0.22)';
+  ctx.fillRect(b.x+6, b.y+6, b.w, b.h);
+  // side walls (extrusion toward viewer/down-right)
+  ctx.fillStyle=shade(b.wall,-30);
+  ctx.beginPath();
+  ctx.moveTo(b.x,b.y+b.h); ctx.lineTo(b.x+h*0.0,b.y+b.h+h);
+  ctx.lineTo(b.x+b.w+0,b.y+b.h+h); ctx.lineTo(b.x+b.w,b.y+b.h); ctx.closePath(); ctx.fill();
+  ctx.fillStyle=shade(b.wall,-50);
+  ctx.beginPath();
+  ctx.moveTo(b.x+b.w,b.y); ctx.lineTo(b.x+b.w+h*0.0,b.y+h);
+  ctx.lineTo(b.x+b.w,b.y+b.h+h); ctx.lineTo(b.x+b.w,b.y+b.h); ctx.closePath(); ctx.fill();
+  // roof / top face
+  ctx.fillStyle=b.wall; ctx.fillRect(b.x,b.y,b.w,b.h);
+  drawRoofStyle(b,th);
+  // home sign
+  if(b.home){
+    ctx.fillStyle=b.home.owned?'#23b26d':'#e6a417';
+    const sw=Math.min(b.w-8,48);
+    ctx.fillRect(b.x+b.w/2-sw/2, b.y-12, sw, 10);
+    ctx.fillStyle='#10141f'; ctx.font='bold 8px Segoe UI'; ctx.textAlign='center';
+    ctx.fillText(b.home.owned?'HOME':'SALE', b.x+b.w/2, b.y-4);
+  }
+}
+function drawRoofStyle(b,th){
+  const s=b.style;
+  if(s==='skyscraper'){
+    // window grid (glass)
+    ctx.strokeStyle='rgba(180,210,240,.35)'; ctx.lineWidth=1;
+    for(let gx=b.x+6; gx<b.x+b.w-3; gx+=10){ ctx.beginPath(); ctx.moveTo(gx,b.y+5); ctx.lineTo(gx,b.y+b.h-5); ctx.stroke(); }
+    for(let gy=b.y+6; gy<b.y+b.h-3; gy+=10){ ctx.beginPath(); ctx.moveTo(b.x+5,gy); ctx.lineTo(b.x+b.w-5,gy); ctx.stroke(); }
+    ctx.strokeStyle=th.accent; ctx.lineWidth=2; ctx.strokeRect(b.x+2,b.y+2,b.w-4,b.h-4);
+  } else if(s==='pagoda'||s==='temple'){
+    // tiled red/gold roof with central ridge
+    ctx.fillStyle=th.roof; ctx.fillRect(b.x+3,b.y+3,b.w-6,b.h-6);
+    ctx.fillStyle=th.wall; ctx.fillRect(b.x+b.w*0.3,b.y+b.h*0.3,b.w*0.4,b.h*0.4);
+    ctx.strokeStyle=shade(th.roof,-40); ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(b.x+3,b.y+b.h/2); ctx.lineTo(b.x+b.w-3,b.y+b.h/2);
+    ctx.moveTo(b.x+b.w/2,b.y+3); ctx.lineTo(b.x+b.w/2,b.y+b.h-3); ctx.stroke();
+  } else if(s==='mansard'){
+    ctx.fillStyle=th.roof; ctx.fillRect(b.x+4,b.y+4,b.w-8,b.h-8);
+    ctx.fillStyle=shade(th.roof,20);
+    for(let gx=b.x+8; gx<b.x+b.w-6; gx+=12){ ctx.fillRect(gx,b.y+8,4,6); ctx.fillRect(gx,b.y+b.h-14,4,6); }
+  } else if(s==='sand'){
+    ctx.fillStyle=shade(b.wall,18); ctx.fillRect(b.x+4,b.y+4,b.w-8,b.h-8);
+    ctx.strokeStyle=shade(b.wall,-35); ctx.lineWidth=1.5; ctx.strokeRect(b.x+5,b.y+5,b.w-10,b.h-10);
+  } else if(s==='roman'){
+    ctx.fillStyle=th.roof; ctx.fillRect(b.x+4,b.y+4,b.w-8,3);
+    ctx.fillStyle=shade(b.wall,-12);
+    for(let gx=b.x+8; gx<b.x+b.w-6; gx+=11) ctx.fillRect(gx,b.y+10,6,b.h-16);
+  } else if(s==='favela'){
+    ctx.fillStyle=th.roof; ctx.fillRect(b.x+3,b.y+3,b.w-6,b.h-6);
+    ctx.fillStyle=shade(b.wall,30); ctx.fillRect(b.x+b.w*0.2,b.y+b.h*0.2,b.w*0.25,b.h*0.25);
+  } else if(s==='brick'){
+    ctx.strokeStyle='rgba(40,20,10,.3)'; ctx.lineWidth=1;
+    for(let gy=b.y+6; gy<b.y+b.h-3; gy+=7){ ctx.beginPath(); ctx.moveTo(b.x+4,gy); ctx.lineTo(b.x+b.w-4,gy); ctx.stroke(); }
+    ctx.fillStyle=th.roof; ctx.fillRect(b.x+3,b.y+3,b.w-6,4);
+  } else {
+    ctx.fillStyle=th.roof; ctx.fillRect(b.x+5,b.y+5,b.w-10,b.h-10);
+  }
+}
+
+function drawSpecial(s,th){
+  // big plaza building with colored awning + label
+  ctx.fillStyle='rgba(0,0,0,.22)'; ctx.fillRect(s.x+8,s.y+8,s.w-40,s.h-40);
+  ctx.fillStyle='#cdd3e0'; ctx.fillRect(s.x+30,s.y+30,s.w-60,s.h-60);
+  // parking lot lines on the apron
+  ctx.strokeStyle='rgba(255,255,255,.25)'; ctx.lineWidth=2;
+  for(let gx=s.x+40; gx<s.x+s.w-40; gx+=26){ ctx.beginPath(); ctx.moveTo(gx,s.y+s.h-26); ctx.lineTo(gx,s.y+s.h-6); ctx.stroke(); }
+  // colored roof band
+  ctx.fillStyle=s.color; ctx.fillRect(s.x+30,s.y+30,s.w-60,26);
+  // entrance door
+  ctx.fillStyle='#1a2033'; ctx.fillRect(s.x+s.w/2-20, s.y+s.h-36, 40, 26);
+  // label
+  ctx.fillStyle='#fff'; ctx.font='bold 16px Segoe UI'; ctx.textAlign='center';
+  ctx.fillText(s.name.toUpperCase(), s.x+s.w/2, s.y+48);
+  // icon
+  ctx.font='28px serif';
+  const ico={dealer:'🚗',mall:'🛍',airport:'✈',bank:'🏦'}[s.kind]||'★';
+  ctx.fillText(ico, s.x+s.w/2, s.y+s.h/2+10);
+}
+
+/* landmarks (drawn at the central park) */
+function drawLandmark(th){
+  const c=world.center, cx=c.x+c.w/2, cy=c.y+c.h/2;
+  // park lawn
+  ctx.fillStyle=shade(th.grass,18); ctx.fillRect(c.x,c.y,c.w,c.h);
+  ctx.strokeStyle='rgba(255,255,255,.15)'; ctx.lineWidth=2; ctx.strokeRect(c.x+6,c.y+6,c.w-12,c.h-12);
+  // paths
+  ctx.strokeStyle=shade(th.grass,-25); ctx.lineWidth=14;
+  ctx.beginPath(); ctx.moveTo(cx,c.y); ctx.lineTo(cx,c.y+c.h); ctx.moveTo(c.x,cy); ctx.lineTo(c.x+c.w,cy); ctx.stroke();
+  ctx.save(); ctx.translate(cx,cy);
+  const L=th.landmark;
+  if(L==='liberty'){ ctx.fillStyle='#7fbfa6'; ctx.beginPath(); ctx.arc(0,0,26,0,TAU); ctx.fill();
+    ctx.fillStyle='#a8d8c4'; for(let i=0;i<7;i++){ ctx.beginPath(); const a=-Math.PI/2+(i-3)*0.32; ctx.moveTo(0,-6); ctx.lineTo(Math.cos(a)*40,Math.sin(a)*40-10); ctx.lineTo(Math.cos(a+0.06)*40,Math.sin(a+0.06)*40-10); ctx.fill(); } }
+  else if(L==='torii'){ ctx.fillStyle='#d33'; ctx.fillRect(-40,-30,10,60); ctx.fillRect(30,-30,10,60); ctx.fillRect(-50,-34,100,12); ctx.fillRect(-44,-18,88,8); }
+  else if(L==='pagoda'){ ctx.fillStyle=th.roof; for(let i=0;i<4;i++){ const w=46-i*9; ctx.fillRect(-w,-i*18-10,w*2,8); } ctx.fillStyle='#a8302a'; ctx.fillRect(-10,-10,20,30); }
+  else if(L==='eiffel'){ ctx.strokeStyle='#8a7a5a'; ctx.lineWidth=4; ctx.beginPath(); ctx.moveTo(-26,40); ctx.lineTo(0,-50); ctx.lineTo(26,40); ctx.moveTo(-18,8); ctx.lineTo(18,8); ctx.moveTo(-12,-16); ctx.lineTo(12,-16); ctx.stroke(); }
+  else if(L==='pyramid'){ ctx.fillStyle='#d8b86a'; ctx.beginPath(); ctx.moveTo(0,-46); ctx.lineTo(48,40); ctx.lineTo(-48,40); ctx.closePath(); ctx.fill(); ctx.fillStyle=shade('#d8b86a',-30); ctx.beginPath(); ctx.moveTo(0,-46); ctx.lineTo(48,40); ctx.lineTo(0,40); ctx.closePath(); ctx.fill(); }
+  else if(L==='colosseum'){ ctx.strokeStyle='#c8b48a'; ctx.lineWidth=10; ctx.beginPath(); ctx.ellipse(0,0,44,30,0,0,TAU); ctx.stroke(); ctx.lineWidth=4; ctx.beginPath(); ctx.ellipse(0,0,30,20,0,0,TAU); ctx.stroke(); }
+  else if(L==='christ'){ ctx.fillStyle='#e8e8e8'; ctx.fillRect(-4,-44,8,60); ctx.fillRect(-34,-30,68,8); ctx.beginPath(); ctx.arc(0,-46,7,0,TAU); ctx.fill(); }
+  else if(L==='bigben'){ ctx.fillStyle='#b08868'; ctx.fillRect(-14,-50,28,90); ctx.fillStyle='#ffe9a8'; ctx.beginPath(); ctx.arc(0,-40,9,0,TAU); ctx.fill(); ctx.fillStyle='#8b5a3a'; ctx.beginPath(); ctx.moveTo(-14,-50); ctx.lineTo(0,-66); ctx.lineTo(14,-50); ctx.fill(); }
+  ctx.restore();
+  // trees
+  ctx.fillStyle=shade(th.grass,-30);
+  [[c.x+40,c.y+40],[c.x+c.w-40,c.y+40],[c.x+40,c.y+c.h-40],[c.x+c.w-40,c.y+c.h-40]].forEach(p=>{ ctx.beginPath(); ctx.arc(p[0],p[1],14,0,TAU); ctx.fill(); });
+}
+
+function drawMarker(x,y){
+  const t=performance.now()/300;
+  ctx.save(); ctx.translate(x,y+Math.sin(t)*4);
+  ctx.fillStyle='rgba(230,164,23,.25)'; ctx.beginPath(); ctx.arc(0,0,40,0,TAU); ctx.fill();
+  ctx.fillStyle='#e6a417'; ctx.beginPath(); ctx.moveTo(0,-2); ctx.lineTo(14,-30); ctx.lineTo(-14,-30); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.arc(0,-30,12,0,TAU); ctx.fill(); ctx.fillStyle='#1a1200'; ctx.font='bold 12px Segoe UI'; ctx.textAlign='center'; ctx.fillText('$',0,-26);
+  ctx.restore();
+}
+
+function drawCar(){
+  const def=carDef(S.car);
+  ctx.save(); ctx.translate(car.x,car.y); ctx.rotate(car.angle+Math.PI/2);
+  const w=def.w, l=def.l;
+  // shadow
+  ctx.fillStyle='rgba(0,0,0,.3)'; rr(-w/2+3,-l/2+4,w,l,6); ctx.fill();
+  // body
+  ctx.fillStyle=def.color; rr(-w/2,-l/2,w,l,7); ctx.fill();
+  ctx.fillStyle=shade(def.color,-25); rr(-w/2,-l/2,w,8,6); ctx.fill(); // hood shade
+  // windshield/roof
+  ctx.fillStyle='rgba(20,30,50,.85)'; rr(-w/2+4,-l/2+12,w-8,l*0.42,4); ctx.fill();
+  // windows side
+  ctx.fillStyle=shade(def.color,18); rr(-w/2,-l/2+11,3,l*0.45,2); ctx.fill(); rr(w/2-3,-l/2+11,3,l*0.45,2); ctx.fill();
+  // headlights
+  ctx.fillStyle='#fff7c0'; ctx.fillRect(-w/2+3,-l/2-1,5,3); ctx.fillRect(w/2-8,-l/2-1,5,3);
+  // taillights
+  ctx.fillStyle='#ff5a4a'; ctx.fillRect(-w/2+3,l/2-2,5,3); ctx.fillRect(w/2-8,l/2-2,5,3);
+  ctx.restore();
+}
+function drawPerson(x,y,a){
+  ctx.save(); ctx.translate(x,y);
+  ctx.fillStyle='rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(2,3,11,9,0,0,TAU); ctx.fill();
+  ctx.fillStyle='#2e7dff'; ctx.beginPath(); ctx.arc(0,0,9,0,TAU); ctx.fill();
+  ctx.fillStyle='#f1c27d'; ctx.beginPath(); ctx.arc(Math.cos(a)*3,Math.sin(a)*3,5,0,TAU); ctx.fill();
+  ctx.restore();
+}
+
+function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+function shade(hex,amt){ // lighten/darken #rrggbb
+  const n=parseInt(hex.slice(1),16); let r=(n>>16)+amt,g=((n>>8)&255)+amt,b=(n&255)+amt;
+  r=clamp(r,0,255);g=clamp(g,0,255);b=clamp(b,0,255);
+  return '#'+((1<<24)+(r<<16)+(g<<8)+b).toString(16).slice(1);
+}
+
+/* ============================================================================
+   MAIN
+   ========================================================================== */
+function frame(t){
+  let dt=(t-lastT)/1000; lastT=t; if(dt>0.05) dt=0.05;
+  if(!modalOpen) update(dt);
+  render();
+  requestAnimationFrame(frame);
+}
+
+function start(){
+  genWorld(S.countryKey); spawnInWorld();
+  refreshHUD();
+  document.getElementById('boot').style.display='none';
+  // welcome
+  setTimeout(()=>{ toast('Welcome to Lifescape! Drive around, press E / ACT to interact.',1);
+    toast('Find the Airport ✈ to fly to other countries.',0); },400);
+  requestAnimationFrame(frame);
+}
+setTimeout(start, 700);
+
+// expose a couple things for debugging
+window.LIFESCAPE={ S, car, player, reset:()=>{ localStorage.removeItem(SAVE); location.reload(); } };
+
+})();
+</script>
+</body>
+</html>
