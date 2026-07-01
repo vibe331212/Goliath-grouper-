@@ -650,11 +650,17 @@ function update(dt){
     if(ix||iy) player.angle=Math.atan2(iy,ix);
   }
 
-  // camera follows, zoom out a touch at speed
-  const tz = player.inCar ? clamp(1.0 - Math.abs(car.speed)/1400, 0.78, 1.0) : 1.05;
+  // camera: fixed zoom, and a "deadzone" so the road stays still while you
+  // drive — the view only pans once the car reaches the edge of the screen.
+  const tz = player.inCar ? 0.9 : 1.05;
   cam.zoom=lerp(cam.zoom,tz,0.05);
-  cam.x=lerp(cam.x, (player.inCar?car.x:player.x), 0.12);
-  cam.y=lerp(cam.y, (player.inCar?car.y:player.y), 0.12);
+  const tx = player.inCar?car.x:player.x, ty = player.inCar?car.y:player.y;
+  const dzx = (VW/cam.zoom)*0.32, dzy = (VH/cam.zoom)*0.32; // half-size of still zone
+  const dx = tx-cam.x, dy = ty-cam.y;
+  if(dx >  dzx) cam.x += dx-dzx;
+  else if(dx < -dzx) cam.x += dx+dzx;
+  if(dy >  dzy) cam.y += dy-dzy;
+  else if(dy < -dzy) cam.y += dy+dzy;
 
   // time + stats decay
   advanceTime(dt*0.6); // ~ game minutes
