@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<title>Movers Day</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin:0; padding:0; height:100%; background:#0b1020; font-family: 'Segoe UI', system-ui, Arial, sans-serif; overflow:hidden; color:#fff; user-select:none; }
+  #root, #game { position:fixed; inset:0; }
+  #canvas-wrap { position:fixed; inset:0; }
+  canvas { display:block; width:100%; height:100%; }
+  #boot { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:14px; background:linear-gradient(160deg,#0b1020,#2a1f14); z-index:50; }
+  .spinner { width:54px; height:54px; border:5px solid rgba(255,255,255,.2); border-top-color:#ffb74d; border-radius:50%; animation:spin 1s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg);} }
+  @keyframes pop { from { transform:scale(.92); opacity:0;} to { transform:scale(1); opacity:1;} }
+  @keyframes ring { 0%,100%{transform:rotate(0)} 10%{transform:rotate(-12deg)} 20%{transform:rotate(10deg)} 30%{transform:rotate(-8deg)} 40%{transform:rotate(6deg)} 50%{transform:rotate(0)} }
+  .btn { cursor:pointer; border:none; border-radius:10px; padding:10px 16px; font-size:15px; font-weight:600; background:#e67e22; color:#fff; transition:filter .15s, transform .05s; }
+  .btn:hover { filter:brightness(1.1); }
+  .btn:active { transform:translateY(1px); }
+  .btn.green { background:#23b26d; } .btn.red { background:#e0524a; } .btn.gray { background:#48506a; }
+  .btn.gold { background:#e6a417; color:#1a1200; } .btn.blue { background:#2e7dff; }
+  .btn:disabled { opacity:.45; cursor:not-allowed; }
+  ::-webkit-scrollbar { width:8px; } ::-webkit-scrollbar-thumb { background:#445; border-radius:4px; }
+  .dpad { width:56px; height:56px; border-radius:14px; background:rgba(20,28,48,.85); border:1px solid rgba(255,255,255,.18); color:#fff; font-size:20px; font-weight:700; display:flex; align-items:center; justify-content:center; }
+  .dpad:active { background:rgba(230,126,34,.8); }
+  .itemcard { background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.1); border-radius:10px; padding:'10px'; cursor:pointer; text-align:center; transition:transform .1s, background .15s; }
+  .itemcard:active { transform:scale(.95); }
+</style>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.23.5/babel.min.js"></script>
+</head>
+<body>
+<div id="boot"><div class="spinner"></div><div style="font-size:20px;letter-spacing:1px">Movers Day</div><div style="opacity:.6;font-size:13px">Loading the truck...</div></div>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useRef, useCallback, useMemo } = React;
+
+/* ============================================================================
+   MOVERS DAY — answer calls, drive to the job, pack/tape/stamp boxes, get paid.
+   ========================================================================== */
+
+// ─── DATA ─────────────────────────────────────────────────────────────────────
+const FIRST_NAMES = ["James","Mary","John","Linda","Robert","Patricia","Michael","Barbara","William","Elizabeth","David","Jennifer","Richard","Maria","Joseph","Susan","Thomas","Margaret","Charles","Dorothy","Daniel","Lisa","Kevin","Nancy","Brian","Karen","George","Betty","Edward","Sandra","Ronald","Ashley","Anthony","Kimberly","Paul","Emily","Steven","Donna","Andrew","Michelle"];
+const LAST_NAMES = ["Smith","Johnson","Williams","Brown","Jones","Garcia","Miller","Davis","Rodriguez","Martinez","Hernandez","Lopez","Wilson","Anderson","Thomas","Taylor","Moore","Jackson","Martin","Lee","Perez","Thompson","White","Harris","Sanchez","Clark","Ramirez","Lewis","Robinson","Walker"];
+
+const HOUSE_SIZES = [
+  { id:'studio',   name:'Studio Apartment', items:5,  boxSize:3, basePay:70,  levelReq:1,  color:'#8d7b66' },
+  { id:'apartment',name:'1-Bed Apartment',  items:8,  boxSize:3, basePay:130, levelReq:1,  color:'#b5895a' },
+  { id:'townhouse',name:'Townhouse',        items:12, boxSize:3, basePay:220, levelReq:3,  color:'#c97f5a' },
+  { id:'house',    name:'Family House',     items:16, boxSize:4, basePay:340, levelReq:5,  color:'#cfd3d6' },
+  { id:'bighouse', name:'Large House',      items:20, boxSize:4, basePay:480, levelReq:8,  color:'#e8e0c8' },
+  { id:'mansion',  name:'Mansion',          items:26, boxSize:4, basePay:750, levelReq:12, color:'#9fd3ff' },
+];
+const ITEM_POOL = ["Sofa","Armchair","Coffee Table","TV","TV Stand","Bookshelf","Floor Lamp","Dining Table","Dining Chair","Mattress","Bed Frame","Dresser","Mirror","Wardrobe","Fridge","Microwave","Washing Machine","Office Desk","Office Chair","Piano","Treadmill","Bike","Rug","Painting","Box of Books","Box of Dishes","Box of Clothes","Plant Pot","Nightstand","Grandfather Clock"];
+
+const TRUCKS = [
+  { id:0, name:"Beat-Up Van",        price:0,      level:1,  color:"#8d8d8d", speed:1.0 },
+  { id:1, name:"Cargo Van",          price:5000,   level:2,  color:"#3f72af", speed:1.2 },
+  { id:2, name:"Box Truck",          price:20000,  level:5,  color:"#e0524a", speed:1.4 },
+  { id:3, name:"16ft Moving Truck",  price:60000,  level:8,  color:"#2e9e6b", speed:1.65 },
+  { id:4, name:"26ft Super Hauler",  price:180000, level:12, color:"#ffd54f", speed:1.9 },
+  { id:5, name:"Fleet Flagship Rig", price:500000, level:16, color:"#b388ff", speed:2.3 },
+];
+const HOMES = [
+  { id:0, name:"Studio Above the Garage", price:0,      level:1,  color:"#8d7b66", income:0 },
+  { id:1, name:"Small Duplex",            price:8000,   level:3,  color:"#b5895a", income:8 },
+  { id:2, name:"Suburban House",          price:30000,  level:6,  color:"#c97f5a", income:22 },
+  { id:3, name:"Modern Villa",            price:90000,  level:9,  color:"#cfd3d6", income:55 },
+  { id:4, name:"Lakeside Estate",         price:280000, level:13, color:"#e8e0c8", income:150 },
+  { id:5, name:"Hilltop Mansion",         price:750000, level:17, color:"#9fd3ff", income:400 },
+];
+const PHONES = [
+  { id:0, name:"Cracked Flip Phone", price:0,      level:1,  color:"#607d8b", callMin:26, callMax:42, preview:false },
+  { id:1, name:"Basic Smartphone",   price:3000,   level:2,  color:"#3f72af", callMin:20, callMax:34, preview:false },
+  { id:2, name:"SmartPro X",         price:15000,  level:5,  color:"#2e9e6b", callMin:15, callMax:26, preview:true },
+  { id:3, name:"Ultra Phone 12",     price:50000,  level:8,  color:"#e6a417", callMin:10, callMax:18, preview:true },
+  { id:4, name:"Foldable Elite",     price:150000, level:12, color:"#b388ff", callMin:7,  callMax:13, preview:true },
+];
+function buildClothes(prefix){
+  return [
+    { id:0, name:prefix+" Ripped Tee & Jeans",  price:0,      level:1,  color:"#8d8d8d" },
+    { id:1, name:prefix+" Work Overalls",       price:1500,   level:2,  color:"#4a6fa5" },
+    { id:2, name:prefix+" Pro Mover Polo",      price:6000,   level:4,  color:"#2e9e6b" },
+    { id:3, name:prefix+" Insulated Jacket",    price:20000,  level:7,  color:"#e0524a" },
+    { id:4, name:prefix+" Elite Crew Uniform",  price:60000,  level:10, color:"#ffd54f" },
+    { id:5, name:prefix+" Legendary Foreman Suit", price:200000, level:15, color:"#b388ff" },
+  ];
+}
+const CLOTHES = { boy: buildClothes("Men's"), girl: buildClothes("Women's") };
+const SKIN_TONES = ["#ffe0bd","#ffcd94","#eac086","#c68642","#8d5524","#5c3a21"];
+
+const BUILDINGS = [
+  { id:'depot',  name:'Your Depot',   pos:[0,0],    color:'#c97f5a', w:16, h:16 },
+  { id:'trucks', name:'Truck Dealer', pos:[70,-24], color:'#e0524a', w:18, h:16 },
+  { id:'phones', name:'Phone Store',  pos:[-70,-24],color:'#3f72af', w:16, h:14 },
+  { id:'closet', name:'Closet',       pos:[0,-80],  color:'#9c27b0', w:16, h:14 },
+];
+const BNAMES = Object.fromEntries(BUILDINGS.map(b=>[b.id,b.name]));
+
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
+const money = n => "$"+Math.round(n).toLocaleString();
+const xpForLevel = lvl => Math.round(70*Math.pow(lvl,1.4));
+function rint(a,b){ return Math.floor(Math.random()*(b-a+1))+a; }
+function pick(arr){ return arr[rint(0,arr.length-1)]; }
+function shuffle(a){ a=[...a]; for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
+function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
+
+let _actx=null;
+function beep(freq=440,dur=0.08,type='sine',vol=0.06){
+  try{ _actx=_actx||new (window.AudioContext||window.webkitAudioContext)();
+    const o=_actx.createOscillator(), g=_actx.createGain();
+    o.type=type; o.frequency.value=freq; g.gain.value=vol;
+    o.connect(g); g.connect(_actx.destination); o.start();
+    g.gain.exponentialRampToValueAtTime(0.0001,_actx.currentTime+dur); o.stop(_actx.currentTime+dur);
+  }catch(e){}
+}
+const SFX={ click:()=>beep(520,.05,'square',.04), good:()=>{beep(660,.09);setTimeout(()=>beep(880,.11),90);},
+  bad:()=>beep(160,.18,'sawtooth',.05), cash:()=>{beep(740,.07);setTimeout(()=>beep(990,.09),70);},
+  level:()=>{beep(523,.1);setTimeout(()=>beep(659,.1),100);setTimeout(()=>beep(784,.14),200);},
+  ring:()=>beep(880,.14,'square',.05), tape:()=>beep(300,.06,'sawtooth',.03), stamp:()=>beep(200,.09,'square',.05) };
+
+// ─── PERSISTENCE ─────────────────────────────────────────────────────────────
+const SAVE_KEY="moversday_save_v1";
+function defaultState(){
+  return {
+    firstRun:true, playerName:"", gender:'boy', skinTone:0,
+    money:300, xp:0, level:1,
+    truckId:0, ownedTrucks:[0],
+    homeId:0, ownedHomes:[0],
+    phoneId:0, ownedPhones:[0],
+    outfitBoy:0, ownedOutfitsBoy:[0],
+    outfitGirl:0, ownedOutfitsGirl:[0],
+    stats:{ movesCompleted:0, moneyEarned:0, qualitySum:0 },
+  };
+}
+function loadState(){
+  try{ const s=JSON.parse(localStorage.getItem(SAVE_KEY)); if(s){ const d=defaultState();
+    return {...d,...s, stats:{...d.stats,...s.stats}}; } }catch(e){}
+  return defaultState();
+}
+function outfitInfo(state){
+  const list=CLOTHES[state.gender]; const cur=list[state.gender==='boy'?state.outfitBoy:state.outfitGirl];
+  return { color:cur.color, tipBonus: (state.gender==='boy'?state.outfitBoy:state.outfitGirl)*0.02 };
+}
+
+/* ============================================================================
+   SIM — shared movement engine, independent of 2D/3D renderer
+   ========================================================================== */
+class Sim {
+  constructor(hooks){
+    this.hooks=hooks||{};
+    this.keys={}; this.touch={up:false,down:false,left:false,right:false};
+    this.px=0; this.py=20; this.heading=-Math.PI/2;
+    this.inVehicle=true; this.enabled=true;
+    this.pickup=null; this.dropoff=null; this.speedMult=1.0;
+    this._near=null;
+    this._kd=(e)=>{ this.keys[e.code]=true; if(e.code==='KeyV'&&this.enabled) this.toggleVehicle(); };
+    this._ku=(e)=>{ this.keys[e.code]=false; };
+    window.addEventListener('keydown',this._kd); window.addEventListener('keyup',this._ku);
+    this._loop();
+  }
+  setTouch(dir,v){ this.touch[dir]=v; }
+  toggleVehicle(){ this.inVehicle=!this.inVehicle; this.hooks.onVehicle?.(this.inVehicle); }
+  setVehicleSpeed(mult){ this.speedMult=mult; }
+  setEnabled(v){ this.enabled=v; }
+  teleportTo(id){ const b=BUILDINGS.find(x=>x.id===id); if(!b) return; this.px=b.pos[0]; this.py=b.pos[1]+b.h/2+8; this.heading=-Math.PI/2; }
+  setPickup(p){ this.pickup=p; }
+  setDropoff(p){ this.dropoff=p; }
+  dispose(){ cancelAnimationFrame(this.raf); window.removeEventListener('keydown',this._kd); window.removeEventListener('keyup',this._ku); }
+  _loop(){
+    this.raf=requestAnimationFrame(()=>this._loop());
+    if(!this.enabled) return;
+    let dx=0,dy=0;
+    if(this.keys['KeyW']||this.keys['ArrowUp']||this.touch.up) dy-=1;
+    if(this.keys['KeyS']||this.keys['ArrowDown']||this.touch.down) dy+=1;
+    if(this.keys['KeyA']||this.keys['ArrowLeft']||this.touch.left) dx-=1;
+    if(this.keys['KeyD']||this.keys['ArrowRight']||this.touch.right) dx+=1;
+    if(dx||dy){ const l=Math.hypot(dx,dy); dx/=l; dy/=l;
+      const sp=this.inVehicle?(2.0*this.speedMult):1.6;
+      this.px=clamp(this.px+dx*sp,-260,260);
+      this.py=clamp(this.py+dy*sp,-260,260);
+      this.heading=Math.atan2(dy,dx);
+    }
+    let near=null,best=0;
+    for(const b of BUILDINGS){ const d=Math.hypot(b.pos[0]-this.px,b.pos[1]-this.py);
+      const reach=Math.max(b.w,b.h)/2+10; if(d<reach){ const s=reach-d; if(s>best){best=s;near=b.id;} } }
+    if(near!==this._near){ this._near=near; this.hooks.onNear?.(near); }
+    if(this.pickup){ const d=Math.hypot(this.pickup.x-this.px,this.pickup.y-this.py);
+      if(d<8){ this.pickup=null; this.hooks.onReachPickup?.(); } }
+    if(this.dropoff){ const d=Math.hypot(this.dropoff.x-this.px,this.dropoff.y-this.py);
+      if(d<8){ this.dropoff=null; this.hooks.onReachDropoff?.(); } }
+  }
+}
+
+/* ============================================================================
+   2D CANVAS VIEW (top-down)
+   ========================================================================== */
+function Canvas2DView({sim,truckColor,skinColor,outfitColor}){
+  const canvasRef=useRef();
+  useEffect(()=>{
+    const canvas=canvasRef.current, ctx=canvas.getContext('2d');
+    let vw,vh,raf,pulse=0;
+    function resize(){ const dpr=Math.min(window.devicePixelRatio||1,2);
+      canvas.width=canvas.clientWidth*dpr; canvas.height=canvas.clientHeight*dpr;
+      ctx.setTransform(dpr,0,0,dpr,0,0); vw=canvas.clientWidth; vh=canvas.clientHeight; }
+    resize(); window.addEventListener('resize',resize);
+    function draw(){
+      raf=requestAnimationFrame(draw); pulse+=0.08;
+      const S=5.0, camX=sim.px, camY=sim.py;
+      const sx=(wx)=>vw/2+(wx-camX)*S, sy=(wy)=>vh/2+(wy-camY)*S;
+      ctx.fillStyle="#4a7a4a"; ctx.fillRect(0,0,vw,vh);
+      ctx.strokeStyle="#37383c"; ctx.lineWidth=11*S;
+      for(let g=-260;g<=260;g+=80){ ctx.beginPath(); ctx.moveTo(sx(g),sy(-280)); ctx.lineTo(sx(g),sy(280)); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(sx(-280),sy(g)); ctx.lineTo(sx(280),sy(g)); ctx.stroke(); }
+      ctx.strokeStyle="rgba(255,255,255,.5)"; ctx.lineWidth=1.5; ctx.setLineDash([8,12]);
+      for(let g=-260;g<=260;g+=80){ ctx.beginPath(); ctx.moveTo(sx(g),sy(-280)); ctx.lineTo(sx(g),sy(280)); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(sx(-280),sy(g)); ctx.lineTo(sx(280),sy(g)); ctx.stroke(); }
+      ctx.setLineDash([]);
+      ctx.fillStyle="#2f6d32";
+      for(let i=0;i<130;i++){ const tx=((i*131)%540)-270, ty=((i*271)%540)-270;
+        if(Math.abs(tx)<14||Math.abs(ty)<14) continue;
+        const dxn=sx(tx),dyn=sy(ty); if(dxn<-20||dxn>vw+20||dyn<-20||dyn>vh+20) continue;
+        ctx.beginPath(); ctx.arc(dxn,dyn,3.2*S/3,0,7); ctx.fill(); }
+      BUILDINGS.forEach(b=>{
+        const x=sx(b.pos[0]-b.w/2), y=sy(b.pos[1]-b.h/2), w=b.w*S, h=b.h*S;
+        ctx.fillStyle="rgba(0,0,0,.25)"; ctx.fillRect(x+4,y+5,w,h);
+        ctx.fillStyle=b.color; ctx.fillRect(x,y,w,h);
+        ctx.fillStyle="rgba(255,255,255,.35)";
+        for(let wx=x+8;wx<x+w-8;wx+=16) for(let wy=y+8;wy<y+h-8;wy+=16) ctx.fillRect(wx,wy,7,7);
+        ctx.fillStyle="#ffe082"; ctx.fillRect(x+w/2-7,y+h-10,14,10);
+        ctx.font="bold 13px Segoe UI, Arial"; ctx.textAlign="center";
+        const tw=ctx.measureText(b.name).width+16;
+        ctx.fillStyle="rgba(10,12,24,.85)"; ctx.fillRect(sx(b.pos[0])-tw/2, y-22, tw, 18);
+        ctx.fillStyle="#fff"; ctx.fillText(b.name, sx(b.pos[0]), y-9);
+      });
+      function marker(p,color,label){ if(!p) return;
+        const r=(8+Math.sin(pulse)*3)*S/2; const mx=sx(p.x), my=sy(p.y);
+        ctx.fillStyle=color+"55"; ctx.beginPath(); ctx.arc(mx,my,r,0,7); ctx.fill();
+        ctx.fillStyle=color; ctx.beginPath(); ctx.arc(mx,my,5,0,7); ctx.fill();
+        if(mx<0||mx>vw||my<0||my>vh){ const ang=Math.atan2(my-vh/2,mx-vw/2);
+          const ex=vw/2+Math.cos(ang)*Math.min(vw,vh)*0.42, ey=vh/2+Math.sin(ang)*Math.min(vw,vh)*0.42;
+          ctx.save(); ctx.translate(ex,ey); ctx.rotate(ang); ctx.fillStyle=color;
+          ctx.beginPath(); ctx.moveTo(12,0); ctx.lineTo(-8,-7); ctx.lineTo(-8,7); ctx.closePath(); ctx.fill(); ctx.restore(); }
+        ctx.font="bold 12px Segoe UI, Arial"; ctx.textAlign="center"; ctx.fillStyle="#fff"; ctx.fillText(label, mx, my-14);
+      }
+      marker(sim.pickup,"#ffd54f","PICKUP");
+      marker(sim.dropoff,"#4dd0e1","DROP-OFF");
+      const pmx=vw/2, pmy=vh/2;
+      ctx.save(); ctx.translate(pmx,pmy); ctx.rotate(sim.heading);
+      if(sim.inVehicle){
+        ctx.fillStyle="rgba(0,0,0,.3)"; ctx.fillRect(-13,-9,28,20);
+        ctx.fillStyle=truckColor; ctx.fillRect(-14,-10,28,20);
+        ctx.fillStyle="#111522"; ctx.fillRect(3,-8,9,16);
+      } else {
+        ctx.fillStyle="rgba(0,0,0,.3)"; ctx.beginPath(); ctx.arc(0,2,9,0,7); ctx.fill();
+        ctx.fillStyle=outfitColor; ctx.beginPath(); ctx.arc(0,1,8,0,7); ctx.fill();
+        ctx.fillStyle=skinColor; ctx.beginPath(); ctx.arc(0,0,5,0,7); ctx.fill();
+      }
+      ctx.restore();
+    }
+    draw();
+    return ()=>{ cancelAnimationFrame(raf); window.removeEventListener('resize',resize); };
+  },[truckColor,skinColor,outfitColor]);
+  return <canvas ref={canvasRef}/>;
+}
+
+/* ============================================================================
+   3D VIEW (three.js) — camera can be third-person or first-person
+   ========================================================================== */
+function ThreeView({sim,camMode,truckColor,skinColor,outfitColor}){
+  const mountRef=useRef();
+  useEffect(()=>{
+    const mount=mountRef.current;
+    const scene=new THREE.Scene(); scene.background=new THREE.Color(0x7fb9e0);
+    scene.fog=new THREE.Fog(0x7fb9e0,120,320);
+    const camera=new THREE.PerspectiveCamera(65, mount.clientWidth/mount.clientHeight, 0.1, 1000);
+    const renderer=new THREE.WebGLRenderer({antialias:true}); renderer.setSize(mount.clientWidth,mount.clientHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2)); mount.appendChild(renderer.domElement);
+
+    const amb=new THREE.AmbientLight(0xffffff,0.65); scene.add(amb);
+    const sun=new THREE.DirectionalLight(0xffffff,0.8); sun.position.set(80,120,40); scene.add(sun);
+
+    const ground=new THREE.Mesh(new THREE.PlaneGeometry(700,700), new THREE.MeshLambertMaterial({color:0x4a8a4a}));
+    ground.rotation.x=-Math.PI/2; scene.add(ground);
+    const grid=new THREE.GridHelper(700,44,0x2f6d32,0x3a7a3a); scene.add(grid);
+
+    const buildingMeshes=[];
+    BUILDINGS.forEach(b=>{
+      const h=16+((b.w+b.h)%6);
+      const m=new THREE.Mesh(new THREE.BoxGeometry(b.w,h,b.h), new THREE.MeshLambertMaterial({color:b.color}));
+      m.position.set(b.pos[0],h/2,b.pos[1]); scene.add(m); buildingMeshes.push(m);
+    });
+
+    function makeMarker(color){ const g=new THREE.Group();
+      const cone=new THREE.Mesh(new THREE.ConeGeometry(3,7,10), new THREE.MeshBasicMaterial({color}));
+      cone.position.y=9; g.add(cone);
+      const ring=new THREE.Mesh(new THREE.RingGeometry(4,6,24), new THREE.MeshBasicMaterial({color,side:THREE.DoubleSide,transparent:true,opacity:.55}));
+      ring.rotation.x=-Math.PI/2; ring.position.y=0.2; g.add(ring);
+      g.visible=false; scene.add(g); return g;
+    }
+    const pickupMark=makeMarker(0xffd54f), dropoffMark=makeMarker(0x4dd0e1);
+
+    // player group: walking figure or truck, swapped based on sim.inVehicle
+    const person=new THREE.Group();
+    const head=new THREE.Mesh(new THREE.SphereGeometry(1.4,12,12), new THREE.MeshLambertMaterial({color:skinColor}));
+    head.position.y=4.6; person.add(head);
+    const torso=new THREE.Mesh(new THREE.BoxGeometry(2.6,3,1.6), new THREE.MeshLambertMaterial({color:outfitColor}));
+    torso.position.y=2.6; person.add(torso);
+    const legs=new THREE.Mesh(new THREE.BoxGeometry(2.2,2.4,1.5), new THREE.MeshLambertMaterial({color:0x2b2b2b}));
+    legs.position.y=0.6; person.add(legs);
+    scene.add(person);
+
+    const truck=new THREE.Group();
+    const cab=new THREE.Mesh(new THREE.BoxGeometry(4,3.6,3.2), new THREE.MeshLambertMaterial({color:truckColor}));
+    cab.position.set(0,2.4,3); truck.add(cab);
+    const box=new THREE.Mesh(new THREE.BoxGeometry(4.4,4.4,7.5), new THREE.MeshLambertMaterial({color:0xdddddd}));
+    box.position.set(0,3.2,-2); truck.add(box);
+    const wheelGeo=new THREE.CylinderGeometry(0.9,0.9,0.6,10);
+    [[1.9,0.9,4.2],[-1.9,0.9,4.2],[1.9,0.9,-4.5],[-1.9,0.9,-4.5]].forEach(p=>{
+      const w=new THREE.Mesh(wheelGeo, new THREE.MeshLambertMaterial({color:0x1a1a1a}));
+      w.rotation.z=Math.PI/2; w.position.set(p[0],p[1],p[2]); truck.add(w);
+    });
+    scene.add(truck);
+
+    function resize(){ camera.aspect=mount.clientWidth/mount.clientHeight; camera.updateProjectionMatrix(); renderer.setSize(mount.clientWidth,mount.clientHeight); }
+    window.addEventListener('resize',resize);
+
+    let raf;
+    function animate(){
+      raf=requestAnimationFrame(animate);
+      const px=sim.px, py=sim.py, heading=sim.heading;
+      person.visible=!sim.inVehicle; truck.visible=sim.inVehicle;
+      const rotY=-heading-Math.PI/2;
+      if(sim.inVehicle){ truck.position.set(px,0,py); truck.rotation.y=rotY; }
+      else { person.position.set(px,0,py); person.rotation.y=rotY; }
+
+      pickupMark.visible=!!sim.pickup; if(sim.pickup) pickupMark.position.set(sim.pickup.x,0,sim.pickup.y);
+      dropoffMark.visible=!!sim.dropoff; if(sim.dropoff) dropoffMark.position.set(sim.dropoff.x,0,sim.dropoff.y);
+      pickupMark.children[0].rotation.y+=0.03; dropoffMark.children[0].rotation.y+=0.03;
+
+      if(camMode==='first'){
+        const eyeH=sim.inVehicle?4.6:5.2;
+        camera.position.set(px,eyeH,py);
+        camera.lookAt(px+Math.cos(heading)*10, eyeH-0.3, py+Math.sin(heading)*10);
+      } else {
+        const back=sim.inVehicle?22:16;
+        camera.position.set(px-Math.cos(heading)*back, 12, py-Math.sin(heading)*back);
+        camera.lookAt(px, 3, py);
+      }
+      renderer.render(scene,camera);
+    }
+    animate();
+    return ()=>{
+      cancelAnimationFrame(raf); window.removeEventListener('resize',resize);
+      renderer.dispose(); mount.removeChild(renderer.domElement);
+      scene.traverse(o=>{ if(o.geometry) o.geometry.dispose(); if(o.material) (Array.isArray(o.material)?o.material:[o.material]).forEach(m=>m.dispose()); });
+    };
+  },[camMode,truckColor,skinColor,outfitColor]);
+  return <div ref={mountRef} style={{position:'absolute',inset:0}}/>;
+}
+
+/* ============================================================================
+   UI ATOMS
+   ========================================================================== */
+function Badge({label,color,size=40,radius=11}){
+  return <div style={{width:size,height:size,minWidth:size,borderRadius:radius,background:color,display:'inline-flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:size*0.34,color:'#fff',letterSpacing:.5}}>{label}</div>;
+}
+function Bar({label,val,max,color}){
+  return (<div style={{marginBottom:4}}>
+    <div style={{display:'flex',justifyContent:'space-between',fontSize:11,opacity:.8}}><span>{label}</span><span>{val}/{max}</span></div>
+    <div style={{height:8,background:'rgba(255,255,255,.15)',borderRadius:4,overflow:'hidden'}}>
+      <div style={{height:'100%',width:`${clamp(val/max*100,0,100)}%`,background:color,transition:'width .3s'}}/></div></div>);
+}
+function Modal({children,onClose,wide}){
+  return (<div style={{position:'fixed',inset:0,background:'rgba(4,6,16,.72)',zIndex:30,display:'flex',alignItems:'center',justifyContent:'center',padding:16}} onClick={onClose}>
+    <div onClick={e=>e.stopPropagation()} style={{animation:'pop .18s ease-out',background:'linear-gradient(160deg,#231a12,#171310)',border:'1px solid rgba(255,255,255,.12)',borderRadius:18,maxWidth:wide?720:520,width:'100%',maxHeight:'88vh',overflowY:'auto',boxShadow:'0 20px 60px rgba(0,0,0,.6)'}}>{children}</div></div>);
+}
+function Toast({msg}){ if(!msg)return null;
+  return <div style={{position:'fixed',top:18,left:'50%',transform:'translateX(-50%)',background:'rgba(30,20,14,.95)',border:'1px solid rgba(255,255,255,.15)',borderRadius:12,padding:'12px 20px',zIndex:60,fontSize:15,fontWeight:600,boxShadow:'0 8px 24px rgba(0,0,0,.5)'}}>{msg}</div>; }
+const inp={width:'100%',padding:'10px 12px',borderRadius:10,border:'1px solid rgba(255,255,255,.15)',background:'rgba(255,255,255,.06)',color:'#fff',marginBottom:12};
+
+/* ============================================================================
+   CHARACTER CREATION
+   ========================================================================== */
+function CharacterCreate({onDone}){
+  const [name,setName]=useState("");
+  const [gender,setGender]=useState('boy');
+  const [skin,setSkin]=useState(0);
+  return (<Modal onClose={()=>{}}><div style={{padding:26,textAlign:'center'}}>
+    <h1 style={{margin:'0 0 4px'}}>Movers Day</h1>
+    <p style={{opacity:.8,marginTop:0}}>Answer the phone. Drive to the job. Pack, tape, stamp. Get paid.</p>
+    <div style={{margin:'18px 0'}}>
+      <div style={{fontSize:13,opacity:.75,marginBottom:6}}>Your name</div>
+      <input value={name} onChange={e=>setName(e.target.value.slice(0,16))} placeholder="Type your name" style={inp}/>
+    </div>
+    <div style={{margin:'18px 0'}}>
+      <div style={{fontSize:13,opacity:.75,marginBottom:6}}>Character</div>
+      <div style={{display:'flex',gap:10,justifyContent:'center'}}>
+        <button className={"btn "+(gender==='boy'?'gold':'gray')} onClick={()=>setGender('boy')}>Boy</button>
+        <button className={"btn "+(gender==='girl'?'gold':'gray')} onClick={()=>setGender('girl')}>Girl</button>
+      </div>
+    </div>
+    <div style={{margin:'18px 0'}}>
+      <div style={{fontSize:13,opacity:.75,marginBottom:6}}>Skin tone</div>
+      <div style={{display:'flex',gap:8,justifyContent:'center'}}>
+        {SKIN_TONES.map((c,i)=><div key={i} onClick={()=>setSkin(i)} style={{width:34,height:34,borderRadius:'50%',background:c,cursor:'pointer',border:skin===i?'3px solid #ffd54f':'3px solid transparent'}}/>)}
+      </div>
+    </div>
+    <button className="btn gold" style={{marginTop:10,width:200}} onClick={()=>onDone({name:name.trim()||"Mover",gender,skin})}>Start Movers Day</button>
+  </div></Modal>);
+}
+
+/* ============================================================================
+   INCOMING CALL
+   ========================================================================== */
+function IncomingCall({call,phonePreview,onAccept,onDecline}){
+  return (<div style={{position:'fixed',bottom:18,left:'50%',transform:'translateX(-50%)',zIndex:45,background:'linear-gradient(160deg,#1e2a1a,#12180f)',border:'1px solid rgba(255,255,255,.15)',borderRadius:18,padding:'16px 22px',boxShadow:'0 16px 40px rgba(0,0,0,.6)',textAlign:'center',minWidth:280}}>
+    <div style={{display:'flex',alignItems:'center',gap:10,justifyContent:'center',marginBottom:4}}>
+      <span style={{display:'inline-block',animation:'ring .5s infinite'}}>&#128222;</span>
+      <div style={{fontSize:13,letterSpacing:1,opacity:.75}}>INCOMING CALL</div>
+    </div>
+    <div style={{fontSize:20,fontWeight:800,margin:'2px 0'}}>{call.clientName}</div>
+    <div style={{fontSize:13,opacity:.8,marginBottom:12}}>
+      {phonePreview ? `${call.size.name} · ~${money(call.size.basePay)}` : 'Needs help moving — details unknown until you answer'}
+    </div>
+    <div style={{display:'flex',gap:10,justifyContent:'center'}}>
+      <button className="btn green" onClick={onAccept}>Answer & Accept</button>
+      <button className="btn red" onClick={onDecline}>Decline</button>
+    </div>
+  </div>);
+}
+
+/* ============================================================================
+   PACKING MINIGAME — pack items, then tape + stamp each box
+   ========================================================================== */
+function TapeGame({onResult,tries}){
+  const [pos,setPos]=useState(0); const raf=useRef(); const st=useRef({p:0,d:1});
+  const [done,setDone]=useState(false); const [q,setQ]=useState(0);
+  useEffect(()=>{ const tick=()=>{ let{p,d}=st.current; p+=d*0.02; if(p>1){p=1;d=-1;} if(p<0){p=0;d=1;} st.current={p,d}; setPos(p); raf.current=requestAnimationFrame(tick); };
+    raf.current=requestAnimationFrame(tick); return ()=>cancelAnimationFrame(raf.current); },[]);
+  function hit(){ if(done) return; cancelAnimationFrame(raf.current); const p=st.current.p;
+    const quality=clamp(1-Math.abs(p-0.5)/0.5*1.15,0,1);
+    setQ(quality); setDone(true); SFX.tape(); quality>0.6?SFX.good():SFX.bad();
+    setTimeout(()=>onResult(quality),550); }
+  return (<div style={{textAlign:'center'}}>
+    <div style={{fontSize:15,fontWeight:700,marginBottom:6}}>Tape the box</div>
+    <div style={{opacity:.75,fontSize:13,marginBottom:10}}>Stop the tape gun right in the middle of the seam.</div>
+    <div style={{position:'relative',height:26,background:'rgba(255,255,255,.1)',borderRadius:13,margin:'10px 0',overflow:'hidden'}}>
+      <div style={{position:'absolute',left:'42%',width:'16%',height:'100%',background:'rgba(40,180,100,.5)'}}/>
+      <div style={{position:'absolute',left:`calc(${pos*100}% - 4px)`,width:8,height:'100%',background:'#fff',borderRadius:4}}/></div>
+    {done ? <div style={{color:q>0.6?'#7ee0a0':'#ff8a8a',fontWeight:700}}>{q>0.8?'Great seal!':q>0.5?'Taped':'Sloppy tape job'}</div>
+      : <button className="btn gold" onClick={hit} style={{width:180}}>STOP</button>}
+  </div>);
+}
+function StampGame({onResult}){
+  const [target]=useState(()=>({x:rint(20,80),y:rint(20,80)}));
+  const [done,setDone]=useState(false); const [q,setQ]=useState(0);
+  function click(e){ if(done) return; const rect=e.currentTarget.getBoundingClientRect();
+    const cx=(e.clientX-rect.left)/rect.width*100, cy=(e.clientY-rect.top)/rect.height*100;
+    const dist=Math.hypot(cx-target.x,cy-target.y); const quality=clamp(1-dist/40,0,1);
+    setQ(quality); setDone(true); SFX.stamp(); quality>0.6?SFX.good():SFX.bad();
+    setTimeout(()=>onResult(quality),550); }
+  return (<div style={{textAlign:'center'}}>
+    <div style={{fontSize:15,fontWeight:700,marginBottom:6}}>Stamp "FRAGILE"</div>
+    <div style={{opacity:.75,fontSize:13,marginBottom:10}}>Click right on the target to stamp the box.</div>
+    <div onClick={click} style={{position:'relative',height:180,background:'rgba(255,255,255,.06)',borderRadius:12,cursor:done?'default':'crosshair',overflow:'hidden'}}>
+      {!done && <div style={{position:'absolute',left:target.x+'%',top:target.y+'%',width:34,height:34,marginLeft:-17,marginTop:-17,borderRadius:'50%',border:'3px solid #e6a417',background:'rgba(230,164,23,.25)'}}/>}
+      {done && <div style={{position:'absolute',left:target.x+'%',top:target.y+'%',transform:'translate(-50%,-50%) rotate(-14deg)',fontWeight:900,fontSize:18,color:'#e0524a',border:'3px solid #e0524a',borderRadius:8,padding:'2px 8px'}}>FRAGILE</div>}
+    </div>
+    {done && <div style={{marginTop:8,color:q>0.6?'#7ee0a0':'#ff8a8a',fontWeight:700}}>{q>0.8?'Bullseye!':q>0.5?'Stamped':'Off target'}</div>}
+  </div>);
+}
+function PackJob({job,onDone,onAbandon}){
+  const [phase,setPhase]=useState('pack'); // pack | box | summary
+  const [packed,setPacked]=useState(()=>new Set());
+  const [boxIndex,setBoxIndex]=useState(0);
+  const [boxStep,setBoxStep]=useState('tape'); // tape | stamp
+  const [results,setResults]=useState([]);
+  const [tapeQ,setTapeQ]=useState(0);
+  const boxesTotal=job.boxesTotal;
+
+  function packItem(i){ if(packed.has(i)) return; SFX.click(); const ns=new Set(packed); ns.add(i); setPacked(ns); }
+  function tapeResult(q){ setTapeQ(q); setBoxStep('stamp'); }
+  function stampResult(q){
+    const quality=(tapeQ+q)/2; const nr=[...results,quality]; setResults(nr);
+    if(boxIndex+1>=boxesTotal){ setPhase('summary'); }
+    else { setBoxIndex(boxIndex+1); setBoxStep('tape'); }
+  }
+  const avgQuality = results.length ? results.reduce((a,b)=>a+b,0)/results.length : 0;
+
+  return (<Modal onClose={()=>{}}><div style={{padding:22}}>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
+      <h2 style={{margin:0}}>{job.clientName}'s {job.size.name}</h2>
+      <button className="btn red" style={{padding:'5px 10px',fontSize:12}} onClick={onAbandon}>Abandon move</button>
+    </div>
+    {phase==='pack' && (<div>
+      <p style={{opacity:.8,marginTop:0}}>Load every item onto the truck. Click each one to pack it. ({packed.size}/{job.items.length})</p>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8,maxHeight:'42vh',overflowY:'auto'}}>
+        {job.items.map((it,i)=>(
+          <div key={i} className="itemcard" onClick={()=>packItem(i)}
+            style={{padding:10,opacity:packed.has(i)?0.5:1,background:packed.has(i)?'rgba(40,180,100,.25)':'rgba(255,255,255,.06)'}}>
+            <div style={{fontSize:13,fontWeight:600}}>{it}</div>
+            <div style={{fontSize:11,opacity:.7,marginTop:2}}>{packed.has(i)?'Packed':'Tap to pack'}</div>
+          </div>
+        ))}
+      </div>
+      <button className="btn green" disabled={packed.size<job.items.length} style={{marginTop:14,width:'100%'}} onClick={()=>setPhase('box')}>
+        {packed.size<job.items.length?'Pack everything first':`Seal ${boxesTotal} boxes`}
+      </button>
+    </div>)}
+    {phase==='box' && (<div>
+      <div style={{fontSize:13,opacity:.75,marginBottom:10,textAlign:'center'}}>Box {boxIndex+1} of {boxesTotal}</div>
+      {boxStep==='tape' ? <TapeGame onResult={tapeResult}/> : <StampGame onResult={stampResult}/>}
+    </div>)}
+    {phase==='summary' && (<div style={{textAlign:'center'}}>
+      <h3 style={{marginTop:0}}>Truck loaded!</h3>
+      <p style={{opacity:.8}}>Average box quality: {Math.round(avgQuality*100)}%</p>
+      <button className="btn gold" style={{width:'100%'}} onClick={()=>onDone(avgQuality)}>Drive to drop-off</button>
+    </div>)}
+  </div></Modal>);
+}
+
+/* ============================================================================
+   SHOPS
+   ========================================================================== */
+function Shop({title,list,owned,cur,state,priceLabelFn,onBuy,onEquip,onClose}){
+  return (<Modal onClose={onClose} wide><div style={{padding:24}}>
+    <h2 style={{marginTop:0}}>{title}</h2>
+    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+      {list.map(item=>{ const isOwned=owned.includes(item.id), equipped=cur===item.id, locked=state.level<item.level;
+        return <div key={item.id} style={{background:'rgba(255,255,255,.05)',borderRadius:12,padding:14,border:equipped?'1px solid #ffd54f':'1px solid transparent'}}>
+          <div style={{height:40,borderRadius:8,background:item.color,marginBottom:8}}/>
+          <div style={{fontWeight:700,fontSize:16}}>{item.name}</div>
+          <div style={{fontSize:12,opacity:.75,margin:'2px 0'}}>{priceLabelFn(item)}</div>
+          <div style={{fontSize:12,opacity:.7,marginBottom:8}}>{item.price>0?money(item.price):'Starter'} · Lv {item.level}</div>
+          {equipped? <span style={{color:'#ffd54f',fontWeight:600}}>In use</span>
+            : isOwned? <button className="btn gray" onClick={()=>onEquip(item.id)}>Use</button>
+            : <button className="btn green" disabled={locked||state.money<item.price} onClick={()=>onBuy(item)}>{locked?`Locked (Lv ${item.level})`:state.money<item.price?'Too pricey':'Buy'}</button>}
+        </div>; })}
+    </div>
+  </div></Modal>);
+}
+function Closet({state,setState,onClose}){
+  const gender=state.gender;
+  const list=CLOTHES[gender];
+  const owned=gender==='boy'?state.ownedOutfitsBoy:state.ownedOutfitsGirl;
+  const cur=gender==='boy'?state.outfitBoy:state.outfitGirl;
+  function setGender(g){ setState(s=>({...s,gender:g})); SFX.click(); }
+  function setSkin(i){ setState(s=>({...s,skinTone:i})); SFX.click(); }
+  function buyOutfit(item){ setState(s=>{ if(s.money<item.price) return s; const key=gender==='boy'?'ownedOutfitsBoy':'ownedOutfitsGirl';
+    return {...s,money:s.money-item.price,[key]:[...s[key],item.id]}; }); SFX.cash(); equipOutfit(item.id); }
+  function equipOutfit(id){ setState(s=>({...s,[gender==='boy'?'outfitBoy':'outfitGirl']:id})); }
+  return (<Modal onClose={onClose} wide><div style={{padding:24}}>
+    <h2 style={{marginTop:0}}>Closet</h2>
+    <div style={{display:'flex',gap:10,marginBottom:14}}>
+      <button className={"btn "+(gender==='boy'?'gold':'gray')} onClick={()=>setGender('boy')}>Boy</button>
+      <button className={"btn "+(gender==='girl'?'gold':'gray')} onClick={()=>setGender('girl')}>Girl</button>
+    </div>
+    <div style={{marginBottom:16}}>
+      <div style={{fontSize:13,opacity:.75,marginBottom:6}}>Skin tone</div>
+      <div style={{display:'flex',gap:8}}>
+        {SKIN_TONES.map((c,i)=><div key={i} onClick={()=>setSkin(i)} style={{width:30,height:30,borderRadius:'50%',background:c,cursor:'pointer',border:state.skinTone===i?'3px solid #ffd54f':'3px solid transparent'}}/>)}
+      </div>
+    </div>
+    <div style={{fontSize:13,opacity:.75,marginBottom:6}}>Outfits — higher tiers add a small tip bonus</div>
+    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+      {list.map(item=>{ const isOwned=owned.includes(item.id), equipped=cur===item.id, locked=state.level<item.level;
+        return <div key={item.id} style={{background:'rgba(255,255,255,.05)',borderRadius:12,padding:14,border:equipped?'1px solid #ffd54f':'1px solid transparent'}}>
+          <div style={{height:40,borderRadius:8,background:item.color,marginBottom:8}}/>
+          <div style={{fontWeight:700,fontSize:15}}>{item.name}</div>
+          <div style={{fontSize:12,opacity:.75,margin:'2px 0'}}>+{item.id*2}% tip bonus</div>
+          <div style={{fontSize:12,opacity:.7,marginBottom:8}}>{item.price>0?money(item.price):'Starter'} · Lv {item.level}</div>
+          {equipped? <span style={{color:'#ffd54f',fontWeight:600}}>Wearing</span>
+            : isOwned? <button className="btn gray" onClick={()=>{equipOutfit(item.id);SFX.click();}}>Wear</button>
+            : <button className="btn green" disabled={locked||state.money<item.price} onClick={()=>buyOutfit(item)}>{locked?`Locked (Lv ${item.level})`:state.money<item.price?'Too pricey':'Buy'}</button>}
+        </div>; })}
+    </div>
+  </div></Modal>);
+}
+function LevelUp({level,unlocks,onClose}){
+  return <Modal onClose={onClose}><div style={{padding:30,textAlign:'center'}}>
+    <div style={{fontSize:14,letterSpacing:2,opacity:.7}}>LEVEL UP</div><h1 style={{margin:'4px 0',fontSize:46}}>Level {level}</h1>
+    <p style={{opacity:.85}}>Word is getting around town about your moving crew.</p>
+    {unlocks.length>0 && <div style={{background:'rgba(230,164,23,.18)',border:'1px solid rgba(230,164,23,.5)',borderRadius:12,padding:16,margin:'12px 0',textAlign:'left'}}>
+      <div style={{fontSize:13,opacity:.8,marginBottom:6}}>Newly unlocked</div>
+      {unlocks.map((u,i)=><div key={i} style={{fontSize:15,fontWeight:600}}>{u}</div>)}
+    </div>}
+    <button className="btn gold" onClick={onClose}>Continue</button></div></Modal>;
+}
+
+/* ── touch controls ── */
+function DPad({sim}){
+  const hold=(dir)=>({ onTouchStart:e=>{e.preventDefault();sim.current?.setTouch(dir,true);}, onTouchEnd:e=>{e.preventDefault();sim.current?.setTouch(dir,false);},
+    onMouseDown:()=>sim.current?.setTouch(dir,true), onMouseUp:()=>sim.current?.setTouch(dir,false), onMouseLeave:()=>sim.current?.setTouch(dir,false) });
+  return <div style={{position:'fixed',bottom:16,right:16,display:'grid',gridTemplateColumns:'repeat(3,56px)',gridTemplateRows:'repeat(3,56px)',gap:4,zIndex:15,touchAction:'none'}}>
+    <div/><button className="dpad" {...hold('up')}>UP</button><div/>
+    <button className="dpad" {...hold('left')}>L</button><div/><button className="dpad" {...hold('right')}>R</button>
+    <div/><button className="dpad" {...hold('down')}>DN</button><div/></div>;
+}
+
+/* ============================================================================
+   MAIN APP
+   ========================================================================== */
+function App(){
+  const [state,setState]=useState(loadState);
+  const stateRef=useRef(state); stateRef.current=state;
+  const [near,setNear]=useState(null);
+  const [panel,setPanel]=useState(null);
+  const [toast,setToast]=useState("");
+  const [levelUp,setLevelUp]=useState(null);
+  const [driving,setDriving]=useState(true);
+  const [incomingCall,setIncomingCall]=useState(null);
+  const [activeJob,setActiveJob]=useState(null);
+  const activeJobRef=useRef(null); activeJobRef.current=activeJob;
+  const [dim,setDim]=useState('2d');       // '2d' | '3d'
+  const [camMode,setCamMode]=useState('third'); // 'third' | 'first'
+  const simRef=useRef(null);
+  const [simReady,setSimReady]=useState(false);
+
+  const truck=TRUCKS[state.truckId];
+  const outfit=outfitInfo(state);
+  const skinColor=SKIN_TONES[state.skinTone];
+
+  useEffect(()=>{
+    document.getElementById('boot').style.display='none';
+    const sim=new Sim({
+      onNear:setNear, onVehicle:setDriving,
+      onReachPickup:()=>{ const j=activeJobRef.current; if(j && j.phase==='drive_pickup'){ setActiveJob({...j,phase:'packing'}); } },
+      onReachDropoff:()=>{ const j=activeJobRef.current; if(j && j.phase==='drive_dropoff'){ finalizeJob(j); } },
+    });
+    simRef.current=sim;
+    sim.setVehicleSpeed(truck.speed);
+    setSimReady(true);
+    return ()=>sim.dispose();
+  },[]);
+  useEffect(()=>{ simRef.current?.setVehicleSpeed(truck.speed); },[state.truckId]);
+  useEffect(()=>{ simRef.current?.setEnabled(!(panel||levelUp||state.firstRun||(activeJob&&activeJob.phase==='packing'))); },[panel,levelUp,state.firstRun,activeJob]);
+  useEffect(()=>{ localStorage.setItem(SAVE_KEY,JSON.stringify(state)); },[state]);
+
+  function flash(m){ setToast(m); setTimeout(()=>setToast(""),2800); }
+
+  function grantXP(amount){
+    setState(s=>{ let xp=s.xp+amount, level=s.level;
+      while(xp>=xpForLevel(level+1)){ xp-=xpForLevel(level+1); level++; }
+      if(level>s.level){
+        const newlyUnlocked=[];
+        TRUCKS.forEach(t=>{ if(t.level>s.level&&t.level<=level) newlyUnlocked.push('Truck: '+t.name); });
+        HOMES.forEach(h=>{ if(h.level>s.level&&h.level<=level) newlyUnlocked.push('Home: '+h.name); });
+        PHONES.forEach(p=>{ if(p.level>s.level&&p.level<=level) newlyUnlocked.push('Phone: '+p.name); });
+        CLOTHES.boy.forEach(c=>{ if(c.level>s.level&&c.level<=level) newlyUnlocked.push('Outfit: '+c.name); });
+        CLOTHES.girl.forEach(c=>{ if(c.level>s.level&&c.level<=level) newlyUnlocked.push('Outfit: '+c.name); });
+        HOUSE_SIZES.forEach(h=>{ if(h.levelReq>s.level&&h.levelReq<=level) newlyUnlocked.push('Job type: '+h.name); });
+        SFX.level(); setTimeout(()=>setLevelUp({level,unlocks:newlyUnlocked}),300);
+      }
+      return {...s,xp,level};
+    });
+  }
+
+  // ── call scheduling ──
+  useEffect(()=>{
+    if(activeJob || incomingCall || state.firstRun) return;
+    const phone=PHONES[state.phoneId];
+    const wait=rint(phone.callMin,phone.callMax)*1000;
+    const t=setTimeout(()=>{
+      const eligible=HOUSE_SIZES.filter(h=>h.levelReq<=stateRef.current.level);
+      const phoneTier=stateRef.current.phoneId;
+      const weights=eligible.map((h,i)=>(i+1)+phoneTier*2);
+      const total=weights.reduce((a,b)=>a+b,0); let r=Math.random()*total, size=eligible[0];
+      for(let i=0;i<eligible.length;i++){ r-=weights[i]; if(r<=0){ size=eligible[i]; break; } }
+      const clientName=pick(FIRST_NAMES)+" "+pick(LAST_NAMES);
+      setIncomingCall({clientName,size});
+    },wait);
+    return ()=>clearTimeout(t);
+  },[activeJob,incomingCall,state.firstRun,state.phoneId,state.level]);
+
+  useEffect(()=>{
+    if(!incomingCall) return;
+    const iv=setInterval(()=>SFX.ring(),700);
+    const missTimer=setTimeout(()=>{ setIncomingCall(null); flash(`Missed call from ${incomingCall.clientName}.`); },22000);
+    return ()=>{ clearInterval(iv); clearTimeout(missTimer); };
+  },[incomingCall]);
+
+  function farPos(minDist,avoid){
+    let p; let tries=0;
+    do{ p={x:rint(-230,230),y:rint(-230,230)}; tries++; }
+    while(tries<40 && (Math.hypot(p.x,p.y)<70 || (avoid && Math.hypot(p.x-avoid.x,p.y-avoid.y)<minDist)));
+    return p;
+  }
+  function acceptCall(){
+    const call=incomingCall; setIncomingCall(null);
+    const pickup=farPos(0,null);
+    const dropoff=farPos(90,pickup);
+    const items=Array.from({length:call.size.items}, ()=>pick(ITEM_POOL));
+    const job={ clientName:call.clientName, size:call.size, pickup, dropoff, items,
+      boxesTotal:Math.ceil(call.size.items/call.size.boxSize), phase:'drive_pickup', startTime:Date.now() };
+    setActiveJob(job); simRef.current?.setPickup(pickup);
+    flash(`Job accepted! Drive to the yellow marker to start packing.`);
+  }
+  function declineCall(){ setIncomingCall(null); flash('Call declined.'); }
+
+  function handlePacked(avgQuality){
+    setActiveJob(j=>{ const nj={...j,phase:'drive_dropoff',avgQuality}; simRef.current?.setDropoff(nj.dropoff); return nj; });
+    flash('Truck loaded — drive to the blue marker to deliver.');
+  }
+  function abandonJob(){
+    setActiveJob(null); simRef.current?.setPickup(null); simRef.current?.setDropoff(null);
+    flash('Move abandoned.');
+  }
+  function finalizeJob(job){
+    const elapsed=(Date.now()-job.startTime)/1000;
+    const budget=job.size.items*3.2+30;
+    const speedFactor = elapsed<budget ? 1.15 : (elapsed<budget*1.6 ? 1.0 : 0.9);
+    const qualityFactor = 0.8 + job.avgQuality*0.4;
+    const payout = Math.round(job.size.basePay * qualityFactor * speedFactor * (1+outfitInfoRef.current.tipBonus));
+    const xp = Math.round(payout/5);
+    setActiveJob(null);
+    setState(s=>({...s,money:s.money+payout,stats:{...s.stats,movesCompleted:s.stats.movesCompleted+1,moneyEarned:s.stats.moneyEarned+payout,qualitySum:s.stats.qualitySum+job.avgQuality}}));
+    SFX.cash(); flash(`Move complete! +${money(payout)} · +${xp} XP · Quality ${Math.round(job.avgQuality*100)}%`);
+    grantXP(xp);
+  }
+  // finalizeJob needs live outfit info without stale closure — keep a ref updated each render
+  const outfitInfoRef=useRef(outfit); outfitInfoRef.current=outfit;
+
+  function buyTruck(item){ setState(s=>{ if(s.money<item.price) return s; return {...s,money:s.money-item.price,ownedTrucks:[...s.ownedTrucks,item.id]}; }); SFX.cash(); flash(`Bought ${item.name}!`); equipTruck(item.id); }
+  function equipTruck(id){ setState(s=>({...s,truckId:id})); }
+  function buyHome(item){ setState(s=>{ if(s.money<item.price) return s; return {...s,money:s.money-item.price,ownedHomes:[...s.ownedHomes,item.id]}; }); SFX.cash(); flash(`Bought ${item.name}!`); equipHome(item.id); }
+  function equipHome(id){ setState(s=>({...s,homeId:id})); }
+  function buyPhone(item){ setState(s=>{ if(s.money<item.price) return s; return {...s,money:s.money-item.price,ownedPhones:[...s.ownedPhones,item.id]}; }); SFX.cash(); flash(`Bought ${item.name}!`); equipPhone(item.id); }
+  function equipPhone(id){ setState(s=>({...s,phoneId:id})); }
+
+  useEffect(()=>{ const h=(e)=>{
+    if(e.code==='KeyE'&&near&&!panel&&!levelUp&&!activeJob) openBuilding(near);
+    if(e.code==='Escape') setPanel(null);
+  }; window.addEventListener('keydown',h); return ()=>window.removeEventListener('keydown',h); },[near,panel,levelUp,activeJob]);
+  function openBuilding(id){ SFX.click(); setPanel(id); }
+  function cycleView(){
+    if(dim==='2d'){ setDim('3d'); setCamMode('third'); }
+    else if(camMode==='third'){ setCamMode('first'); }
+    else { setDim('2d'); setCamMode('third'); }
+  }
+  const viewLabel = dim==='2d' ? 'Top-Down 2D' : (camMode==='third' ? '3D Third-Person' : '3D First-Person');
+
+  const xpNext=xpForLevel(state.level+1);
+  const blocking = panel||levelUp||state.firstRun;
+  const jobStatusText = !activeJob ? null
+    : activeJob.phase==='drive_pickup' ? `Drive to ${activeJob.clientName}'s ${activeJob.size.name} (yellow marker)`
+    : activeJob.phase==='packing' ? 'Packing the truck...'
+    : activeJob.phase==='drive_dropoff' ? 'Drive to the drop-off (blue marker)' : null;
+
+  if(state.firstRun){
+    return <CharacterCreate onDone={({name,gender,skin})=>{
+      setState(s=>({...s,firstRun:false,playerName:name,gender,skinTone:skin}));
+    }}/>;
+  }
+
+  return (<div id="game">
+    <div id="canvas-wrap">
+      {simReady && (dim==='2d'
+        ? <Canvas2DView sim={simRef.current} truckColor={truck.color} skinColor={skinColor} outfitColor={outfit.color}/>
+        : <ThreeView sim={simRef.current} camMode={camMode} truckColor={truck.color} skinColor={skinColor} outfitColor={outfit.color}/>)}
+    </div>
+
+    {/* HUD */}
+    <div style={{position:'fixed',top:14,left:14,width:240,background:'rgba(24,16,10,.85)',borderRadius:14,padding:14,border:'1px solid rgba(255,255,255,.1)'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+        <div><div style={{fontSize:12,opacity:.7}}>Level {state.level} · {state.playerName}</div><div style={{fontSize:22,fontWeight:800,color:'#7ee0a0'}}>{money(state.money)}</div></div>
+      </div>
+      <Bar label="XP" val={Math.round(state.xp)} max={xpNext} color="#e6a417"/>
+      <div style={{fontSize:12,marginTop:6,opacity:.9,minHeight:16}}>{jobStatusText || 'Waiting for a call...'}</div>
+      <div style={{fontSize:11,marginTop:4,opacity:.6}}>{driving?'Driving — press V to walk':'On foot — press V to drive'}</div>
+    </div>
+
+    {/* view toggle */}
+    <div style={{position:'fixed',top:14,right:14,display:'flex',flexDirection:'column',gap:8,alignItems:'flex-end'}}>
+      <button className="btn blue" onClick={cycleView} style={{fontSize:13}}>View: {viewLabel}</button>
+      <div style={{background:'rgba(24,16,10,.7)',borderRadius:10,padding:'8px 12px',fontSize:11,opacity:.85,maxWidth:190,textAlign:'right'}}>
+        <b>WASD</b>/arrows or buttons to move · <b>V</b> drive/walk · <b>E</b> enter</div>
+    </div>
+
+    {/* teleport buttons */}
+    <div style={{position:'fixed',bottom:14,left:14,display:'flex',gap:6,flexWrap:'wrap',maxWidth:300}}>
+      {BUILDINGS.map(b=><button key={b.id} className="btn gray" style={{padding:'7px 10px',fontSize:12}} onClick={()=>simRef.current?.teleportTo(b.id)}>{b.name}</button>)}
+    </div>
+
+    {/* interaction prompt */}
+    {near && !blocking && !activeJob && <div style={{position:'fixed',bottom:90,left:'50%',transform:'translateX(-50%)',background:'rgba(24,16,10,.92)',borderRadius:12,padding:'10px 18px',border:'1px solid rgba(255,255,255,.15)',fontSize:15,zIndex:16}}>
+      <button className="btn gold" style={{marginRight:8}} onClick={()=>openBuilding(near)}>Enter</button>{BNAMES[near]} <span style={{opacity:.6,fontSize:12}}>(or press E)</span></div>}
+
+    {!blocking && !(activeJob&&activeJob.phase==='packing') && <button className="btn green" style={{position:'fixed',bottom:84,right:16,zIndex:15}} onClick={()=>simRef.current?.toggleVehicle()}>{driving?'Walk':'Drive'}</button>}
+    {!blocking && !(activeJob&&activeJob.phase==='packing') && <DPad sim={simRef}/>}
+
+    <Toast msg={toast}/>
+
+    {incomingCall && !activeJob && <IncomingCall call={incomingCall} phonePreview={PHONES[state.phoneId].preview} onAccept={acceptCall} onDecline={declineCall}/>}
+
+    {panel==='trucks' && <Shop title="Truck Dealer" list={TRUCKS} owned={state.ownedTrucks} cur={state.truckId} state={state}
+      priceLabelFn={t=>`Speed x${t.speed.toFixed(1)}`} onBuy={buyTruck} onEquip={equipTruck} onClose={()=>setPanel(null)}/>}
+    {panel==='depot' && <Shop title="Your Depot — Homes" list={HOMES} owned={state.ownedHomes} cur={state.homeId} state={state}
+      priceLabelFn={h=>`Passive income +${money(h.income)}/move`} onBuy={buyHome} onEquip={equipHome} onClose={()=>setPanel(null)}/>}
+    {panel==='phones' && <Shop title="Phone Store" list={PHONES} owned={state.ownedPhones} cur={state.phoneId} state={state}
+      priceLabelFn={p=>p.preview?'Shows job details before you answer':'Faster call rate'} onBuy={buyPhone} onEquip={equipPhone} onClose={()=>setPanel(null)}/>}
+    {panel==='closet' && <Closet state={state} setState={setState} onClose={()=>setPanel(null)}/>}
+
+    {activeJob && activeJob.phase==='packing' && <PackJob job={activeJob} onDone={handlePacked} onAbandon={abandonJob}/>}
+    {levelUp && <LevelUp level={levelUp.level} unlocks={levelUp.unlocks} onClose={()=>setLevelUp(null)}/>}
+  </div>);
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
