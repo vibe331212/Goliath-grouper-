@@ -82,7 +82,7 @@
   .row{ display:flex; align-items:center; gap:10px; background:var(--panel2); border:1px solid #26303e;
     border-radius:12px; padding:10px 12px; margin-bottom:8px; }
   .row .ic{ width:44px; height:44px; border-radius:10px; background:#0e141d; display:flex; align-items:center;
-    justify-content:center; font-size:22px; flex:0 0 auto; }
+    justify-content:center; font-size:12px; font-weight:800; letter-spacing:.4px; flex:0 0 auto; }
   .row .meta{ flex:1; min-width:0; }
   .row .meta .t{ font-weight:700; font-size:14px; }
   .row .meta .d{ color:var(--dim); font-size:12px; }
@@ -114,7 +114,7 @@
     grid-template-columns:repeat(4,1fr); gap:14px 10px; align-content:start; overflow-y:auto; }
   .app{ display:flex; flex-direction:column; align-items:center; gap:5px; cursor:pointer; }
   .app .ai{ width:56px; height:56px; border-radius:15px; display:flex; align-items:center; justify-content:center;
-    font-size:27px; box-shadow:0 4px 10px rgba(0,0,0,.35); }
+    font-size:17px; font-weight:800; letter-spacing:.5px; box-shadow:0 4px 10px rgba(0,0,0,.35); }
   .app .an{ font-size:10.5px; color:#fff; text-shadow:0 1px 3px rgba(0,0,0,.7); font-weight:600; text-align:center; }
   #dock{ position:absolute; left:14px; right:14px; bottom:16px; height:74px; background:rgba(255,255,255,.16);
     border-radius:22px; backdrop-filter:blur(10px); display:flex; align-items:center; justify-content:space-around; padding:0 10px; }
@@ -175,14 +175,14 @@
 <div id="hud">
   <div id="topbar">
     <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <div class="chip">💵 <span id="moneyTxt">$0</span></div>
+      <div class="chip"><small>CASH</small> <span id="moneyTxt">$0</span></div>
       <div class="chip"><small>FUEL</small><div class="fuelwrap"><div id="fuelbar"></div></div></div>
     </div>
     <div class="chip" id="vehChip"><small>RIG</small> <span id="vehName">—</span></div>
   </div>
 
   <div id="jobBanner"></div>
-  <button id="phoneBtn" class="hbtn">📱</button>
+  <button id="phoneBtn" class="hbtn">PH</button>
   <button id="interactBtn" class="hbtn"></button>
 
   <canvas id="speedo" width="118" height="118"></canvas>
@@ -214,7 +214,7 @@
   <div id="phoneBody">
     <div class="notch"></div>
     <div id="screen">
-      <div id="statusbar"><span id="sbTime">9:41</span><span>Slowhaul&nbsp;📶&nbsp;100%🔋</span></div>
+      <div id="statusbar"><span id="sbTime">9:41</span><span>Slowhaul&nbsp;LTE&nbsp;100%</span></div>
 
       <!-- lock screen -->
       <div id="lock"></div>
@@ -329,22 +329,22 @@ for(let x=GRID; x<WORLD; x+=GRID) roadsV.push(x);
 
 // Points of interest sit at grid intersections / along roads
 const POIS = [
-  {id:"home", kind:"home", name:"Home", x:GRID, y:GRID, color:"#7a5cff", icon:"🏠"},
-  {id:"gas1", kind:"gas", name:"FuelStop", x:GRID*3, y:GRID, color:"#39d353", icon:"⛽"},
-  {id:"gas2", kind:"gas", name:"PetroMax", x:GRID*6, y:GRID*6, color:"#39d353", icon:"⛽"},
-  {id:"gas3", kind:"gas", name:"QuickGas", x:GRID*2, y:GRID*6, color:"#39d353", icon:"⛽"},
-  {id:"dealer", kind:"dealer", name:"Rig Dealership", x:GRID*5, y:GRID, color:"#3aa0ff", icon:"🚛"},
-  {id:"mall", kind:"clothes", name:"Threads Mall", x:GRID, y:GRID*4, color:"#ff5aa0", icon:"👕"},
-  {id:"realtor", kind:"realtor", name:"Realtor", x:GRID*7, y:GRID*2, color:"#e0b020", icon:"🏢"},
+  {id:"home", kind:"home", name:"Home", x:GRID, y:GRID, color:"#7a5cff", icon:"HOME"},
+  {id:"gas1", kind:"gas", name:"FuelStop", x:GRID*3, y:GRID, color:"#39d353", icon:"FUEL"},
+  {id:"gas2", kind:"gas", name:"PetroMax", x:GRID*6, y:GRID*6, color:"#39d353", icon:"FUEL"},
+  {id:"gas3", kind:"gas", name:"QuickGas", x:GRID*2, y:GRID*6, color:"#39d353", icon:"FUEL"},
+  {id:"dealer", kind:"dealer", name:"Rig Dealership", x:GRID*5, y:GRID, color:"#3aa0ff", icon:"RIGS"},
+  {id:"mall", kind:"clothes", name:"Threads Mall", x:GRID, y:GRID*4, color:"#ff5aa0", icon:"WEAR"},
+  {id:"realtor", kind:"realtor", name:"Realtor", x:GRID*7, y:GRID*2, color:"#e0b020", icon:"REALTY"},
   // depots (job pickups) and warehouses (dropoffs)
-  {id:"dep_a", kind:"depot", name:"Atlas Freight", x:GRID*2, y:GRID*3, color:"#e8934a", icon:"📦"},
-  {id:"dep_b", kind:"depot", name:"Nord Cold Storage", x:GRID*6, y:GRID*2, color:"#5ad1e8", icon:"📦"},
-  {id:"dep_c", kind:"depot", name:"Miller Lumber", x:GRID*3, y:GRID*6, color:"#c88a4a", icon:"📦"},
-  {id:"dep_d", kind:"depot", name:"Sunrise Foods", x:GRID*7, y:GRID*5, color:"#e8c24a", icon:"📦"},
-  {id:"wh_a", kind:"warehouse", name:"Port Terminal", x:GRID*7, y:GRID*7, color:"#9a8cff", icon:"🏭"},
-  {id:"wh_b", kind:"warehouse", name:"Central Market", x:GRID*4, y:GRID*4, color:"#9a8cff", icon:"🏭"},
-  {id:"wh_c", kind:"warehouse", name:"Grand Depot", x:GRID*5, y:GRID*7, color:"#9a8cff", icon:"🏭"},
-  {id:"wh_d", kind:"warehouse", name:"North Distribution", x:GRID, y:GRID*7, color:"#9a8cff", icon:"🏭"},
+  {id:"dep_a", kind:"depot", name:"Atlas Freight", x:GRID*2, y:GRID*3, color:"#e8934a", icon:"FREIGHT"},
+  {id:"dep_b", kind:"depot", name:"Nord Cold Storage", x:GRID*6, y:GRID*2, color:"#5ad1e8", icon:"FREIGHT"},
+  {id:"dep_c", kind:"depot", name:"Miller Lumber", x:GRID*3, y:GRID*6, color:"#c88a4a", icon:"FREIGHT"},
+  {id:"dep_d", kind:"depot", name:"Sunrise Foods", x:GRID*7, y:GRID*5, color:"#e8c24a", icon:"FREIGHT"},
+  {id:"wh_a", kind:"warehouse", name:"Port Terminal", x:GRID*7, y:GRID*7, color:"#9a8cff", icon:"WHSE"},
+  {id:"wh_b", kind:"warehouse", name:"Central Market", x:GRID*4, y:GRID*4, color:"#9a8cff", icon:"WHSE"},
+  {id:"wh_c", kind:"warehouse", name:"Grand Depot", x:GRID*5, y:GRID*7, color:"#9a8cff", icon:"WHSE"},
+  {id:"wh_d", kind:"warehouse", name:"North Distribution", x:GRID, y:GRID*7, color:"#9a8cff", icon:"WHSE"},
 ];
 const poiById = id => POIS.find(p=>p.id===id);
 
@@ -510,17 +510,17 @@ function checkInteract(){
   const ib=$("interactBtn");
   if(nearPOI && Math.abs(car.speed)<26){
     let label="Open "+nearPOI.name;
-    if(nearPOI.kind==="gas") label="⛽ Refuel at "+nearPOI.name;
+    if(nearPOI.kind==="gas") label="Refuel at "+nearPOI.name;
     if(nearPOI.kind==="depot"){
-      if(activeJob && activeJob.phase==="pickup" && activeJob.from===nearPOI.id) label="📦 Load "+activeJob.cargo;
-      else label="📋 Jobs at "+nearPOI.name;
+      if(activeJob && activeJob.phase==="pickup" && activeJob.from===nearPOI.id) label="Load "+activeJob.cargo;
+      else label="Jobs at "+nearPOI.name;
     }
     if(nearPOI.kind==="warehouse" && activeJob && activeJob.phase==="deliver" && activeJob.to===nearPOI.id)
-      label="✅ Deliver "+activeJob.cargo;
-    if(nearPOI.kind==="dealer") label="🚛 Browse Dealership";
-    if(nearPOI.kind==="clothes") label="👕 Enter Threads Mall";
-    if(nearPOI.kind==="realtor") label="🏢 Real Estate Office";
-    if(nearPOI.kind==="home") label="🏠 Home (Garage & Closet)";
+      label="Deliver "+activeJob.cargo;
+    if(nearPOI.kind==="dealer") label="Browse Dealership";
+    if(nearPOI.kind==="clothes") label="Enter Threads Mall";
+    if(nearPOI.kind==="realtor") label="Real Estate Office";
+    if(nearPOI.kind==="home") label="Home (Garage & Closet)";
     ib.style.display="block"; ib.textContent=label;
   } else ib.style.display="none";
 }
@@ -547,7 +547,7 @@ function doInteract(){
 function completeHaul(){
   const pay=activeJob.pay;
   S.money+=pay; S.stats.hauls++; S.stats.miles+=activeJob.miles; S.stats.earned+=pay;
-  toast("✅ Delivered! +"+money(pay));
+  toast("Delivered! +"+money(pay));
   activeJob=null; genJobs(); save(); updateHUD();
 }
 
@@ -564,7 +564,7 @@ function openJobBoard(depot){
   let rows = jobOffers.map(j=>{
     const from=poiById(j.from), to=poiById(j.to);
     return `<div class="row">
-      <div class="ic">📦</div>
+      <div class="ic">FRT</div>
       <div class="meta"><div class="t">${j.cargo}</div>
         <div class="d">${from.name} → ${to.name} · ${j.miles} mi</div></div>
       <div style="text-align:right">
@@ -573,8 +573,8 @@ function openJobBoard(depot){
       </div></div>`;
   }).join("");
   openModal(`<button class="closeX" onclick="closeModal()">×</button>
-    <h2>📋 Job Board</h2><div class="sub">Accept a haul, load at the depot, deliver to the warehouse.</div>
-    ${activeJob?`<div class="row" style="border-color:var(--accent)"><div class="ic">🚚</div><div class="meta"><div class="t">Active: ${activeJob.cargo}</div><div class="d">${activeJob.phase==="pickup"?"Go load at ":"Deliver to "}${poiById(activeJob.phase==="pickup"?activeJob.from:activeJob.to).name}</div></div><button class="btn bad" onclick="cancelJob()" style="padding:6px 12px">Drop</button></div>`:rows}`);
+    <h2>Job Board</h2><div class="sub">Accept a haul, load at the depot, deliver to the warehouse.</div>
+    ${activeJob?`<div class="row" style="border-color:var(--accent)"><div class="ic">TRK</div><div class="meta"><div class="t">Active: ${activeJob.cargo}</div><div class="d">${activeJob.phase==="pickup"?"Go load at ":"Deliver to "}${poiById(activeJob.phase==="pickup"?activeJob.from:activeJob.to).name}</div></div><button class="btn bad" onclick="cancelJob()" style="padding:6px 12px">Drop</button></div>`:rows}`);
   modal.querySelectorAll("[data-job]").forEach(b=>b.onclick=()=>acceptJob(b.dataset.job));
 }
 function acceptJob(id){
@@ -592,7 +592,7 @@ function openDealer(){
     const owned=S.ownedVehicles.includes(v.id);
     const cur=S.currentVehicle===v.id;
     return `<div class="row">
-      <div class="ic" style="background:${v.color}">${v.type==="truck"?"🚛":"🚗"}</div>
+      <div class="ic" style="background:${v.color}">${v.type==="truck"?"RIG":"CAR"}</div>
       <div class="meta"><div class="t">${v.name} <span style="color:var(--dim);font-weight:600">${v.type}</span></div>
         <div class="d">${v.desc}</div>
         <div class="d">Top ${Math.round(v.top/2.2)}mph · Tank ${v.tank} · ${v.mpg}mpg</div></div>
@@ -603,7 +603,7 @@ function openDealer(){
       </div></div>`;
   }).join("");
   openModal(`<button class="closeX" onclick="closeModal()">×</button>
-    <h2>🚛 Rig Dealership</h2><div class="sub">Balance: ${money(S.money)}</div>${rows}`);
+    <h2>Rig Dealership</h2><div class="sub">Balance: ${money(S.money)}</div>${rows}`);
   modal.querySelectorAll("[data-buy]").forEach(b=>b.onclick=()=>buyVehicle(b.dataset.buy));
   modal.querySelectorAll("[data-use]").forEach(b=>b.onclick=()=>{ switchVehicle(b.dataset.use); openDealer(); });
 }
@@ -647,14 +647,14 @@ function drawDoll(cvs){
 function openCloset(){
   const cats=[["top","Tops"],["bottom","Bottoms"],["hat","Hats"]];
   let html=`<button class="closeX" onclick="closeModal()">×</button>
-    <h2>👕 Threads Mall</h2><div class="sub">Balance: ${money(S.money)}</div>
+    <h2>Threads Mall</h2><div class="sub">Balance: ${money(S.money)}</div>
     <canvas id="dollC" width="180" height="220" style="display:block;margin:0 auto 10px;background:#0b1018;border-radius:14px;border:1px solid #26303e"></canvas>`;
   for(const [slot,label] of cats){
     html+=`<div style="font-weight:800;margin:10px 0 6px">${label}</div>`;
     html+=CLOTHES.filter(c=>c.slot===slot).map(c=>{
       const owned=S.ownedClothes.includes(c.id), worn=S.worn[slot]===c.id;
       return `<div class="row">
-        <div class="ic" style="background:${c.color==="none"?"#0e141d":c.color}">${slot==="hat"?"🧢":slot==="top"?"👕":"👖"}</div>
+        <div class="ic" style="background:${c.color==="none"?"#0e141d":c.color}">${slot==="hat"?"HAT":slot==="top"?"TOP":"BTM"}</div>
         <div class="meta"><div class="t">${c.name}</div><div class="d">${c.price===0?"Free":money(c.price)}</div></div>
         ${worn?`<span class="btn owned">Worn</span>`:
           owned?`<button class="btn good" data-wear="${c.id}">Wear</button>`:
@@ -678,7 +678,7 @@ function wearClothes(id){ const c=clotheDef(id); S.worn[c.slot]=id; save(); open
 function openRealtor(){
   const rows=HOUSES.map(h=>{
     const owned=S.ownedHouses.includes(h.id), cur=S.currentHouse===h.id;
-    return `<div class="row"><div class="ic">🏠</div>
+    return `<div class="row"><div class="ic">HSE</div>
       <div class="meta"><div class="t">${h.name}</div><div class="d">${h.perk}</div></div>
       <div style="text-align:right">
       ${cur?`<span class="btn owned">Living Here</span>`:
@@ -687,7 +687,7 @@ function openRealtor(){
       </div></div>`;
   }).join("");
   openModal(`<button class="closeX" onclick="closeModal()">×</button>
-    <h2>🏢 Real Estate</h2><div class="sub">Balance: ${money(S.money)}</div>${rows}`);
+    <h2>Real Estate</h2><div class="sub">Balance: ${money(S.money)}</div>${rows}`);
   modal.querySelectorAll("[data-buyh]").forEach(b=>b.onclick=()=>buyHouse(b.dataset.buyh));
   modal.querySelectorAll("[data-live]").forEach(b=>b.onclick=()=>{ S.currentHouse=b.dataset.live; save(); openRealtor(); toast("Moved in!"); });
 }
@@ -701,12 +701,12 @@ function buyHouse(id){
 /* -------- Home (garage + closet quick access) -------- */
 function openHome(){
   openModal(`<button class="closeX" onclick="closeModal()">×</button>
-    <h2>🏠 ${HOUSES.find(h=>h.id===S.currentHouse).name}</h2>
+    <h2>${HOUSES.find(h=>h.id===S.currentHouse).name}</h2>
     <div class="sub">Welcome home. Manage your life.</div>
-    <div class="row" onclick="closeModal();openDealer()" style="cursor:pointer"><div class="ic">🚛</div><div class="meta"><div class="t">Garage</div><div class="d">Switch or buy vehicles</div></div><span class="btn sec">›</span></div>
-    <div class="row" onclick="closeModal();openCloset()" style="cursor:pointer"><div class="ic">👕</div><div class="meta"><div class="t">Closet</div><div class="d">Change your clothes</div></div><span class="btn sec">›</span></div>
-    <div class="row" onclick="closeModal();openRealtor()" style="cursor:pointer"><div class="ic">🏢</div><div class="meta"><div class="t">Real Estate</div><div class="d">Buy a bigger house</div></div><span class="btn sec">›</span></div>
-    <div class="row"><div class="ic">📊</div><div class="meta"><div class="t">Career Stats</div><div class="d">${S.stats.hauls} hauls · ${S.stats.miles} mi · ${money(S.stats.earned)} earned</div></div></div>`);
+    <div class="row" onclick="closeModal();openDealer()" style="cursor:pointer"><div class="ic">RIG</div><div class="meta"><div class="t">Garage</div><div class="d">Switch or buy vehicles</div></div><span class="btn sec">›</span></div>
+    <div class="row" onclick="closeModal();openCloset()" style="cursor:pointer"><div class="ic">FIT</div><div class="meta"><div class="t">Closet</div><div class="d">Change your clothes</div></div><span class="btn sec">›</span></div>
+    <div class="row" onclick="closeModal();openRealtor()" style="cursor:pointer"><div class="ic">EST</div><div class="meta"><div class="t">Real Estate</div><div class="d">Buy a bigger house</div></div><span class="btn sec">›</span></div>
+    <div class="row"><div class="ic">STAT</div><div class="meta"><div class="t">Career Stats</div><div class="d">${S.stats.hauls} hauls · ${S.stats.miles} mi · ${money(S.stats.earned)} earned</div></div></div>`);
 }
 window.openDealer=openDealer; window.openCloset=openCloset; window.openRealtor=openRealtor;
 
@@ -725,14 +725,14 @@ function openGas(p){
 function renderGasCard(){
   const d=car.def;
   gasModal.innerHTML=`<button class="closeX" onclick="closeGas()">×</button>
-    <h2>⛽ ${gasState.p.name}</h2>
+    <h2>${gasState.p.name}</h2>
     <div class="sub">Pump price: ${money(gasState.price)}/${gasState.unit} · Balance ${money(S.money)}</div>
     <div style="background:#0b1018;border:1px solid #26303e;border-radius:14px;padding:16px;text-align:center;margin-bottom:12px">
       <div style="color:var(--dim);font-size:12px">FUEL</div>
       <div style="font-size:34px;font-weight:800" id="pumpAmt">${(S.fuel[S.currentVehicle]).toFixed(1)}<span style="font-size:14px;color:var(--dim)"> / ${d.tank} ${gasState.unit}</span></div>
       <div style="color:var(--good);font-weight:800;margin-top:4px" id="pumpCost">$0.00 charged</div>
     </div>
-    <div style="text-align:center;color:var(--dim);font-size:13px;margin-bottom:10px">Insert your card to activate the pump 👇</div>
+    <div style="text-align:center;color:var(--dim);font-size:13px;margin-bottom:10px">Insert your card to activate the pump</div>
     <div id="cardSlot" style="margin:0 auto 12px;width:100%;max-width:300px;background:#161b24;border:1px solid #2a3646;border-radius:12px;padding:14px;text-align:center">
       <div style="height:60px;position:relative;overflow:hidden;border-radius:8px;background:#0e141d">
         <div id="cardImg" style="position:absolute;left:50%;top:6px;transform:translateX(-50%);width:200px;height:48px;border-radius:8px;background:linear-gradient(135deg,#3aa0ff,#7a5cff);box-shadow:0 4px 10px rgba(0,0,0,.4);cursor:grab;transition:top .1s">
@@ -741,10 +741,10 @@ function renderGasCard(){
           <div style="position:absolute;right:10px;top:8px;font-size:9px;color:#fff;font-weight:700">SLOWHAUL</div>
         </div>
       </div>
-      <button class="btn" id="insertBtn" style="margin-top:10px;width:100%">💳 Insert Card</button>
+      <button class="btn" id="insertBtn" style="margin-top:10px;width:100%">Insert Card</button>
     </div>
     <div id="pumpControls" style="display:none">
-      <button class="btn good" id="holdPump" style="width:100%;padding:16px;font-size:16px">⛽ HOLD TO PUMP</button>
+      <button class="btn good" id="holdPump" style="width:100%;padding:16px;font-size:16px">HOLD TO PUMP</button>
       <button class="btn sec" id="finishPump" style="width:100%;margin-top:8px">Finish & Remove Card</button>
     </div>`;
   $("insertBtn").onclick=insertCard;
@@ -773,7 +773,7 @@ function pumpTick(dt){
   const rate = d.tank/6; // fill full tank in ~6s
   let add = rate*dt;
   const cost = add*gasState.price;
-  if(S.money<cost){ gasState.pumping=false; toast("💳 Card declined — insufficient funds!"); return; }
+  if(S.money<cost){ gasState.pumping=false; toast("Card declined — insufficient funds!"); return; }
   const room=d.tank-cur; if(add>room) add=room;
   S.fuel[S.currentVehicle]=cur+add;
   S.money-=add*gasState.price;
@@ -885,7 +885,7 @@ $("appBack").onclick=()=>{ hideApp(); showHome(); };
 function appJobs(){
   const rows=jobOffers.map(j=>{
     const from=poiById(j.from),to=poiById(j.to);
-    return `<div class="row"><div class="ic">📦</div><div class="meta"><div class="t">${j.cargo}</div><div class="d">${from.name} → ${to.name} · ${j.miles}mi</div></div>
+    return `<div class="row"><div class="ic">FRT</div><div class="meta"><div class="t">${j.cargo}</div><div class="d">${from.name} → ${to.name} · ${j.miles}mi</div></div>
       <div style="text-align:right"><div style="color:var(--good);font-weight:800">${money(j.pay)}</div>
       <button class="btn" data-pj="${j.id}" style="margin-top:4px;padding:6px 10px">Accept</button></div></div>`;
   }).join("");
@@ -900,13 +900,13 @@ function appBank(){
       <div style="font-size:32px;font-weight:800">${money(S.money)}</div>
       <div style="margin-top:20px;letter-spacing:3px">•••• •••• •••• 4472</div>
     </div>
-    <div class="row"><div class="ic">📈</div><div class="meta"><div class="t">Total earned</div><div class="d">career</div></div><b>${money(S.stats.earned)}</b></div>
-    <div class="row"><div class="ic">🚚</div><div class="meta"><div class="t">Hauls completed</div></div><b>${S.stats.hauls}</b></div>
-    <div class="row"><div class="ic">🛣️</div><div class="meta"><div class="t">Miles driven</div></div><b>${S.stats.miles}</b></div>`);
+    <div class="row"><div class="ic">SUM</div><div class="meta"><div class="t">Total earned</div><div class="d">career</div></div><b>${money(S.stats.earned)}</b></div>
+    <div class="row"><div class="ic">TRK</div><div class="meta"><div class="t">Hauls completed</div></div><b>${S.stats.hauls}</b></div>
+    <div class="row"><div class="ic">MI</div><div class="meta"><div class="t">Miles driven</div></div><b>${S.stats.miles}</b></div>`);
 }
 function appGarage(){
   const rows=S.ownedVehicles.map(id=>{ const v=vehDef(id); const cur=S.currentVehicle===id;
-    return `<div class="row"><div class="ic" style="background:${v.color}">${v.type==="truck"?"🚛":"🚗"}</div>
+    return `<div class="row"><div class="ic" style="background:${v.color}">${v.type==="truck"?"RIG":"CAR"}</div>
       <div class="meta"><div class="t">${v.name}</div><div class="d">Fuel ${(S.fuel[id]||0).toFixed(0)}/${v.tank}</div></div>
       ${cur?`<span class="btn owned">Driving</span>`:`<button class="btn good" data-drv="${id}">Drive</button>`}</div>`;
   }).join("");
@@ -919,7 +919,7 @@ function appCloset(){
     html+=`<div style="font-weight:800;margin:8px 0 4px">${label}</div>`;
     html+=CLOTHES.filter(c=>c.slot===slot).map(c=>{
       const owned=S.ownedClothes.includes(c.id),worn=S.worn[slot]===c.id;
-      return `<div class="row"><div class="ic" style="background:${c.color==="none"?"#0e141d":c.color}">${slot==="hat"?"🧢":slot==="top"?"👕":"👖"}</div>
+      return `<div class="row"><div class="ic" style="background:${c.color==="none"?"#0e141d":c.color}">${slot==="hat"?"HAT":slot==="top"?"TOP":"BTM"}</div>
         <div class="meta"><div class="t">${c.name}</div><div class="d">${c.price===0?"Free":money(c.price)}</div></div>
         ${worn?`<span class="btn owned">Worn</span>`:owned?`<button class="btn good" data-w2="${c.id}">Wear</button>`:`<button class="btn" data-b2="${c.id}">Buy</button>`}</div>`;
     }).join("");
@@ -932,7 +932,7 @@ function buyClosetPhone(id){ const c=clotheDef(id); if(S.money<c.price){toast("N
   S.money-=c.price; S.ownedClothes.push(id); S.worn[c.slot]=id; save(); updateHUD(); appCloset(); }
 function appRealty(){
   const rows=HOUSES.map(h=>{ const owned=S.ownedHouses.includes(h.id),cur=S.currentHouse===h.id;
-    return `<div class="row"><div class="ic">🏠</div><div class="meta"><div class="t">${h.name}</div><div class="d">${h.perk} · ${owned?"Owned":money(h.price)}</div></div>
+    return `<div class="row"><div class="ic">HSE</div><div class="meta"><div class="t">${h.name}</div><div class="d">${h.perk} · ${owned?"Owned":money(h.price)}</div></div>
       ${cur?`<span class="btn owned">Home</span>`:owned?`<button class="btn good" data-mv="${h.id}">Move</button>`:`<button class="btn" data-bh="${h.id}">Buy</button>`}</div>`;
   }).join("");
   openApp("Estates", rows);
@@ -941,7 +941,7 @@ function appRealty(){
 }
 function appMap(){
   openApp("Maps", `<canvas id="mapC" width="300" height="300" style="width:100%;background:#0b1018;border-radius:14px;border:1px solid #26303e"></canvas>
-    <div class="sub" style="margin-top:8px">🟣 You · Tap a place name to see it.</div>
+    <div class="sub" style="margin-top:8px">You · Tap a place name to see it.</div>
     <div id="mapLegend"></div>`);
   const c=$("mapC"), cc=c.getContext("2d"); const sc=300/WORLD;
   cc.fillStyle="#0b1018"; cc.fillRect(0,0,300,300);
@@ -950,59 +950,59 @@ function appMap(){
   roadsV.forEach(x=>{ cc.beginPath(); cc.moveTo(x*sc,0); cc.lineTo(x*sc,300); cc.stroke(); });
   POIS.forEach(p=>{ cc.fillStyle=p.color; cc.beginPath(); cc.arc(p.x*sc,p.y*sc,4,0,7); cc.fill(); });
   cc.fillStyle="#a06bff"; cc.beginPath(); cc.arc(car.x*sc,car.y*sc,5,0,7); cc.fill();
-  let leg=POIS.map(p=>`<div class="row" style="padding:6px 10px"><div class="ic" style="width:30px;height:30px;font-size:16px;background:${p.color}22">${p.icon}</div><div class="meta"><div class="t" style="font-size:13px">${p.name}</div></div></div>`).join("");
+  let leg=POIS.map(p=>`<div class="row" style="padding:6px 10px"><div class="ic" style="width:30px;height:30px;font-size:9px;background:${p.color}33"></div><div class="meta"><div class="t" style="font-size:13px">${p.name}</div></div></div>`).join("");
   $("mapLegend").innerHTML=leg;
 }
 function appSettings(){
   const wp=WALLPAPERS.map((w,i)=>`<div class="swatch${i===S.phone.wallpaper?' sel':''}" data-wp="${i}" style="background:${w}"></div>`).join("");
   const hasPass=!!S.phone.passcode;
   openApp("Settings", `
-    <div style="font-weight:800;margin-bottom:6px">🖼️ Wallpaper</div>
+    <div style="font-weight:800;margin-bottom:6px">Wallpaper</div>
     <div class="swatchRow" id="wpRow">${wp}</div>
-    <div style="font-weight:800;margin:16px 0 6px">🔒 Passcode</div>
+    <div style="font-weight:800;margin:16px 0 6px">Passcode</div>
     <div class="sub">${hasPass?"A passcode is set. Locks the phone.":"No passcode set."}</div>
     <input class="field" id="passIn" type="tel" inputmode="numeric" maxlength="8" placeholder="Enter 4-8 digit passcode"/>
     <button class="btn" id="setPass" style="width:100%">${hasPass?"Change":"Set"} Passcode</button>
     ${hasPass?`<button class="btn bad" id="clrPass" style="width:100%;margin-top:8px">Remove Passcode</button>`:""}
-    <div style="font-weight:800;margin:16px 0 6px">⚙️ Game</div>
+    <div style="font-weight:800;margin:16px 0 6px">Game</div>
     <button class="btn sec" id="wipeBtn" style="width:100%">Erase Save & Restart</button>`);
   $("appContent").querySelectorAll("[data-wp]").forEach(s=>s.onclick=()=>{ S.phone.wallpaper=+s.dataset.wp; save(); applyWallpaper(); appSettings(); });
-  $("setPass").onclick=()=>{ const v=$("passIn").value.replace(/\D/g,""); if(v.length<4){toast("Use 4-8 digits");return;} S.phone.passcode=v; S.phone.unlocked=true; save(); toast("Passcode set 🔒"); appSettings(); };
+  $("setPass").onclick=()=>{ const v=$("passIn").value.replace(/\D/g,""); if(v.length<4){toast("Use 4-8 digits");return;} S.phone.passcode=v; S.phone.unlocked=true; save(); toast("Passcode set"); appSettings(); };
   if($("clrPass")) $("clrPass").onclick=()=>{ S.phone.passcode=""; save(); toast("Passcode removed"); appSettings(); };
   $("wipeBtn").onclick=()=>{ if(confirm("Erase all progress?")){ localStorage.removeItem(SAVE_KEY); location.reload(); } };
 }
 function appMessages(){
   const msgs=[
-    ["Dispatch","Nice work on that last haul. Keep 'em rolling. 🚚"],
+    ["Dispatch","Nice work on that last haul. Keep 'em rolling."],
     ["Mom","Did you eat? Come visit when you buy that big house!"],
-    ["Big Rick","Bro I got a Vipera GT. When you gonna catch up 😎"],
-    ["FuelStop","⛽ Rewards: your next fill-up... is still full price. Sorry."],
+    ["Big Rick","Bro I got a Vipera GT. When you gonna catch up"],
+    ["FuelStop","Rewards: your next fill-up... is still full price. Sorry."],
     ["Unknown","Ur car's extended warranty has expired press 1 to—"],
   ];
-  openApp("Messages", msgs.map(m=>`<div class="row"><div class="ic">💬</div><div class="meta"><div class="t">${m[0]}</div><div class="d">${m[1]}</div></div></div>`).join(""));
+  openApp("Messages", msgs.map(m=>`<div class="row"><div class="ic">MSG</div><div class="meta"><div class="t">${m[0]}</div><div class="d">${m[1]}</div></div></div>`).join(""));
 }
 function appWeather(){
-  const temps=[68,72,75,81,66]; const days=["Today","Wed","Thu","Fri","Sat"]; const ic=["☀️","⛅","🌧️","☀️","⛅"];
-  openApp("Weather", `<div style="text-align:center;padding:20px 0"><div style="font-size:60px">☀️</div>
+  const temps=[68,72,75,81,66]; const days=["Today","Wed","Thu","Fri","Sat"]; const ic=["SUN","PT","RN","SUN","PT"];
+  openApp("Weather", `<div style="text-align:center;padding:20px 0"><div style="font-size:52px;font-weight:800;letter-spacing:2px">SUN</div>
     <div style="font-size:48px;font-weight:300">72°</div><div class="sub">Truckington · Sunny</div></div>
     ${days.map((d,i)=>`<div class="row"><div class="ic">${ic[i]}</div><div class="meta"><div class="t">${d}</div></div><b>${temps[i]}°</b></div>`).join("")}`);
 }
 let musicIdx=0; const TRACKS=["Highway Hymn","Diesel Dreams","18 Wheels & Soul","Midnight Interstate","Chrome & Asphalt"];
 function appMusic(){
   openApp("Music", `<div style="text-align:center;padding:16px 0">
-    <div style="width:150px;height:150px;margin:0 auto 14px;border-radius:16px;background:linear-gradient(135deg,#7a5cff,#3aa0ff);display:flex;align-items:center;justify-content:center;font-size:56px">🎵</div>
+    <div style="width:150px;height:150px;margin:0 auto 14px;border-radius:16px;background:linear-gradient(135deg,#7a5cff,#3aa0ff);display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:800;letter-spacing:2px">MUSIC</div>
     <div style="font-size:18px;font-weight:800" id="trkName">${TRACKS[musicIdx]}</div>
     <div class="sub">Slowhaul Radio</div>
     <div style="display:flex;justify-content:center;gap:24px;font-size:30px;margin-top:16px">
-      <span id="prevT" style="cursor:pointer">⏮️</span><span id="playT" style="cursor:pointer">▶️</span><span id="nextT" style="cursor:pointer">⏭️</span>
+      <span id="prevT" style="cursor:pointer">PREV</span><span id="playT" style="cursor:pointer">PLAY</span><span id="nextT" style="cursor:pointer">NEXT</span>
     </div></div>`);
   $("prevT").onclick=()=>{ musicIdx=(musicIdx-1+TRACKS.length)%TRACKS.length; $("trkName").textContent=TRACKS[musicIdx]; };
   $("nextT").onclick=()=>{ musicIdx=(musicIdx+1)%TRACKS.length; $("trkName").textContent=TRACKS[musicIdx]; };
-  $("playT").onclick=()=>toast("♪ "+TRACKS[musicIdx]);
+  $("playT").onclick=()=>toast("Now playing: "+TRACKS[musicIdx]);
 }
 function appCamera(){
   openApp("Camera", `<canvas id="camDoll" width="240" height="300" style="display:block;margin:0 auto 10px;background:linear-gradient(#20304a,#0b1018);border-radius:14px;border:1px solid #26303e"></canvas>
-    <button class="btn" style="width:100%" onclick="toast('📸 Selfie saved!')">📸 Take Selfie</button>
+    <button class="btn" style="width:100%" onclick="toast('Selfie saved!')">Take Selfie</button>
     <div class="sub" style="text-align:center;margin-top:8px">Show off your fit.</div>`);
   drawDoll($("camDoll"));
 }
@@ -1025,7 +1025,7 @@ function appCalc(){
 function appClock(){
   openApp("Clock", `<div style="text-align:center;padding:30px 0"><div id="bigClock" style="font-size:56px;font-weight:300">${clockStr()}</div>
     <div class="sub">${dateStr()}</div></div>
-    <div class="row"><div class="ic">⏱️</div><div class="meta"><div class="t">Stopwatch</div></div><button class="btn" id="swBtn">Start</button></div>
+    <div class="row"><div class="ic">SW</div><div class="meta"><div class="t">Stopwatch</div></div><button class="btn" id="swBtn">Start</button></div>
     <div id="swVal" style="text-align:center;font-size:40px;font-weight:300;margin-top:10px">0.0</div>`);
   let sw=0,swR=null; $("swBtn").onclick=function(){ if(swR){clearInterval(swR);swR=null;this.textContent="Start";}
     else{ const t0=Date.now()-sw*1000; swR=setInterval(()=>{ sw=(Date.now()-t0)/1000; const v=$("swVal"); if(v)v.textContent=sw.toFixed(1); else clearInterval(swR);},100); this.textContent="Stop"; } };
@@ -1037,34 +1037,34 @@ function appNotes(){
 }
 function appGamesFolder(){
   openApp("Games", `
-    <div class="row" onclick="startMG('dodge')" style="cursor:pointer"><div class="ic" style="background:#c23b3b">🚗</div><div class="meta"><div class="t">Highway Dodge</div><div class="d">Best: ${S.bestScores.dodge||0}</div></div><span class="btn">Play</span></div>
-    <div class="row" onclick="startMG('snake')" style="cursor:pointer"><div class="ic" style="background:#2f9e4a">🐍</div><div class="meta"><div class="t">Cargo Snake</div><div class="d">Best: ${S.bestScores.snake||0}</div></div><span class="btn">Play</span></div>
-    <div class="row" onclick="startMG('catch')" style="cursor:pointer"><div class="ic" style="background:#3aa0ff">💰</div><div class="meta"><div class="t">Coin Catch</div><div class="d">Best: ${S.bestScores.catch||0}</div></div><span class="btn">Play</span></div>`);
+    <div class="row" onclick="startMG('dodge')" style="cursor:pointer"><div class="ic" style="background:#c23b3b">DSH</div><div class="meta"><div class="t">Highway Dodge</div><div class="d">Best: ${S.bestScores.dodge||0}</div></div><span class="btn">Play</span></div>
+    <div class="row" onclick="startMG('snake')" style="cursor:pointer"><div class="ic" style="background:#2f9e4a">SNK</div><div class="meta"><div class="t">Cargo Snake</div><div class="d">Best: ${S.bestScores.snake||0}</div></div><span class="btn">Play</span></div>
+    <div class="row" onclick="startMG('catch')" style="cursor:pointer"><div class="ic" style="background:#3aa0ff">CNS</div><div class="meta"><div class="t">Coin Catch</div><div class="d">Best: ${S.bestScores.catch||0}</div></div><span class="btn">Play</span></div>`);
 }
 
 /* 15 apps */
 const APPS=[
-  {name:"Jobs", icon:"📋", bg:"#e8934a", open:appJobs},
-  {name:"Bank", icon:"🏦", bg:"#2f9e4a", open:appBank},
-  {name:"Garage", icon:"🚛", bg:"#3aa0ff", open:appGarage},
-  {name:"Closet", icon:"👕", bg:"#ff5aa0", open:appCloset},
-  {name:"Estates", icon:"🏠", bg:"#e0b020", open:appRealty},
-  {name:"Maps", icon:"🗺️", bg:"#5ad1e8", open:appMap},
-  {name:"Messages", icon:"💬", bg:"#39d353", open:appMessages},
-  {name:"Weather", icon:"⛅", bg:"#3a6bd6", open:appWeather},
-  {name:"Music", icon:"🎵", bg:"#7a5cff", open:appMusic},
-  {name:"Camera", icon:"📷", bg:"#20242c", open:appCamera},
-  {name:"Calc", icon:"🧮", bg:"#4a4150", open:appCalc},
-  {name:"Clock", icon:"⏰", bg:"#c23b3b", open:appClock},
-  {name:"Notes", icon:"📝", bg:"#e8c24a", open:appNotes},
-  {name:"Games", icon:"🎮", bg:"#9a3ad6", open:appGamesFolder},
-  {name:"Settings", icon:"⚙️", bg:"#7a8594", open:appSettings},
+  {name:"Jobs", icon:"JOB", bg:"#e8934a", open:appJobs},
+  {name:"Bank", icon:"BNK", bg:"#2f9e4a", open:appBank},
+  {name:"Garage", icon:"GAR", bg:"#3aa0ff", open:appGarage},
+  {name:"Closet", icon:"FIT", bg:"#ff5aa0", open:appCloset},
+  {name:"Estates", icon:"EST", bg:"#e0b020", open:appRealty},
+  {name:"Maps", icon:"MAP", bg:"#5ad1e8", open:appMap},
+  {name:"Messages", icon:"MSG", bg:"#39d353", open:appMessages},
+  {name:"Weather", icon:"WX", bg:"#3a6bd6", open:appWeather},
+  {name:"Music", icon:"MUS", bg:"#7a5cff", open:appMusic},
+  {name:"Camera", icon:"CAM", bg:"#20242c", open:appCamera},
+  {name:"Calc", icon:"CAL", bg:"#4a4150", open:appCalc},
+  {name:"Clock", icon:"CLK", bg:"#c23b3b", open:appClock},
+  {name:"Notes", icon:"NTS", bg:"#e8c24a", open:appNotes},
+  {name:"Games", icon:"GME", bg:"#9a3ad6", open:appGamesFolder},
+  {name:"Settings", icon:"SET", bg:"#7a8594", open:appSettings},
 ];
 const DOCK=[
-  {icon:"📋", bg:"#e8934a", open:appJobs},
-  {icon:"🗺️", bg:"#5ad1e8", open:appMap},
-  {icon:"🎮", bg:"#9a3ad6", open:appGamesFolder},
-  {icon:"⚙️", bg:"#7a8594", open:appSettings},
+  {icon:"JOB", bg:"#e8934a", open:appJobs},
+  {icon:"MAP", bg:"#5ad1e8", open:appMap},
+  {icon:"GME", bg:"#9a3ad6", open:appGamesFolder},
+  {icon:"SET", bg:"#7a8594", open:appSettings},
 ];
 
 /* ===========================================================================
@@ -1174,16 +1174,16 @@ function mgCatch(){
     mgctx.fillStyle="#0d1420"; mgctx.fillRect(0,0,w,h);
     if(st.t%40===0){ const bad=Math.random()<0.25; st.items.push({x:30+Math.random()*(w-60),y:-20,bad}); }
     for(const it of st.items){ it.y+=4+st.score*0.04;
-      mgctx.font="26px serif"; mgctx.textAlign="center"; mgctx.fillText(it.bad?"💣":"🪙",it.x,it.y);
+      mgctx.beginPath(); mgctx.arc(it.x,it.y,12,0,7); mgctx.fillStyle=it.bad?"#c23b3b":"#e8c24a"; mgctx.fill(); mgctx.lineWidth=2; mgctx.strokeStyle=it.bad?"#2a0808":"#8a6a10"; mgctx.stroke();
       if(it.y>h-60 && it.y<h-20 && Math.abs(it.x-st.px)<40){ it.hit=true;
         if(it.bad){ st.lives--; if(st.lives<=0){ saveBest("catch",st.score); mgGameOver(st.score,mgCatch); return; } }
         else { st.score++; setScore(st.score); } }
     }
     st.items=st.items.filter(it=>!it.hit && it.y<h+20);
     // basket
-    mgctx.font="40px serif"; mgctx.fillText("🧺",st.px,h-24);
-    mgctx.fillStyle="#fff"; mgctx.font="14px sans-serif"; mgctx.textAlign="left";
-    mgctx.fillText("❤️".repeat(Math.max(0,st.lives)),10,26);
+    mgctx.fillStyle="#c88a4a"; mgctx.fillRect(st.px-26,h-46,52,28); mgctx.fillStyle="#8a5a24"; mgctx.fillRect(st.px-26,h-46,52,8);
+    mgctx.fillStyle="#fff"; mgctx.font="700 14px sans-serif"; mgctx.textAlign="left";
+    mgctx.fillText("LIVES: "+Math.max(0,st.lives),10,22);
     mgRAF=requestAnimationFrame(loop);
   }
   loop();
@@ -1319,7 +1319,7 @@ function update(dt){
   if(!outOfGas){
     const burn = (Math.abs(car.speed)/d.top) * (input.gas?1:0.3) * dt * (12/d.mpg) * 1.1;
     S.fuel[S.currentVehicle]=Math.max(0, fuel-burn);
-    if(fuel>0 && S.fuel[S.currentVehicle]<=0) toast("⛽ Out of fuel! Find a gas station.");
+    if(fuel>0 && S.fuel[S.currentVehicle]<=0) toast("Out of fuel! Find a gas station.");
   }
   // periodic save of position
   S.spawn={x:car.x,y:car.y};
@@ -1380,7 +1380,7 @@ function render(){
     ctx.fillStyle=p.color; ctx.fillRect(p.x-42,p.y-42,84,84);
     ctx.fillStyle="rgba(0,0,0,.25)"; ctx.fillRect(p.x-42,p.y-42,84,20);
     // icon + label
-    ctx.font="30px serif"; ctx.textAlign="center"; ctx.textBaseline="middle";
+    ctx.font="700 15px sans-serif"; ctx.textAlign="center"; ctx.textBaseline="middle";
     ctx.fillText(p.icon,p.x,p.y-2);
     ctx.font="700 15px sans-serif"; ctx.fillStyle="#fff"; ctx.textBaseline="top";
     ctx.fillText(p.name,p.x,p.y+46);
@@ -1469,7 +1469,7 @@ requestAnimationFrame(frame);
    START SCREEN
 =========================================================================== */
 $("startBtn").onclick=()=>{ $("start").style.display="none"; started=true;
-  toast("Open your 📱 phone → Jobs to grab a haul!"); };
+  toast("Tap the PHONE button, then Jobs, to grab a haul!"); };
 $("resetBtn").onclick=()=>{ if(confirm("Erase all saved progress?")){ localStorage.removeItem(SAVE_KEY); location.reload(); } };
 // If a save exists, hint on the start button
 if(localStorage.getItem(SAVE_KEY)) $("startBtn").textContent="▶ Continue";
