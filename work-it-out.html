@@ -464,6 +464,43 @@ const EXERCISES = [
 ];
 const exById = id => EXERCISES.find(e=>e.id===id);
 
+// ─── GEAR & WEIGHT (what you need for each exercise) ────────────────────────
+const GEAR_INFO = {
+  pushup:      { gear:["A bit of floor space","(optional) a mat"], weight:"None — just your bodyweight. Add a plate on your back or a weighted vest to make it harder." },
+  bench:       { gear:["Barbell","Flat bench","Weight plates","Collars / clips","A spotter or safety pins"], weight:"Start with the empty 20 kg / 45 lb bar to learn the groove, then add plates weekly. Many beginners work in the 40–60 kg range for reps." },
+  dbfly:       { gear:["Two dumbbells","Flat bench"], weight:"Go light — form beats load here. Most start around 5–10 kg per hand and build slowly." },
+  pullup:      { gear:["A pull-up bar","(optional) a resistance band for assistance"], weight:"Bodyweight. Use a band or assisted machine if you can't do one yet; add a dip belt with plates once you can." },
+  deadlift:    { gear:["Barbell","Full-size weight plates","(optional) lifting straps","(optional) flat shoes"], weight:"Start light to nail the hinge — often the empty 20 kg bar or ~40–60 kg. Use full-size plates so the bar sits at the right height." },
+  row:         { gear:["Barbell","Weight plates"], weight:"Lighter than your deadlift — around 30–50 kg for beginners. Keep it strict, no heaving." },
+  latpull:     { gear:["Lat pulldown machine","Wide bar attachment"], weight:"Pick a load you can control for 10–12 reps — often the mid of the stack to start." },
+  squat:       { gear:["(bodyweight) nothing","(loaded) barbell, squat rack & plates"], weight:"Master the bodyweight squat first. With a bar, start with the empty 20 kg bar and add weight as depth and control improve." },
+  lunge:       { gear:["(optional) two dumbbells"], weight:"Bodyweight to begin; add light dumbbells (5–10 kg each) once you're balanced." },
+  legpress:    { gear:["Leg press machine","Weight plates"], weight:"Legs are strong, but start moderate to protect your knees and back, then build up." },
+  calf:        { gear:["A step or ledge","(optional) a dumbbell or calf machine"], weight:"Bodyweight for high reps; add load once 15–20 reps feel easy." },
+  ohp:         { gear:["Barbell","Weight plates","(optional) a rack"], weight:"Start with the empty 20 kg bar — the press is humbling. Add small 1–2.5 kg jumps." },
+  latraise:    { gear:["Two light dumbbells"], weight:"Very light — about 2.5–7.5 kg per hand. Going heavy ruins this one." },
+  curl:        { gear:["Dumbbells or an EZ / straight bar","Weight plates"], weight:"Around 5–12 kg per dumbbell (or a light bar) to start — keep your elbows pinned." },
+  dip:         { gear:["Parallel bars or a dip station","(optional) a dip belt & plates"], weight:"Bodyweight. Use an assisted-dip machine or band if needed; add a weighted belt when strong." },
+  hammer:      { gear:["Two dumbbells"], weight:"Similar to your curls — roughly 5–12 kg per hand." },
+  plank:       { gear:["(optional) a mat"], weight:"None — just hold your bodyweight. Rest a plate on your back to progress." },
+  crunch:      { gear:["(optional) a mat"], weight:"Bodyweight. Hold a light plate on your chest to make it harder." },
+  twist:       { gear:["(optional) a weight plate or dumbbell"], weight:"Bodyweight to start; add a 2.5–10 kg plate once controlled." },
+  legraise:    { gear:["A pull-up bar","(optional) ab straps"], weight:"Bodyweight. Bend your knees to make it easier; add ankle weights to progress." },
+  burpee:      { gear:["Floor space"], weight:"None — bodyweight only." },
+  jumpingjack: { gear:["Floor space"], weight:"None — bodyweight only." },
+  mountain:    { gear:["(optional) a mat"], weight:"None — bodyweight only." },
+  run:         { gear:["Running shoes","(optional) a watch or phone to track pace"], weight:"No weights — just a good pair of shoes." },
+};
+const gearFor = id => GEAR_INFO[id] || { gear:[], weight:"" };
+// most recent logged result for an exercise, scanning newest-first history
+function lastLogged(history, exId){
+  for(const h of (history||[])){
+    const it = (h.items||[]).find(x=>x.ex===exId && x.result);
+    if(it) return { result:it.result, date:h.date };
+  }
+  return null;
+}
+
 // ─── DEFAULT WORKOUTS ───────────────────────────────────────────────────────
 const DEFAULT_WORKOUTS = [
   { id:"w_full", name:"Full Body Blast", cat:"Full Body",
@@ -572,6 +609,7 @@ function App(){
   const [session, setSession] = useState(null);   // active workout session
   const [dexId, setDexId] = useState(null);        // open exercise detail
   const [logDetail, setLogDetail] = useState(null);// open logged-workout detail
+  const [gearWorkout, setGearWorkout] = useState(null); // open gear sheet for a workout
   const [toast, setToast] = useState(null);
   const [settings, setSettings] = usePersist("settings", { restDays:[], remindTime:"18:00", notify:false });
   const [theme, setTheme] = usePersist("theme", "dark");
@@ -629,7 +667,7 @@ function App(){
         {tab==="home" && <HomeScreen history={history} setHistory={setHistory} setTab={setTab} startSession={startSession} workouts={workouts} settings={settings} setSettings={setSettings} notify={notify} theme={theme} setTheme={setTheme} openLog={setLogDetail}/>}
         {tab==="logged" && <LoggedScreen history={history} setHistory={setHistory} setTab={setTab} openLog={setLogDetail}/>}
         {tab==="goals" && <GoalsScreen goals={goals} setGoals={setGoals}/>}
-        {tab==="workouts" && <WorkoutsScreen workouts={workouts} setWorkouts={setWorkouts} startSession={startSession} notify={notify}/>}
+        {tab==="workouts" && <WorkoutsScreen workouts={workouts} setWorkouts={setWorkouts} startSession={startSession} notify={notify} openGear={setGearWorkout}/>}
         {tab==="timer" && <TimerScreen/>}
         {tab==="dex" && <DexScreen openDetail={setDexId}/>}
         {tab==="music" && <MusicScreen/>}
@@ -645,15 +683,17 @@ function App(){
       </nav>
 
       {session &&
-        <SessionSheet session={session} onClose={()=>setSession(null)}
+        <SessionSheet session={session} onClose={()=>setSession(null)} openGear={setGearWorkout}
           onFinish={(entry)=>{ logWorkout(entry); setSession(null); notify("Workout logged"); }} />}
 
       {dexId &&
-        <DexDetail ex={exById(dexId)} onClose={()=>setDexId(null)}
+        <DexDetail ex={exById(dexId)} onClose={()=>setDexId(null)} history={history}
           onAdd={addToMyWorkouts}
           onLog={(ex)=>{ logWorkout({ name:ex.name, durationSec:0, kind:"quick", items:[] }); setDexId(null); notify("Logged "+ex.name); }} />}
 
       {logDetail && <LoggedDetailSheet h={logDetail} onClose={()=>setLogDetail(null)}/>}
+
+      {gearWorkout && <GearSheet workout={gearWorkout} history={history} onClose={()=>setGearWorkout(null)}/>}
 
       {toast && <div className="toast">{toast}</div>}
     </div>
@@ -862,7 +902,7 @@ function RemindersSheet({settings, setSettings, notify, onClose}){
 }
 
 // ═══ WORKOUTS ════════════════════════════════════════════════════════════════
-function WorkoutsScreen({workouts, setWorkouts, startSession, notify}){
+function WorkoutsScreen({workouts, setWorkouts, startSession, notify, openGear}){
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState(null);   // workout being edited, or null
 
@@ -913,9 +953,14 @@ function WorkoutsScreen({workouts, setWorkouts, startSession, notify}){
               {(!w.items || w.items.length===0) && <div style={{color:"var(--muted)",fontSize:13.5}}>No exercises yet.</div>}
             </div>
 
-            <button className="btn block" style={{marginTop:14}} onClick={()=>startSession(w)}>
-              <Icon name="play" size={15} color="#0A0E13"/> Start workout
-            </button>
+            <div className="row" style={{gap:8,marginTop:14}}>
+              <button className="btn ghost" style={{flex:"0 0 auto"}} onClick={()=>openGear(w)}>
+                <Icon name="dumbbell" size={16}/> Gear
+              </button>
+              <button className="btn" style={{flex:1}} onClick={()=>startSession(w)}>
+                <Icon name="play" size={15} color="#0A0E13"/> Start workout
+              </button>
+            </div>
           </div>
         ))}
       </div>
@@ -1000,7 +1045,7 @@ function WorkoutSheet({existing, onClose, onSave}){
 }
 
 // ═══ SESSION SHEET (run + log a workout) ═════════════════════════════════════
-function SessionSheet({session, onClose, onFinish}){
+function SessionSheet({session, onClose, onFinish, openGear}){
   const w = session.workout;
   const [elapsed, setElapsed] = useState(0);
   const [running, setRunning] = useState(true);
@@ -1033,7 +1078,10 @@ function SessionSheet({session, onClose, onFinish}){
             <div className="kicker">In progress</div>
             <div style={{fontWeight:800,fontSize:21,marginTop:2}}>{w.name}</div>
           </div>
-          <button className="iconbtn" onClick={onClose}><Icon name="x" size={16}/></button>
+          <div className="row" style={{gap:8}}>
+            <button className="btn ghost sm" onClick={()=>openGear(w)}><Icon name="dumbbell" size={15}/> Gear</button>
+            <button className="iconbtn" onClick={onClose}><Icon name="x" size={16}/></button>
+          </div>
         </div>
 
         <div style={{textAlign:"center",padding:"18px 0 8px"}}>
@@ -1282,9 +1330,11 @@ function DexScreen({openDetail}){
   );
 }
 
-function DexDetail({ex, onClose, onAdd, onLog}){
+function DexDetail({ex, onClose, onAdd, onLog, history}){
   if(!ex) return null;
   const col = GROUPS[ex.group];
+  const gearInfo = gearFor(ex.id);
+  const last = lastLogged(history, ex.id);
   return (
     <div className="overlay" onClick={onClose} style={{alignItems:"stretch"}}>
       <div className="sheet" onClick={e=>e.stopPropagation()}
@@ -1320,6 +1370,18 @@ function DexDetail({ex, onClose, onAdd, onLog}){
             {ex.how.map((s,i)=>(
               <div className="step" key={i}><div className="n"/><p>{s}</p></div>
             ))}
+          </div>
+
+          {gearInfo.gear.length>0 && <div className="sectlabel">Gear you need</div>}
+          {gearInfo.gear.length>0 &&
+            <div className="musclechips">
+              {gearInfo.gear.map((g,i)=><span key={i} className="pill" style={{background:"var(--surface2)"}}>{g}</span>)}
+            </div>}
+
+          <div className="sectlabel">What weight you need</div>
+          <div className="card">
+            <div style={{fontSize:14,lineHeight:1.5,color:"var(--text)"}}>{gearInfo.weight || "Bodyweight — no equipment required."}</div>
+            {last && <div style={{fontSize:13.5,color:"var(--accent-ink)",fontWeight:700,marginTop:10}}>You last did · {last.result}</div>}
           </div>
 
           <div className="sectlabel">World record</div>
@@ -1546,6 +1608,61 @@ function GoalCard({g, onToggle, onDelete}){
         {g.detail && <div className="meta">{g.detail}</div>}
       </div>
       <button className="iconbtn" onClick={onDelete} aria-label="Delete goal"><Icon name="trash" size={15} color="var(--faint)"/></button>
+    </div>
+  );
+}
+
+// ═══ GEAR SHEET (what gear & weight a workout needs) ═════════════════════════
+function GearSheet({workout, history, onClose}){
+  const items = workout.items||[];
+  const gearList = [];
+  items.forEach(it=>{ (gearFor(it.ex).gear||[]).forEach(g=>{ if(!gearList.includes(g)) gearList.push(g); }); });
+  const [checked, setChecked] = useState({});
+  return (
+    <div className="overlay" onClick={onClose} style={{alignItems:"stretch"}}>
+      <div className="sheet" onClick={e=>e.stopPropagation()} style={{maxHeight:"92vh"}}>
+        <div className="grab"/>
+        <div className="row" style={{justifyContent:"space-between",alignItems:"flex-start"}}>
+          <div style={{minWidth:0}}>
+            <div className="kicker">Gear needed</div>
+            <div style={{fontWeight:800,fontSize:22,marginTop:3}}>{workout.name}</div>
+          </div>
+          <button className="iconbtn" onClick={onClose}><Icon name="x" size={16}/></button>
+        </div>
+
+        {gearList.length>0 && <div className="sectlabel">Grab this gear</div>}
+        {gearList.map((g,i)=>{
+          const on = checked[i];
+          return (
+            <button key={i} className={"check"+(on?" done":"")} style={{width:"100%"}} onClick={()=>setChecked(c=>({...c,[i]:!c[i]}))}>
+              <div className="box">{on && <Icon name="check" size={15} color="#0A0E13"/>}</div>
+              <div className="lbl">{g}</div>
+            </button>
+          );
+        })}
+
+        {items.length>0 && <div className="sectlabel">What weight per exercise</div>}
+        {items.map((it,i)=>{
+          const ex = exById(it.ex);
+          const nm = ex? ex.name : (it.name||"Exercise");
+          const col = ex? GROUPS[ex.group] : "var(--muted)";
+          const info = gearFor(it.ex);
+          const last = lastLogged(history, it.ex);
+          return (
+            <div key={i} className="item" style={{alignItems:"flex-start"}}>
+              <div style={{width:9,height:9,borderRadius:99,background:col,flexShrink:0,marginTop:6}}/>
+              <div style={{flex:1,minWidth:0}}>
+                <div className="nm" style={{fontSize:15}}>{nm}
+                  <span style={{color:"var(--muted)",fontWeight:600,fontSize:12.5}}>{ex?"  ·  "+ex.equip:""}</span></div>
+                {info.weight && <div className="meta" style={{marginTop:3,lineHeight:1.45}}>{info.weight}</div>}
+                {last && <div style={{fontSize:13,color:"var(--accent-ink)",fontWeight:700,marginTop:4}}>You last did · {last.result}</div>}
+              </div>
+            </div>
+          );
+        })}
+
+        <button className="btn block ghost" style={{marginTop:16}} onClick={onClose}>Close</button>
+      </div>
     </div>
   );
 }
