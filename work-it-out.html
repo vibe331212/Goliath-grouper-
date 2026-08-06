@@ -1051,7 +1051,7 @@ function WorkoutSheet({existing, onClose, onSave}){
 }
 
 // ═══ SESSION SHEET (run + log a workout) ═════════════════════════════════════
-function SessionSheet({session, onClose, onFinish, openGear}){
+function SessionSheet({session, onClose, onFinish, openGear, unit}){
   const w = session.workout;
   const [elapsed, setElapsed] = useState(0);
   const [running, setRunning] = useState(true);
