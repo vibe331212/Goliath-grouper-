@@ -590,19 +590,50 @@ function computeStreak(history){
   return streak;
 }
 
-// ─── AUDIO (interval beeps) ─────────────────────────────────────────────────
+// ─── AUDIO (interval beeps + finish sounds) ─────────────────────────────────
 let _actx = null;
-function beep(freq=880, dur=0.12, type="sine", vol=0.25){
+function ac(){
   try{
     _actx = _actx || new (window.AudioContext||window.webkitAudioContext)();
     if(_actx.state==="suspended") _actx.resume();
-    const o = _actx.createOscillator(), g = _actx.createGain();
-    o.type=type; o.frequency.value=freq; o.connect(g); g.connect(_actx.destination);
-    g.gain.setValueAtTime(vol, _actx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.0001, _actx.currentTime+dur);
-    o.start(); o.stop(_actx.currentTime+dur);
+  }catch(e){}
+  return _actx;
+}
+function beep(freq=880, dur=0.12, type="sine", vol=0.25){
+  const ctx = ac(); if(!ctx) return;
+  try{
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type=type; o.frequency.value=freq; o.connect(g); g.connect(ctx.destination);
+    g.gain.setValueAtTime(vol, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime+dur);
+    o.start(); o.stop(ctx.currentTime+dur);
   }catch(e){}
 }
+// schedule a single note at an offset (seconds) from now
+function tone(freq, at, dur, type="sine", vol=0.28){
+  const ctx = ac(); if(!ctx) return;
+  try{
+    const t0 = ctx.currentTime + at;
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type=type; o.frequency.value=freq; o.connect(g); g.connect(ctx.destination);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(vol, t0+0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
+    o.start(t0); o.stop(t0+dur+0.03);
+  }catch(e){}
+}
+// a library of finish sounds you can choose between — all synthesized, no files
+const SOUNDS = [
+  { id:"chime",   name:"Chime",       play(){ tone(880,0,.5,"sine",.32); tone(1318.5,.13,.6,"sine",.3); } },
+  { id:"bells",   name:"Bells",       play(){ [523.25,659.25,783.99,1046.5].forEach((f,i)=>tone(f,i*.12,.55,"sine",.3)); } },
+  { id:"marimba", name:"Marimba",     play(){ [523.25,783.99,1046.5].forEach((f,i)=>tone(f,i*.13,.4,"triangle",.34)); } },
+  { id:"powerup", name:"Power Up",    play(){ [392,523.25,659.25,783.99,1046.5].forEach((f,i)=>tone(f,i*.075,.16,"square",.2)); } },
+  { id:"triple",  name:"Triple Beep", play(){ [0,.2,.4].forEach(t=>tone(1046.5,t,.12,"square",.24)); } },
+  { id:"digital", name:"Digital",     play(){ [1568,1568,2093].forEach((f,i)=>tone(f,i*.12,.1,"square",.2)); } },
+  { id:"alarm",   name:"Alarm",       play(){ for(let i=0;i<4;i++){ tone(1200,i*.26,.13,"sawtooth",.22); tone(880,i*.26+.13,.13,"sawtooth",.22); } } },
+  { id:"none",    name:"Silent",      play(){} },
+];
+const soundById = id => SOUNDS.find(s=>s.id===id) || SOUNDS[0];
 
 // ═══ ROOT APP ════════════════════════════════════════════════════════════════
 function App(){
@@ -615,11 +646,13 @@ function App(){
   const [logDetail, setLogDetail] = useState(null);// open logged-workout detail
   const [gearWorkout, setGearWorkout] = useState(null); // open gear sheet for a workout
   const [toast, setToast] = useState(null);
-  const [settings, setSettings] = usePersist("settings", { restDays:[], remindTime:"18:00", notify:false, unit:"kg" });
+  const [settings, setSettings] = usePersist("settings", { restDays:[], remindTime:"18:00", notify:false, unit:"kg", finishSound:"chime" });
   const [theme, setTheme] = usePersist("theme", "dark");
   useEffect(()=>{ document.documentElement.setAttribute("data-theme", theme); }, [theme]);
   const unit = settings.unit || "kg";
   const setUnit = (u)=> setSettings(s=>({ ...s, unit:u }));
+  const finishSound = settings.finishSound || "chime";
+  const setFinishSound = (id)=> setSettings(s=>({ ...s, finishSound:id }));
 
   const notify = useCallback((msg)=>{ setToast(msg); }, []);
   useEffect(()=>{ if(!toast) return; const t=setTimeout(()=>setToast(null),1900); return ()=>clearTimeout(t); },[toast]);
@@ -674,7 +707,7 @@ function App(){
         {tab==="logged" && <LoggedScreen history={history} setHistory={setHistory} setTab={setTab} openLog={setLogDetail}/>}
         {tab==="goals" && <GoalsScreen goals={goals} setGoals={setGoals}/>}
         {tab==="workouts" && <WorkoutsScreen workouts={workouts} setWorkouts={setWorkouts} startSession={startSession} notify={notify} openGear={setGearWorkout}/>}
-        {tab==="timer" && <TimerScreen/>}
+        {tab==="timer" && <TimerScreen finishSound={finishSound} setFinishSound={setFinishSound}/>}
         {tab==="dex" && <DexScreen openDetail={setDexId}/>}
         {tab==="music" && <MusicScreen/>}
       </div>
@@ -1131,7 +1164,7 @@ function SessionSheet({session, onClose, onFinish, openGear, unit}){
 }
 
 // ═══ TIMER ═══════════════════════════════════════════════════════════════════
-function TimerScreen(){
+function TimerScreen({finishSound, setFinishSound}){
   const [mode, setMode] = useState("stopwatch");
   return (
     <div className="screen">
@@ -1144,7 +1177,33 @@ function TimerScreen(){
         <button className={mode==="interval"?"on":""} onClick={()=>setMode("interval")}>Intervals</button>
       </div>
 
-      {mode==="stopwatch" ? <Stopwatch/> : <IntervalTimer/>}
+      {mode==="stopwatch" ? <Stopwatch/> : <IntervalTimer finishSound={finishSound} setFinishSound={setFinishSound}/>}
+    </div>
+  );
+}
+
+// picker for the sound that plays when the timer finishes — tap to select & preview
+function SoundPicker({value, onChange}){
+  return (
+    <div className="card" style={{marginTop:12}}>
+      <div className="row" style={{justifyContent:"space-between",marginBottom:11}}>
+        <div style={{fontWeight:800,fontSize:15}}>Finish sound</div>
+        <div className="pill">tap to preview</div>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+        {SOUNDS.map(s=>{
+          const on = value===s.id;
+          return (
+            <button key={s.id} onClick={()=>{ onChange(s.id); s.play(); }}
+              style={{padding:"12px 12px",borderRadius:11,fontWeight:700,fontSize:13.5,textAlign:"left",
+                display:"flex",alignItems:"center",gap:9,
+                border:"1px solid "+(on?"var(--accent)":"var(--line)"),
+                background:on?"var(--accent)":"var(--surface2)", color:on?"#0A0E13":"var(--text)"}}>
+              <Icon name={on?"check":"music"} size={15} color={on?"#0A0E13":"var(--muted)"}/> {s.name}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -1193,7 +1252,7 @@ function Stopwatch(){
   );
 }
 
-function IntervalTimer(){
+function IntervalTimer({finishSound, setFinishSound}){
   const [work, setWork] = usePersist("iv_work", 40);
   const [rest, setRest] = usePersist("iv_rest", 20);
   const [rounds, setRounds] = usePersist("iv_rounds", 8);
@@ -1203,6 +1262,8 @@ function IntervalTimer(){
   const [round, setRound] = useState(1);
   const [left, setLeft] = useState(work);
   const tick = useRef(null);
+  const soundRef = useRef(finishSound);          // latest chosen sound, read at completion
+  useEffect(()=>{ soundRef.current = finishSound; }, [finishSound]);
 
   const startAll = ()=>{ beep(880,.1); setActive(true); setPhase("work"); setRound(1); setLeft(work); };
   const stopAll = ()=>{ setActive(false); setPhase("work"); setRound(1); setLeft(work); };
@@ -1216,7 +1277,7 @@ function IntervalTimer(){
         if(phase==="work"){
           beep(440,.18,"sawtooth"); setPhase("rest"); return rest;
         } else {
-          if(round>=rounds){ beep(1320,.3); setActive(false); setPhase("done"); return 0; }
+          if(round>=rounds){ soundById(soundRef.current).play(); setActive(false); setPhase("done"); return 0; }
           beep(880,.18); setRound(r=>r+1); setPhase("work"); return work;
         }
       });
@@ -1263,6 +1324,9 @@ function IntervalTimer(){
         Total workout: <b style={{color:"var(--text)"}}>{fmtClock((work+rest)*rounds)}</b>
         <span style={{color:"var(--faint)"}}> · {rounds} rounds</span>
       </div>
+
+      <SoundPicker value={finishSound} onChange={setFinishSound}/>
+
       <button className="btn block" style={{marginTop:16}} onClick={startAll}>
         <Icon name="play" size={16} color="#0A0E13"/> Start intervals
       </button>
