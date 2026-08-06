@@ -5,21 +5,28 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
 <title>Work It Out</title>
 <style>
-  :root{
+  :root, :root[data-theme="dark"]{
     --bg:#0A0E13; --bg2:#0D1219; --surface:#141B26; --surface2:#1B2432; --line:#26303F;
     --text:#EAF0F7; --muted:#8A96A8; --faint:#5B6675;
-    --accent:#C7F94D; --accent-dim:#8FB537; --accent2:#FF6B35;
+    --accent:#C7F94D; --accent-ink:#C7F94D; --accent-dim:#8FB537; --accent2:#FF6B35;
     --chest:#FF6B6B; --back:#4ECDC4; --legs:#A78BFA; --shoulders:#FFD166;
     --arms:#F97316; --core:#22D3EE; --cardio:#34D399;
+    --nav-bg:rgba(12,17,24,.92);
     --radius:16px; --nav-h:66px;
     font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  :root[data-theme="light"]{
+    --bg:#EEF1F5; --bg2:#E5E9EF; --surface:#FFFFFF; --surface2:#EDF1F6; --line:#D9E0E8;
+    --text:#141A22; --muted:#5C6875; --faint:#95A1AE;
+    --accent:#B7EF35; --accent-ink:#4D7C0F; --accent-dim:#5E8A12; --accent2:#E85A26;
+    --nav-bg:rgba(255,255,255,.9);
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   html,body{margin:0;padding:0;background:var(--bg);color:var(--text);}
   body{min-height:100vh;}
   #root{max-width:520px;margin:0 auto;min-height:100vh;position:relative;background:var(--bg);
     box-shadow:0 0 80px rgba(0,0,0,.5);}
-  #loading{color:var(--accent);text-align:center;padding-top:44vh;font-size:16px;letter-spacing:.08em;
+  #loading{color:var(--accent-ink);text-align:center;padding-top:44vh;font-size:16px;letter-spacing:.08em;
     text-transform:uppercase;font-weight:700;}
   button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit;}
   input,select,textarea{font-family:inherit;}
@@ -107,13 +114,13 @@
   .step{display:flex;gap:13px;margin-bottom:13px;}
   .step .n{counter-increment:s;flex-shrink:0;width:27px;height:27px;border-radius:9px;background:var(--surface2);
     border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;
-    color:var(--accent);}
+    color:var(--accent-ink);}
   .step .n::before{content:counter(s);}
-  .step p{font-size:14.5px;line-height:1.5;color:#d5deea;}
+  .step p{font-size:14.5px;line-height:1.5;color:var(--text);}
   .record{background:linear-gradient(150deg,#231a12,#1a130d);border:1px solid #3a2a1a;border-radius:15px;padding:16px;}
-  .record .rl{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2);font-weight:800;}
-  .record .rv{font-size:16px;font-weight:800;margin-top:7px;line-height:1.35;}
-  .record .rh{font-size:13px;color:var(--muted);margin-top:5px;}
+  .record .rl{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#FF8A4C;font-weight:800;}
+  .record .rv{font-size:16px;font-weight:800;margin-top:7px;line-height:1.35;color:#F5EADD;}
+  .record .rh{font-size:13px;color:#B9A88F;margin-top:5px;}
   .musclechips{display:flex;flex-wrap:wrap;gap:7px;margin-top:4px;}
 
   /* ── Timer ──────────────────────────────────────────── */
@@ -126,7 +133,7 @@
   .cfgrow{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--line);}
   .cfgrow:last-child{border-bottom:none;}
   .stepper{display:flex;align-items:center;gap:0;background:var(--surface2);border:1px solid var(--line);border-radius:11px;}
-  .stepper button{width:40px;height:40px;font-size:22px;font-weight:700;color:var(--accent);}
+  .stepper button{width:40px;height:40px;font-size:22px;font-weight:700;color:var(--accent-ink);}
   .stepper .v{min-width:52px;text-align:center;font-weight:800;font-size:16px;font-variant-numeric:tabular-nums;}
 
   /* ── Forms ──────────────────────────────────────────── */
@@ -139,10 +146,10 @@
 
   /* ── Nav ────────────────────────────────────────────── */
   .nav{position:fixed;left:0;right:0;bottom:0;height:var(--nav-h);z-index:40;max-width:520px;margin:0 auto;
-    background:rgba(12,17,24,.92);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+    background:var(--nav-bg);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
     border-top:1px solid var(--line);display:flex;padding-bottom:env(safe-area-inset-bottom);}
   .navbtn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--faint);}
-  .navbtn.on{color:var(--accent);}
+  .navbtn.on{color:var(--accent-ink);}
   .navbtn span{font-size:10px;font-weight:700;letter-spacing:.02em;}
 
   /* ── Modal / session ────────────────────────────────── */
@@ -488,6 +495,8 @@ function Icon({name, size=22, color="currentColor", fill="none", stroke=2}){
     clock:"M12 7v5l3 2M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z",
     bell:"M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6M9.5 19a2.5 2.5 0 0 0 5 0",
     bed:"M3 18V8m0 4h18m0 6v-6a3 3 0 0 0-3-3H8M3 8h3a2 2 0 0 1 2 2v2",
+    sun:"M12 4V2M12 22v-2M5 5 3.6 3.6M20.4 20.4 19 19M4 12H2M22 12h-2M5 19l-1.4 1.4M20.4 3.6 19 5M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z",
+    moon:"M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z",
   }[name] || "";
   const filled = name==="play";
   return (
@@ -521,13 +530,20 @@ function relDate(ts){
   if(dk===todayKey(y)) return "Yesterday";
   return d.toLocaleDateString(undefined,{month:"short",day:"numeric"});
 }
+const DAY_MS = 864e5;
+const startOfDay = ts => { const d = new Date(ts); d.setHours(0,0,0,0); return d.getTime(); };
+// Streak = number of workout days in your current run. It only breaks once
+// 5 full days pass with no workout, so you can miss up to 4 days and keep it.
 function computeStreak(history){
   if(!history.length) return 0;
-  const days = new Set(history.map(h=>todayKey(h.date)));
-  let streak = 0; const cur = new Date();
-  // allow streak to count if worked out today OR yesterday (grace)
-  if(!days.has(todayKey(cur))){ cur.setDate(cur.getDate()-1); if(!days.has(todayKey(cur))) return 0; }
-  while(days.has(todayKey(cur))){ streak++; cur.setDate(cur.getDate()-1); }
+  const days = [...new Set(history.map(h=>startOfDay(h.date)))].sort((a,b)=>b-a); // most recent first
+  const today0 = startOfDay(Date.now());
+  if(today0 - days[0] >= 5*DAY_MS) return 0;   // 5+ days since last workout → streak lost
+  let streak = 1;
+  for(let i=1;i<days.length;i++){
+    if(days[i-1] - days[i] < 5*DAY_MS) streak++; // gap under 5 days keeps the run going
+    else break;
+  }
   return streak;
 }
 
@@ -554,6 +570,8 @@ function App(){
   const [dexId, setDexId] = useState(null);        // open exercise detail
   const [toast, setToast] = useState(null);
   const [settings, setSettings] = usePersist("settings", { restDays:[], remindTime:"18:00", notify:false });
+  const [theme, setTheme] = usePersist("theme", "dark");
+  useEffect(()=>{ document.documentElement.setAttribute("data-theme", theme); }, [theme]);
 
   const notify = useCallback((msg)=>{ setToast(msg); }, []);
   useEffect(()=>{ if(!toast) return; const t=setTimeout(()=>setToast(null),1900); return ()=>clearTimeout(t); },[toast]);
@@ -602,7 +620,7 @@ function App(){
   return (
     <div>
       <div className="app" key={tab}>
-        {tab==="home" && <HomeScreen history={history} setHistory={setHistory} setTab={setTab} startSession={startSession} workouts={workouts} settings={settings} setSettings={setSettings} notify={notify}/>}
+        {tab==="home" && <HomeScreen history={history} setHistory={setHistory} setTab={setTab} startSession={startSession} workouts={workouts} settings={settings} setSettings={setSettings} notify={notify} theme={theme} setTheme={setTheme}/>}
         {tab==="workouts" && <WorkoutsScreen workouts={workouts} setWorkouts={setWorkouts} startSession={startSession} notify={notify}/>}
         {tab==="timer" && <TimerScreen/>}
         {tab==="dex" && <DexScreen openDetail={setDexId}/>}
@@ -633,7 +651,7 @@ function App(){
 }
 
 // ═══ HOME ════════════════════════════════════════════════════════════════════
-function HomeScreen({history, setHistory, setTab, startSession, workouts, settings, setSettings, notify}){
+function HomeScreen({history, setHistory, setTab, startSession, workouts, settings, setSettings, notify, theme, setTheme}){
   const [remOpen, setRemOpen] = useState(false);
   const streak = useMemo(()=>computeStreak(history),[history]);
   const totalTime = useMemo(()=>history.reduce((a,h)=>a+(h.durationSec||0),0),[history]);
@@ -662,12 +680,12 @@ function HomeScreen({history, setHistory, setTab, startSession, workouts, settin
   const workedOutToday = history.some(h=>todayKey(h.date)===todayKey(now));
   const isRestDay = (settings.restDays||[]).includes(now.getDay());
   const banner = workedOutToday
-    ? { c:"var(--accent)",  icon:"check", t:"Logged today", d:"Nice work. Recovery starts now." }
+    ? { c:"var(--accent-ink)", icon:"check", t:"Logged today", d:"Nice work. Recovery starts now." }
     : isRestDay
-    ? { c:"var(--core)",    icon:"bed",   t:"Rest day", d:"Recovery is where the gains happen — take it easy today." }
+    ? { c:"var(--core)",       icon:"bed",   t:"Rest day", d:"Recovery is where the gains happen — take it easy today." }
     : streak>=6
-    ? { c:"var(--accent2)", icon:"bed",   t:"Consider a rest day", d:`You've trained ${streak} days straight — a rest day aids recovery.`, action:true }
-    : { c:"var(--accent)",  icon:"play",  t:"Time to move", d:"You haven't logged a workout today.", action:true };
+    ? { c:"var(--accent2)",    icon:"bed",   t:"Consider a rest day", d:`You've trained ${streak} days straight — a rest day aids recovery.`, action:true }
+    : { c:"var(--accent-ink)", icon:"play",  t:"Time to move", d:"You haven't logged a workout today.", action:true };
 
   return (
     <div>
@@ -677,9 +695,14 @@ function HomeScreen({history, setHistory, setTab, startSession, workouts, settin
             <div className="kicker">Work It Out</div>
             <div className="title">{greeting}</div>
           </div>
-          <button className="iconbtn" style={{marginTop:4}} onClick={()=>setRemOpen(true)} aria-label="Reminders">
-            <Icon name="bell" size={17} color="var(--muted)"/>
-          </button>
+          <div className="row" style={{gap:8,marginTop:4}}>
+            <button className="iconbtn" onClick={()=>setTheme(theme==="dark"?"light":"dark")} aria-label="Toggle light or dark mode">
+              <Icon name={theme==="dark"?"sun":"moon"} size={17} color="var(--muted)"/>
+            </button>
+            <button className="iconbtn" onClick={()=>setRemOpen(true)} aria-label="Reminders">
+              <Icon name="bell" size={17} color="var(--muted)"/>
+            </button>
+          </div>
         </div>
         <div className="subtitle">{history.length? "Let's keep the streak alive." : "Log your first workout to get started."}</div>
 
@@ -1281,7 +1304,7 @@ function DexDetail({ex, onClose, onAdd, onLog}){
 
         <div style={{padding:"18px",overflowY:"auto"}}>
           <div className="sectlabel" style={{marginTop:0}}>About</div>
-          <p style={{fontSize:14.5,lineHeight:1.6,color:"#cdd6e2"}}>{ex.about}</p>
+          <p style={{fontSize:14.5,lineHeight:1.6,color:"var(--text)"}}>{ex.about}</p>
 
           <div className="sectlabel">Muscles worked</div>
           <div className="musclechips">
