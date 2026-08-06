@@ -1267,17 +1267,21 @@ function IntervalTimer({finishSound, setFinishSound}){
 
   const startAll = ()=>{ beep(880,.1); setActive(true); setPhase("work"); setRound(1); setLeft(work); };
   const stopAll = ()=>{ setActive(false); setPhase("work"); setRound(1); setLeft(work); };
+  // from the "Rest up next" hold, begin the rest countdown
+  const startRest = ()=>{ beep(660,.08); setPhase("rest"); setLeft(rest); setActive(true); };
 
   useEffect(()=>{
     if(!active) return;
     tick.current = setInterval(()=>{
       setLeft(prev=>{
         if(prev>1) { if(prev<=4) beep(1200,.05,"square",.15); return prev-1; }
-        // phase transition
+        // reached zero → transition
         if(phase==="work"){
-          beep(440,.18,"sawtooth"); setPhase("rest"); return rest;
-        } else {
-          if(round>=rounds){ soundById(soundRef.current).play(); setActive(false); setPhase("done"); return 0; }
+          soundById(soundRef.current).play();            // finish sound at the end of every round
+          if(round>=rounds){ setActive(false); setPhase("done"); return 0; }
+          if(rest>0){ setActive(false); setPhase("restReady"); return 0; } // hold — tap to start rest
+          setRound(r=>r+1); setPhase("work"); return work; // no rest set → straight to next round
+        } else { // finishing a rest → next round's work
           beep(880,.18); setRound(r=>r+1); setPhase("work"); return work;
         }
       });
@@ -1286,21 +1290,23 @@ function IntervalTimer({finishSound, setFinishSound}){
   },[active, phase, round, work, rest, rounds]);
 
   const phaseColor = phase==="work"?"var(--accent)":phase==="rest"?"var(--core)":"var(--accent2)";
-  const total = phase==="work"?work:rest;
-  const pct = phase==="done"?100:((total-left)/total*100);
+  const total = phase==="rest"?rest:work;
+  const pct = phase==="restReady"?0 : phase==="done"?100 : ((total-left)/total*100);
 
-  if(active || phase==="done"){
+  if(active || phase==="done" || phase==="restReady"){
+    const label = phase==="done"?"Complete":phase==="work"?"Work":phase==="rest"?"Rest":"Rest up next";
     return (
       <div className="card" style={{marginTop:16}}>
         <div className="timerface">
-          <div className="phase" style={{color:phaseColor}}>
-            {phase==="done"?"Complete":phase==="work"?"Work":"Rest"}
-          </div>
+          <div className="phase" style={{color:phaseColor}}>{label}</div>
           <div className="bigtime" style={{color:phaseColor}}>
-            {phase==="done"? <Icon name="check" size={58} color={phaseColor} stroke={2.5}/> : fmtClock(left)}
+            {phase==="done"? <Icon name="check" size={58} color={phaseColor} stroke={2.5}/>
+              : phase==="restReady"? fmtClock(rest) : fmtClock(left)}
           </div>
           <div style={{color:"var(--muted)",fontWeight:700,marginTop:10}}>
-            {phase==="done"? `${rounds} rounds finished` : `Round ${round} of ${rounds}`}
+            {phase==="done"? `${rounds} rounds finished`
+              : phase==="restReady"? `Round ${round} of ${rounds} done — rest is ${fmtClock(rest)}`
+              : `Round ${round} of ${rounds}`}
           </div>
         </div>
         <div style={{height:6,background:"var(--surface2)",borderRadius:99,overflow:"hidden",margin:"4px 0 16px"}}>
@@ -1308,6 +1314,11 @@ function IntervalTimer({finishSound, setFinishSound}){
         </div>
         {phase==="done"
           ? <button className="btn block" onClick={()=>{ setPhase("work"); setLeft(work); }}>Done</button>
+          : phase==="restReady"
+          ? <div className="row" style={{gap:10}}>
+              <button className="btn block" onClick={startRest}><Icon name="play" size={15} color="#0A0E13"/> Start rest</button>
+              <button className="btn ghost" style={{minWidth:92}} onClick={stopAll}>End</button>
+            </div>
           : <button className="btn block warn" onClick={stopAll}>Stop</button>}
       </div>
     );
