@@ -486,6 +486,8 @@ function Icon({name, size=22, color="currentColor", fill="none", stroke=2}){
     chevright:"M9 6l6 6-6 6", back:"M15 6l-6 6 6 6", edit:"M4 20h4l10-10-4-4L4 16v4zM14 6l4 4",
     flame:"M12 3c1 3-2 4-2 7a4 4 0 0 0 8 0c0-1-.5-2-1-3 2 1 3 4 3 6a8 8 0 1 1-16 0c0-4 4-6 4-10 1 1 3 2 4 0Z",
     clock:"M12 7v5l3 2M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z",
+    bell:"M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6M9.5 19a2.5 2.5 0 0 0 5 0",
+    bed:"M3 18V8m0 4h18m0 6v-6a3 3 0 0 0-3-3H8M3 8h3a2 2 0 0 1 2 2v2",
   }[name] || "";
   const filled = name==="play";
   return (
@@ -551,9 +553,28 @@ function App(){
   const [session, setSession] = useState(null);   // active workout session
   const [dexId, setDexId] = useState(null);        // open exercise detail
   const [toast, setToast] = useState(null);
+  const [settings, setSettings] = usePersist("settings", { restDays:[], remindTime:"18:00", notify:false });
 
   const notify = useCallback((msg)=>{ setToast(msg); }, []);
   useEffect(()=>{ if(!toast) return; const t=setTimeout(()=>setToast(null),1900); return ()=>clearTimeout(t); },[toast]);
+
+  // Daily workout reminder: fires a browser notification at the chosen time while the app is open,
+  // skipping rest days and any day already logged.
+  useEffect(()=>{
+    if(!settings.notify || typeof Notification==="undefined" || Notification.permission!=="granted") return;
+    const now = new Date();
+    if((settings.restDays||[]).includes(now.getDay())) return;
+    if(history.some(h=>todayKey(h.date)===todayKey(now))) return;
+    const [hh,mm] = (settings.remindTime||"18:00").split(":").map(Number);
+    const target = new Date(); target.setHours(hh||18, mm||0, 0, 0);
+    const ms = target.getTime() - now.getTime();
+    if(ms<=0) return;
+    const id = setTimeout(()=>{
+      const done = load("history",[]).some(h=>todayKey(h.date)===todayKey(new Date()));
+      if(!done){ try{ new Notification("Work It Out", { body:"Time for your workout — let's move." }); }catch(e){} }
+    }, Math.min(ms, 2147483647));
+    return ()=>clearTimeout(id);
+  },[settings, history]);
 
   const logWorkout = useCallback((entry)=>{
     setHistory(h=>[{ id:uid(), date:Date.now(), ...entry }, ...h]);
@@ -581,7 +602,7 @@ function App(){
   return (
     <div>
       <div className="app" key={tab}>
-        {tab==="home" && <HomeScreen history={history} setHistory={setHistory} setTab={setTab} startSession={startSession} workouts={workouts}/>}
+        {tab==="home" && <HomeScreen history={history} setHistory={setHistory} setTab={setTab} startSession={startSession} workouts={workouts} settings={settings} setSettings={setSettings} notify={notify}/>}
         {tab==="workouts" && <WorkoutsScreen workouts={workouts} setWorkouts={setWorkouts} startSession={startSession} notify={notify}/>}
         {tab==="timer" && <TimerScreen/>}
         {tab==="dex" && <DexScreen openDetail={setDexId}/>}
@@ -612,18 +633,22 @@ function App(){
 }
 
 // ═══ HOME ════════════════════════════════════════════════════════════════════
-function HomeScreen({history, setHistory, setTab, startSession, workouts}){
+function HomeScreen({history, setHistory, setTab, startSession, workouts, settings, setSettings, notify}){
+  const [remOpen, setRemOpen] = useState(false);
   const streak = useMemo(()=>computeStreak(history),[history]);
   const totalTime = useMemo(()=>history.reduce((a,h)=>a+(h.durationSec||0),0),[history]);
 
-  // last 7 days bar data
+  // this week's calendar, always ordered Sunday → Saturday
   const week = useMemo(()=>{
+    const now0 = new Date(); now0.setHours(0,0,0,0);
+    const start = new Date(now0); start.setDate(now0.getDate()-now0.getDay()); // back up to Sunday
+    const labels = ["S","M","T","W","T","F","S"];
     const arr = [];
-    for(let i=6;i>=0;i--){
-      const d = new Date(); d.setDate(d.getDate()-i);
+    for(let i=0;i<7;i++){
+      const d = new Date(start); d.setDate(start.getDate()+i);
       const k = todayKey(d);
-      const count = history.filter(h=>todayKey(h.date)===k).length;
-      arr.push({ label:["S","M","T","W","T","F","S"][d.getDay()], count });
+      arr.push({ label:labels[i], count:history.filter(h=>todayKey(h.date)===k).length,
+        isToday:k===todayKey(now0), future:d.getTime()>now0.getTime() });
     }
     return arr;
   },[history]);
@@ -632,12 +657,43 @@ function HomeScreen({history, setHistory, setTab, startSession, workouts}){
 
   const greeting = (()=>{ const h=new Date().getHours(); return h<12?"Good morning":h<18?"Good afternoon":"Good evening"; })();
 
+  // rest-day / workout reminder banner
+  const now = new Date();
+  const workedOutToday = history.some(h=>todayKey(h.date)===todayKey(now));
+  const isRestDay = (settings.restDays||[]).includes(now.getDay());
+  const banner = workedOutToday
+    ? { c:"var(--accent)",  icon:"check", t:"Logged today", d:"Nice work. Recovery starts now." }
+    : isRestDay
+    ? { c:"var(--core)",    icon:"bed",   t:"Rest day", d:"Recovery is where the gains happen — take it easy today." }
+    : streak>=6
+    ? { c:"var(--accent2)", icon:"bed",   t:"Consider a rest day", d:`You've trained ${streak} days straight — a rest day aids recovery.`, action:true }
+    : { c:"var(--accent)",  icon:"play",  t:"Time to move", d:"You haven't logged a workout today.", action:true };
+
   return (
     <div>
       <div className="screen">
-        <div className="kicker">Work It Out</div>
-        <div className="title">{greeting}</div>
+        <div className="row" style={{justifyContent:"space-between",alignItems:"flex-start"}}>
+          <div>
+            <div className="kicker">Work It Out</div>
+            <div className="title">{greeting}</div>
+          </div>
+          <button className="iconbtn" style={{marginTop:4}} onClick={()=>setRemOpen(true)} aria-label="Reminders">
+            <Icon name="bell" size={17} color="var(--muted)"/>
+          </button>
+        </div>
         <div className="subtitle">{history.length? "Let's keep the streak alive." : "Log your first workout to get started."}</div>
+
+        <div className="card" style={{marginTop:16,borderLeft:`3px solid ${banner.c}`,display:"flex",alignItems:"center",gap:13}}>
+          <div style={{width:38,height:38,borderRadius:11,background:"var(--surface2)",flexShrink:0,
+            display:"flex",alignItems:"center",justifyContent:"center"}}>
+            <Icon name={banner.icon} size={19} color={banner.c}/>
+          </div>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontWeight:800,fontSize:15}}>{banner.t}</div>
+            <div style={{fontSize:13,color:"var(--muted)",marginTop:2}}>{banner.d}</div>
+          </div>
+          {banner.action && <button className="btn sm" onClick={()=>setTab("workouts")}>Start</button>}
+        </div>
 
         <div className="stats">
           <div className="stat">
@@ -660,14 +716,16 @@ function HomeScreen({history, setHistory, setTab, startSession, workouts}){
 
         <div className="card" style={{marginTop:16}}>
           <div className="row" style={{justifyContent:"space-between"}}>
-            <div style={{fontWeight:800,fontSize:15}}>Last 7 days</div>
-            <div className="pill">{week.reduce((a,w)=>a+w.count,0)} sessions</div>
+            <div style={{fontWeight:800,fontSize:15}}>This week</div>
+            <div className="pill">{weekCount} {weekCount===1?"session":"sessions"}</div>
           </div>
           <div className="weekbars">
             {week.map((w,i)=>(
               <div className="weekbar" key={i}>
-                <div className={"bar"+(w.count>0?" has":"")} style={{height:(w.count/maxC*100)+"%"}}/>
-                <div className="d">{w.label}</div>
+                <div className={"bar"+(w.count>0?" has":"")}
+                  style={{height:(w.count/maxC*100)+"%", opacity:w.future?.4:1,
+                    outline:w.isToday?"2px solid var(--accent)":"none", outlineOffset:"2px"}}/>
+                <div className="d" style={w.isToday?{color:"var(--accent)",fontWeight:800}:null}>{w.label}</div>
               </div>
             ))}
           </div>
@@ -708,6 +766,78 @@ function HomeScreen({history, setHistory, setTab, startSession, workouts}){
           );
         })}
       </div>
+
+      {remOpen && <RemindersSheet settings={settings} setSettings={setSettings} notify={notify} onClose={()=>setRemOpen(false)}/>}
+    </div>
+  );
+}
+
+// ═══ REMINDERS (rest days + daily nudge) ═════════════════════════════════════
+function RemindersSheet({settings, setSettings, notify, onClose}){
+  const s = settings;
+  const dayShort = ["S","M","T","W","T","F","S"];
+  const dayFull = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  const rest = s.restDays||[];
+  const toggleDay = (i)=> setSettings(v=>{
+    const r = v.restDays||[];
+    return { ...v, restDays: r.includes(i)? r.filter(x=>x!==i) : [...r, i] };
+  });
+  const toggleNotify = async ()=>{
+    if(typeof Notification==="undefined"){ notify("Notifications not supported here"); return; }
+    if(s.notify){ setSettings(v=>({...v, notify:false})); notify("Reminders off"); return; }
+    let perm = Notification.permission;
+    if(perm!=="granted"){ try{ perm = await Notification.requestPermission(); }catch(e){} }
+    if(perm==="granted"){ setSettings(v=>({...v, notify:true})); notify("Reminders on"); }
+    else notify("Allow notifications in your browser first");
+  };
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="sheet" onClick={e=>e.stopPropagation()}>
+        <div className="grab"/>
+        <div className="row" style={{justifyContent:"space-between",marginBottom:6}}>
+          <div style={{fontWeight:800,fontSize:19}}>Reminders</div>
+          <button className="iconbtn" onClick={onClose}><Icon name="x" size={16}/></button>
+        </div>
+        <p style={{color:"var(--muted)",fontSize:13.5,lineHeight:1.5,marginBottom:2}}>
+          Set your rest days and a daily nudge to train.
+        </p>
+
+        <div className="sectlabel">Rest days</div>
+        <div className="row" style={{gap:7}}>
+          {dayShort.map((d,i)=>{
+            const on = rest.includes(i);
+            return (
+              <button key={i} onClick={()=>toggleDay(i)} style={{flex:1,padding:"12px 0",borderRadius:11,
+                fontWeight:800,fontSize:14,border:"1px solid "+(on?"var(--core)":"var(--line)"),
+                background:on?"var(--core)":"var(--surface2)", color:on?"#0A0E13":"var(--muted)"}}>{d}</button>
+            );
+          })}
+        </div>
+        <div style={{fontSize:12.5,color:"var(--faint)",marginTop:9}}>
+          {rest.length? "Rest days: "+rest.slice().sort().map(i=>dayFull[i]).join(", ") : "No rest days set — tap a day above."}
+        </div>
+
+        <div className="sectlabel">Daily workout reminder</div>
+        <div className="cfgrow">
+          <div style={{fontWeight:700,fontSize:15}}>Remind me at</div>
+          <input type="time" value={s.remindTime||"18:00"}
+            onChange={e=>setSettings(v=>({...v, remindTime:e.target.value}))}
+            style={{background:"var(--bg2)",border:"1px solid var(--line)",borderRadius:10,padding:"9px 12px",
+              color:"var(--text)",fontSize:15,fontWeight:700}}/>
+        </div>
+        <div className="cfgrow">
+          <div>
+            <div style={{fontWeight:700,fontSize:15}}>Notifications</div>
+            <div style={{fontSize:12.5,color:s.notify?"var(--accent-dim)":"var(--muted)",marginTop:2}}>{s.notify?"On":"Off"}</div>
+          </div>
+          <button className={"btn sm"+(s.notify?" warn":"")} onClick={toggleNotify}>{s.notify?"Turn off":"Turn on"}</button>
+        </div>
+        <div style={{fontSize:12,color:"var(--faint)",marginTop:12,lineHeight:1.5}}>
+          Reminders appear as a browser notification and fire while Work It Out is open. You won't be nudged on a rest day or after you've already logged a workout.
+        </div>
+
+        <button className="btn block" style={{marginTop:18}} onClick={onClose}>Done</button>
+      </div>
     </div>
   );
 }
@@ -715,6 +845,7 @@ function HomeScreen({history, setHistory, setTab, startSession, workouts}){
 // ═══ WORKOUTS ════════════════════════════════════════════════════════════════
 function WorkoutsScreen({workouts, setWorkouts, startSession, notify}){
   const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState(null);   // workout being edited, or null
 
   const remove = (id)=> setWorkouts(ws=>ws.filter(w=>w.id!==id));
 
@@ -741,7 +872,10 @@ function WorkoutsScreen({workouts, setWorkouts, startSession, notify}){
                 <div style={{fontWeight:800,fontSize:17,letterSpacing:"-.01em"}}>{w.name}</div>
                 <div className="pill" style={{marginTop:7,display:"inline-block"}}>{w.cat||"Workout"}</div>
               </div>
-              <button className="iconbtn" onClick={()=>remove(w.id)}><Icon name="trash" size={15} color="var(--faint)"/></button>
+              <div className="row" style={{gap:6}}>
+                <button className="iconbtn" onClick={()=>setEditing(w)} aria-label="Edit"><Icon name="edit" size={15} color="var(--muted)"/></button>
+                <button className="iconbtn" onClick={()=>remove(w.id)} aria-label="Delete"><Icon name="trash" size={15} color="var(--faint)"/></button>
+              </div>
             </div>
 
             <div style={{marginTop:13}}>
@@ -767,16 +901,21 @@ function WorkoutsScreen({workouts, setWorkouts, startSession, notify}){
         ))}
       </div>
 
-      {adding && <AddWorkoutSheet onClose={()=>setAdding(false)}
-        onSave={(w)=>{ setWorkouts(ws=>[w,...ws]); setAdding(false); notify("Workout added"); }}/>}
+      {(adding||editing) && <WorkoutSheet existing={editing}
+        onClose={()=>{ setAdding(false); setEditing(null); }}
+        onSave={(w)=>{
+          setWorkouts(ws=> ws.some(x=>x.id===w.id) ? ws.map(x=>x.id===w.id?w:x) : [w, ...ws]);
+          const wasEdit = !!editing; setAdding(false); setEditing(null);
+          notify(wasEdit ? "Workout updated" : "Workout added");
+        }}/>}
     </div>
   );
 }
 
-function AddWorkoutSheet({onClose, onSave}){
-  const [name, setName] = useState("");
-  const [cat, setCat] = useState("Full Body");
-  const [picked, setPicked] = useState([]); // {ex, target}
+function WorkoutSheet({existing, onClose, onSave}){
+  const [name, setName] = useState(existing? existing.name : "");
+  const [cat, setCat] = useState(existing? (existing.cat||"Full Body") : "Full Body");
+  const [picked, setPicked] = useState(existing? (existing.items||[]).map(it=>({ex:it.ex, target:it.target||"3 x 12"})) : []);
   const [q, setQ] = useState("");
 
   const toggle = (id)=> setPicked(p=> p.find(x=>x.ex===id) ? p.filter(x=>x.ex!==id) : [...p,{ex:id,target:"3 x 12"}]);
@@ -786,7 +925,7 @@ function AddWorkoutSheet({onClose, onSave}){
 
   const save = ()=>{
     const nm = name.trim() || "My Workout";
-    onSave({ id:uid(), name:nm, cat, items:picked });
+    onSave({ id: existing? existing.id : uid(), name:nm, cat, items:picked });
   };
 
   return (
@@ -794,7 +933,7 @@ function AddWorkoutSheet({onClose, onSave}){
       <div className="sheet" onClick={e=>e.stopPropagation()}>
         <div className="grab"/>
         <div className="row" style={{justifyContent:"space-between",marginBottom:14}}>
-          <div style={{fontWeight:800,fontSize:19}}>New workout</div>
+          <div style={{fontWeight:800,fontSize:19}}>{existing? "Edit workout" : "New workout"}</div>
           <button className="iconbtn" onClick={onClose}><Icon name="x" size={16}/></button>
         </div>
 
@@ -835,7 +974,7 @@ function AddWorkoutSheet({onClose, onSave}){
           })}
         </div>
 
-        <button className="btn block" style={{marginTop:14}} onClick={save}>Save workout</button>
+        <button className="btn block" style={{marginTop:14}} onClick={save}>{existing? "Save changes" : "Save workout"}</button>
       </div>
     </div>
   );
@@ -1174,83 +1313,30 @@ function DexDetail({ex, onClose, onAdd, onLog}){
 }
 
 // ═══ MUSIC (Apple Music) ═════════════════════════════════════════════════════
-const PLAYLISTS = [
-  { name:"Beast Mode", desc:"Heavy lifting energy", term:"beast mode workout", grad:"linear-gradient(145deg,#ff416c,#ff4b2b)" },
-  { name:"Cardio Pump", desc:"High-BPM running", term:"cardio workout running", grad:"linear-gradient(145deg,#f7971e,#ffd200)" },
-  { name:"HIIT Sprint", desc:"Interval intensity", term:"hiit workout", grad:"linear-gradient(145deg,#8e2de2,#4a00e0)" },
-  { name:"Pump Up Hip-Hop", desc:"Gym rap classics", term:"pump up hip hop workout", grad:"linear-gradient(145deg,#11998e,#38ef7d)" },
-  { name:"Rock Workout", desc:"Guitar-driven power", term:"rock workout", grad:"linear-gradient(145deg,#232526,#414345)" },
-  { name:"Cool Down", desc:"Stretch & recover", term:"cool down stretch", grad:"linear-gradient(145deg,#2193b0,#6dd5ed)" },
-];
-
-function toEmbed(url){
-  // convert a shared Apple Music link to its embeddable player URL
-  const u = url.trim();
-  if(!u) return null;
-  if(u.includes("embed.music.apple.com")) return u;
-  if(u.includes("music.apple.com")) return u.replace("music.apple.com","embed.music.apple.com");
-  return null;
-}
-
 function MusicScreen(){
-  const [url, setUrl] = usePersist("music_url", "");
-  const [draft, setDraft] = useState(url);
-  const embed = toEmbed(url);
-  const openSearch = (term)=> window.open("https://music.apple.com/us/search?term="+encodeURIComponent(term), "_blank");
-
   return (
     <div className="screen">
       <div className="kicker">Music</div>
       <div className="title">Workout soundtrack</div>
-      <div className="subtitle">Power your session with Apple Music.</div>
+      <div className="subtitle">Play your workout music with Apple Music.</div>
 
-      <div className="musichero" style={{marginTop:16}}>
-        <div className="glow" style={{position:"absolute",top:-20,right:-20,width:120,height:120,borderRadius:"50%",background:"rgba(255,255,255,.25)",filter:"blur(30px)"}}/>
-        <h2>Apple Music</h2>
-        <p>Open a curated workout playlist, or paste any Apple Music playlist, album or song link to play it right here.</p>
-        <button className="btn" style={{marginTop:14,background:"#0A0E13",color:"#fff"}}
-          onClick={()=>window.open("https://music.apple.com/us/browse","_blank")}>
-          <Icon name="music" size={16} color="#fff"/> Open Apple Music
-        </button>
-      </div>
-
-      <div className="sectlabel">Curated playlists</div>
-      <div className="plgrid">
-        {PLAYLISTS.map(p=>(
-          <button className="plcard" key={p.name} style={{background:p.grad}} onClick={()=>openSearch(p.term)}>
-            <div style={{position:"absolute",top:11,right:12}}><Icon name="play" size={15} color="rgba(255,255,255,.9)"/></div>
-            <h4>{p.name}</h4>
-            <p>{p.desc}</p>
+      <div className="musichero" style={{marginTop:16,padding:"28px 22px"}}>
+        <div className="glow" style={{position:"absolute",top:-24,right:-24,width:150,height:150,borderRadius:"50%",
+          background:"rgba(255,255,255,.28)",filter:"blur(36px)"}}/>
+        <div style={{position:"relative"}}>
+          <div className="row" style={{gap:12,marginBottom:14}}>
+            <div style={{width:48,height:48,borderRadius:13,background:"rgba(0,0,0,.22)",display:"flex",
+              alignItems:"center",justifyContent:"center",flexShrink:0}}>
+              <Icon name="music" size={25} color="#fff"/>
+            </div>
+            <h2 style={{margin:0}}>Apple Music</h2>
+          </div>
+          <p>Open Apple Music and play your workout playlists while you train.</p>
+          <button className="btn block" style={{marginTop:20,background:"#0A0E13",color:"#fff"}}
+            onClick={()=>window.open("https://music.apple.com","_blank")}>
+            <Icon name="music" size={18} color="#fff"/> Open Apple Music
           </button>
-        ))}
-      </div>
-
-      <div className="sectlabel">Play a playlist here</div>
-      <div className="card">
-        <div className="field" style={{marginBottom:10}}>
-          <label>Paste an Apple Music link</label>
-          <input value={draft} onChange={e=>setDraft(e.target.value)}
-            placeholder="https://music.apple.com/..."/>
         </div>
-        <div className="row" style={{gap:10}}>
-          <button className="btn block" onClick={()=>setUrl(draft)}>Load player</button>
-          {url && <button className="btn ghost" style={{minWidth:90}} onClick={()=>{ setUrl(""); setDraft(""); }}>Clear</button>}
-        </div>
-
-        {embed &&
-          <div className="embedwrap">
-            <iframe allow="autoplay *; encrypted-media *;" sandbox="allow-forms allow-popups allow-same-origin allow-scripts"
-              src={embed} title="Apple Music player"/>
-          </div>}
-        {url && !embed &&
-          <div style={{color:"var(--accent2)",fontSize:13,marginTop:10,fontWeight:600}}>
-            That doesn't look like an Apple Music link. Copy the share link from music.apple.com.
-          </div>}
-        {!url &&
-          <div style={{color:"var(--muted)",fontSize:12.5,marginTop:10,lineHeight:1.5}}>
-            Tip: in Apple Music, tap a playlist &rarr; Share &rarr; Copy Link, then paste it above. Previews play for
-            everyone; full tracks play if you're signed in to Apple Music in this browser.
-          </div>}
       </div>
     </div>
   );
