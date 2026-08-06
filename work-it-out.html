@@ -571,6 +571,7 @@ function App(){
   const [goals, setGoals] = usePersist("goals", []);
   const [session, setSession] = useState(null);   // active workout session
   const [dexId, setDexId] = useState(null);        // open exercise detail
+  const [logDetail, setLogDetail] = useState(null);// open logged-workout detail
   const [toast, setToast] = useState(null);
   const [settings, setSettings] = usePersist("settings", { restDays:[], remindTime:"18:00", notify:false });
   const [theme, setTheme] = usePersist("theme", "dark");
@@ -625,8 +626,8 @@ function App(){
   return (
     <div>
       <div className="app" key={tab}>
-        {tab==="home" && <HomeScreen history={history} setHistory={setHistory} setTab={setTab} startSession={startSession} workouts={workouts} settings={settings} setSettings={setSettings} notify={notify} theme={theme} setTheme={setTheme}/>}
-        {tab==="logged" && <LoggedScreen history={history} setHistory={setHistory} setTab={setTab}/>}
+        {tab==="home" && <HomeScreen history={history} setHistory={setHistory} setTab={setTab} startSession={startSession} workouts={workouts} settings={settings} setSettings={setSettings} notify={notify} theme={theme} setTheme={setTheme} openLog={setLogDetail}/>}
+        {tab==="logged" && <LoggedScreen history={history} setHistory={setHistory} setTab={setTab} openLog={setLogDetail}/>}
         {tab==="goals" && <GoalsScreen goals={goals} setGoals={setGoals}/>}
         {tab==="workouts" && <WorkoutsScreen workouts={workouts} setWorkouts={setWorkouts} startSession={startSession} notify={notify}/>}
         {tab==="timer" && <TimerScreen/>}
@@ -652,13 +653,15 @@ function App(){
           onAdd={addToMyWorkouts}
           onLog={(ex)=>{ logWorkout({ name:ex.name, durationSec:0, kind:"quick", items:[] }); setDexId(null); notify("Logged "+ex.name); }} />}
 
+      {logDetail && <LoggedDetailSheet h={logDetail} onClose={()=>setLogDetail(null)}/>}
+
       {toast && <div className="toast">{toast}</div>}
     </div>
   );
 }
 
 // ═══ HOME ════════════════════════════════════════════════════════════════════
-function HomeScreen({history, setHistory, setTab, startSession, workouts, settings, setSettings, notify, theme, setTheme}){
+function HomeScreen({history, setHistory, setTab, startSession, workouts, settings, setSettings, notify, theme, setTheme, openLog}){
   const [remOpen, setRemOpen] = useState(false);
   const streak = useMemo(()=>computeStreak(history),[history]);
   const totalTime = useMemo(()=>history.reduce((a,h)=>a+(h.durationSec||0),0),[history]);
@@ -775,7 +778,7 @@ function HomeScreen({history, setHistory, setTab, startSession, workouts, settin
             Pick a workout or explore the MuscleDex to begin. Everything you log shows up here.
           </div>}
         {history.slice(0,4).map(h=>(
-          <HistoryItem key={h.id} h={h} onDelete={()=>setHistory(list=>list.filter(x=>x.id!==h.id))}/>
+          <HistoryItem key={h.id} h={h} onOpen={openLog} onDelete={()=>setHistory(list=>list.filter(x=>x.id!==h.id))}/>
         ))}
         {history.length>4 &&
           <button className="btn block ghost" style={{marginTop:4}} onClick={()=>setTab("logged")}>
@@ -1002,6 +1005,7 @@ function SessionSheet({session, onClose, onFinish}){
   const [elapsed, setElapsed] = useState(0);
   const [running, setRunning] = useState(true);
   const [done, setDone] = useState({});
+  const [results, setResults] = useState({});   // per-exercise "what you did"
   const [notes, setNotes] = useState("");
   const startRef = useRef(Date.now());
   const baseRef = useRef(0);
@@ -1015,8 +1019,9 @@ function SessionSheet({session, onClose, onFinish}){
 
   const items = w.items||[];
   const finish = ()=>{
-    onFinish({ name:w.name, durationSec:Math.round(elapsed), items, notes:notes.trim(),
-      completed:Object.keys(done).length });
+    const loggedItems = items.map((it,i)=>({ ...it, result:(results[i]||"").trim() }));
+    onFinish({ name:w.name, durationSec:Math.round(elapsed), items:loggedItems, notes:notes.trim(),
+      completed:Object.values(done).filter(Boolean).length });
   };
 
   return (
@@ -1039,18 +1044,24 @@ function SessionSheet({session, onClose, onFinish}){
           </div>
         </div>
 
-        {items.length>0 && <div className="sectlabel" style={{marginTop:6}}>Exercises · tap to check off</div>}
+        {items.length>0 && <div className="sectlabel" style={{marginTop:6}}>Exercises · check off and log what you did</div>}
         {items.map((it,i)=>{
           const ex = exById(it.ex);
           const nm = ex? ex.name : (it.name||"Exercise");
           const on = done[i];
           return (
-            <button key={i} className={"check"+(on?" done":"")} style={{width:"100%"}}
-              onClick={()=>setDone(d=>({...d,[i]:!d[i]}))}>
-              <div className="box">{on && <Icon name="check" size={15} color="#0A0E13"/>}</div>
-              <div className="lbl">{nm}</div>
-              <div style={{marginLeft:"auto",fontSize:13,color:"var(--muted)",fontWeight:700}}>{it.target}</div>
-            </button>
+            <div key={i} style={{marginBottom:8}}>
+              <button className={"check"+(on?" done":"")} style={{width:"100%",marginBottom:0}}
+                onClick={()=>setDone(d=>({...d,[i]:!d[i]}))}>
+                <div className="box">{on && <Icon name="check" size={15} color="#0A0E13"/>}</div>
+                <div className="lbl">{nm}</div>
+                <div style={{marginLeft:"auto",fontSize:13,color:"var(--muted)",fontWeight:700}}>{it.target}</div>
+              </button>
+              <input value={results[i]||""} onChange={e=>setResults(r=>({...r,[i]:e.target.value}))}
+                placeholder="Sets / reps / weight — e.g. 60 kg × 10, 10, 8"
+                style={{width:"100%",background:"var(--bg2)",border:"1px solid var(--line)",borderRadius:10,
+                  padding:"10px 12px",color:"var(--text)",fontSize:13,marginTop:6}}/>
+            </div>
           );
         })}
 
@@ -1359,16 +1370,18 @@ function MusicScreen(){
 }
 
 // ═══ HISTORY ITEM (shared by Home + Logged) ═════════════════════════════════
-function HistoryItem({h, onDelete}){
+function HistoryItem({h, onDelete, onOpen}){
   const ex = h.items && h.items[0] ? exById(h.items[0].ex) : null;
   const col = ex ? GROUPS[ex.group] : "var(--accent)";
   return (
     <div className="item">
       <div className="dot" style={{background:col}}>{(h.name||"?").slice(0,1).toUpperCase()}</div>
-      <div style={{minWidth:0,flex:1}}>
+      <button onClick={()=>onOpen && onOpen(h)} aria-label="View details"
+        style={{minWidth:0,flex:1,textAlign:"left",background:"none",border:"none",padding:0}}>
         <div className="nm">{h.name}</div>
         <div className="meta">{relDate(h.date)}{h.kind==="quick"?" · quick log":""}{h.items&&h.items.length?` · ${h.items.length} exercises`:""}</div>
-      </div>
+        {h.notes && <div className="meta" style={{fontStyle:"italic",marginTop:3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>“{h.notes}”</div>}
+      </button>
       <div className="right">
         {h.durationSec>0 && <div style={{fontWeight:800,fontVariantNumeric:"tabular-nums"}}>{fmtClock(h.durationSec)}</div>}
         <button className="iconbtn" style={{marginTop:6}} onClick={onDelete} aria-label="Delete">
@@ -1379,8 +1392,69 @@ function HistoryItem({h, onDelete}){
   );
 }
 
+// ═══ LOGGED WORKOUT DETAIL ═══════════════════════════════════════════════════
+function LoggedDetailSheet({h, onClose}){
+  const items = h.items||[];
+  const dateStr = new Date(h.date).toLocaleDateString(undefined,{weekday:"long",month:"short",day:"numeric",year:"numeric"});
+  return (
+    <div className="overlay" onClick={onClose} style={{alignItems:"stretch"}}>
+      <div className="sheet" onClick={e=>e.stopPropagation()} style={{maxHeight:"92vh"}}>
+        <div className="grab"/>
+        <div className="row" style={{justifyContent:"space-between",alignItems:"flex-start"}}>
+          <div style={{minWidth:0}}>
+            <div className="kicker">{relDate(h.date)}</div>
+            <div style={{fontWeight:800,fontSize:22,marginTop:3}}>{h.name}</div>
+            <div style={{fontSize:12.5,color:"var(--muted)",marginTop:3}}>{dateStr}</div>
+          </div>
+          <button className="iconbtn" onClick={onClose}><Icon name="x" size={16}/></button>
+        </div>
+
+        <div className="row" style={{gap:10,marginTop:16}}>
+          {h.durationSec>0 &&
+            <div className="stat" style={{flex:1,padding:"13px 15px"}}>
+              <div className="num" style={{fontSize:22}}>{fmtClock(h.durationSec)}</div>
+              <div className="lbl">Duration</div>
+            </div>}
+          <div className="stat" style={{flex:1,padding:"13px 15px"}}>
+            <div className="num" style={{fontSize:22}}>{items.length}</div>
+            <div className="lbl">{items.length===1?"Exercise":"Exercises"}</div>
+          </div>
+        </div>
+
+        {items.length>0 && <div className="sectlabel">Exercises</div>}
+        {items.map((it,i)=>{
+          const ex = exById(it.ex);
+          const nm = ex? ex.name : (it.name||"Exercise");
+          const col = ex? GROUPS[ex.group] : "var(--muted)";
+          return (
+            <div key={i} className="item" style={{alignItems:"flex-start"}}>
+              <div style={{width:9,height:9,borderRadius:99,background:col,flexShrink:0,marginTop:6}}/>
+              <div style={{flex:1,minWidth:0}}>
+                <div className="nm" style={{fontSize:15}}>{nm}</div>
+                {it.target && <div className="meta">Target · {it.target}</div>}
+                {it.result
+                  ? <div style={{fontSize:13.5,color:"var(--accent-ink)",fontWeight:700,marginTop:2}}>Logged · {it.result}</div>
+                  : <div className="meta" style={{marginTop:2}}>Nothing logged for this one</div>}
+              </div>
+            </div>
+          );
+        })}
+
+        <div className="sectlabel">How it went</div>
+        <div className="card">
+          {h.notes
+            ? <div style={{fontSize:14.5,lineHeight:1.55,whiteSpace:"pre-wrap",color:"var(--text)"}}>{h.notes}</div>
+            : <div style={{color:"var(--muted)",fontSize:14}}>You didn't add any notes for this workout.</div>}
+        </div>
+
+        <button className="btn block ghost" style={{marginTop:16}} onClick={onClose}>Close</button>
+      </div>
+    </div>
+  );
+}
+
 // ═══ LOGGED (full history) ══════════════════════════════════════════════════
-function LoggedScreen({history, setHistory, setTab}){
+function LoggedScreen({history, setHistory, setTab, openLog}){
   const total = history.length;
   const totalTime = history.reduce((a,h)=>a+(h.durationSec||0),0);
   const del = id=> setHistory(list=>list.filter(x=>x.id!==id));
@@ -1403,7 +1477,7 @@ function LoggedScreen({history, setHistory, setTab}){
             Start a workout and it'll show up here.
             <div><button className="btn sm" style={{marginTop:14}} onClick={()=>setTab("workouts")}>Go to Workouts</button></div>
           </div>}
-        {history.map(h=><HistoryItem key={h.id} h={h} onDelete={()=>del(h.id)}/>)}
+        {history.map(h=><HistoryItem key={h.id} h={h} onOpen={openLog} onDelete={()=>del(h.id)}/>)}
       </div>
     </div>
   );
