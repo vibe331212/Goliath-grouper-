@@ -207,6 +207,9 @@ const GROUPS = {
   Arms:"var(--arms)", Core:"var(--core)", Cardio:"var(--cardio)"
 };
 const GROUP_ORDER = ["Chest","Back","Legs","Shoulders","Arms","Core","Cardio"];
+// difficulty 1–5 → human label ("how hard is it")
+const DIFF_LABELS = ["Beginner","Novice","Intermediate","Advanced","Elite"];
+const diffLabel = d => DIFF_LABELS[Math.max(1,Math.min(5,d))-1];
 
 // ─── EXERCISE DATABASE (the MuscleDex) ──────────────────────────────────────
 // difficulty 1–5. Records verified where an official record exists; where none is
@@ -1096,10 +1099,13 @@ function DexScreen({openDetail}){
               <div className="num">#{String(EXERCISES.indexOf(e)+1).padStart(2,"0")}</div>
               <div className="gname">{e.name}</div>
               <div className="gsub">{e.group} · {e.equip}</div>
-              <div className="dots">
-                {[1,2,3,4,5].map(d=>(
-                  <div key={d} className="d" style={{background:d<=e.diff?GROUPS[e.group]:"var(--surface2)"}}/>
-                ))}
+              <div className="row" style={{justifyContent:"space-between",marginTop:11}}>
+                <div className="dots" style={{marginTop:0}}>
+                  {[1,2,3,4,5].map(d=>(
+                    <div key={d} className="d" style={{background:d<=e.diff?GROUPS[e.group]:"var(--surface2)"}}/>
+                  ))}
+                </div>
+                <span style={{fontSize:11,fontWeight:800,letterSpacing:".02em",color:GROUPS[e.group]}}>{diffLabel(e.diff)}</span>
               </div>
             </button>
           ))}
@@ -1125,12 +1131,12 @@ function DexDetail({ex, onClose, onAdd, onLog}){
             </button>
           </div>
           <h1>{ex.name}</h1>
-          <div className="row" style={{gap:5,marginTop:10}}>
-            <span style={{fontSize:12,fontWeight:800,color:"rgba(10,14,19,.7)"}}>Difficulty</span>
+          <div className="row" style={{gap:6,marginTop:10}}>
             {[1,2,3,4,5].map(d=>(
               <div key={d} style={{width:16,height:6,borderRadius:3,
                 background:d<=ex.diff?"#0A0E13":"rgba(10,14,19,.28)"}}/>
             ))}
+            <span style={{fontSize:13,fontWeight:800,color:"#0A0E13",marginLeft:4}}>{diffLabel(ex.diff)}</span>
           </div>
         </div>
 
