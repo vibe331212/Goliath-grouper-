@@ -465,33 +465,37 @@ const EXERCISES = [
 const exById = id => EXERCISES.find(e=>e.id===id);
 
 // ─── GEAR & WEIGHT (what you need for each exercise) ────────────────────────
+// weight guidance is unit-aware: kg values convert to lb via the helpers below.
+const lbOf = kg => Math.round(kg*2.2046);
+const wt = (kg,u) => u==="lb" ? lbOf(kg)+" lb" : kg+" kg";     // a plate/dumbbell weight
+const barW = u => u==="lb" ? "45 lb" : "20 kg";                 // the standard empty bar
 const GEAR_INFO = {
-  pushup:      { gear:["A bit of floor space","(optional) a mat"], weight:"None — just your bodyweight. Add a plate on your back or a weighted vest to make it harder." },
-  bench:       { gear:["Barbell","Flat bench","Weight plates","Collars / clips","A spotter or safety pins"], weight:"Start with the empty 20 kg / 45 lb bar to learn the groove, then add plates weekly. Many beginners work in the 40–60 kg range for reps." },
-  dbfly:       { gear:["Two dumbbells","Flat bench"], weight:"Go light — form beats load here. Most start around 5–10 kg per hand and build slowly." },
-  pullup:      { gear:["A pull-up bar","(optional) a resistance band for assistance"], weight:"Bodyweight. Use a band or assisted machine if you can't do one yet; add a dip belt with plates once you can." },
-  deadlift:    { gear:["Barbell","Full-size weight plates","(optional) lifting straps","(optional) flat shoes"], weight:"Start light to nail the hinge — often the empty 20 kg bar or ~40–60 kg. Use full-size plates so the bar sits at the right height." },
-  row:         { gear:["Barbell","Weight plates"], weight:"Lighter than your deadlift — around 30–50 kg for beginners. Keep it strict, no heaving." },
-  latpull:     { gear:["Lat pulldown machine","Wide bar attachment"], weight:"Pick a load you can control for 10–12 reps — often the mid of the stack to start." },
-  squat:       { gear:["(bodyweight) nothing","(loaded) barbell, squat rack & plates"], weight:"Master the bodyweight squat first. With a bar, start with the empty 20 kg bar and add weight as depth and control improve." },
-  lunge:       { gear:["(optional) two dumbbells"], weight:"Bodyweight to begin; add light dumbbells (5–10 kg each) once you're balanced." },
-  legpress:    { gear:["Leg press machine","Weight plates"], weight:"Legs are strong, but start moderate to protect your knees and back, then build up." },
-  calf:        { gear:["A step or ledge","(optional) a dumbbell or calf machine"], weight:"Bodyweight for high reps; add load once 15–20 reps feel easy." },
-  ohp:         { gear:["Barbell","Weight plates","(optional) a rack"], weight:"Start with the empty 20 kg bar — the press is humbling. Add small 1–2.5 kg jumps." },
-  latraise:    { gear:["Two light dumbbells"], weight:"Very light — about 2.5–7.5 kg per hand. Going heavy ruins this one." },
-  curl:        { gear:["Dumbbells or an EZ / straight bar","Weight plates"], weight:"Around 5–12 kg per dumbbell (or a light bar) to start — keep your elbows pinned." },
-  dip:         { gear:["Parallel bars or a dip station","(optional) a dip belt & plates"], weight:"Bodyweight. Use an assisted-dip machine or band if needed; add a weighted belt when strong." },
-  hammer:      { gear:["Two dumbbells"], weight:"Similar to your curls — roughly 5–12 kg per hand." },
-  plank:       { gear:["(optional) a mat"], weight:"None — just hold your bodyweight. Rest a plate on your back to progress." },
-  crunch:      { gear:["(optional) a mat"], weight:"Bodyweight. Hold a light plate on your chest to make it harder." },
-  twist:       { gear:["(optional) a weight plate or dumbbell"], weight:"Bodyweight to start; add a 2.5–10 kg plate once controlled." },
-  legraise:    { gear:["A pull-up bar","(optional) ab straps"], weight:"Bodyweight. Bend your knees to make it easier; add ankle weights to progress." },
-  burpee:      { gear:["Floor space"], weight:"None — bodyweight only." },
-  jumpingjack: { gear:["Floor space"], weight:"None — bodyweight only." },
-  mountain:    { gear:["(optional) a mat"], weight:"None — bodyweight only." },
-  run:         { gear:["Running shoes","(optional) a watch or phone to track pace"], weight:"No weights — just a good pair of shoes." },
+  pushup:      { gear:["A bit of floor space","(optional) a mat"], weight:u=>"None — just your bodyweight. Add a plate on your back or a weighted vest to make it harder." },
+  bench:       { gear:["Barbell","Flat bench","Weight plates","Collars / clips","A spotter or safety pins"], weight:u=>`Start with the empty ${barW(u)} bar to learn the groove, then add plates weekly. Many beginners work in the ${wt(40,u)}–${wt(60,u)} range for reps.` },
+  dbfly:       { gear:["Two dumbbells","Flat bench"], weight:u=>`Go light — form beats load here. Most start around ${wt(5,u)}–${wt(10,u)} per hand and build slowly.` },
+  pullup:      { gear:["A pull-up bar","(optional) a resistance band for assistance"], weight:u=>"Bodyweight. Use a band or assisted machine if you can't do one yet; add a dip belt with plates once you can." },
+  deadlift:    { gear:["Barbell","Full-size weight plates","(optional) lifting straps","(optional) flat shoes"], weight:u=>`Start light to nail the hinge — often the empty ${barW(u)} bar or ~${wt(40,u)}–${wt(60,u)}. Use full-size plates so the bar sits at the right height.` },
+  row:         { gear:["Barbell","Weight plates"], weight:u=>`Lighter than your deadlift — around ${wt(30,u)}–${wt(50,u)} for beginners. Keep it strict, no heaving.` },
+  latpull:     { gear:["Lat pulldown machine","Wide bar attachment"], weight:u=>"Pick a load you can control for 10–12 reps — often the mid of the stack to start." },
+  squat:       { gear:["(bodyweight) nothing","(loaded) barbell, squat rack & plates"], weight:u=>`Master the bodyweight squat first. With a bar, start with the empty ${barW(u)} bar and add weight as depth and control improve.` },
+  lunge:       { gear:["(optional) two dumbbells"], weight:u=>`Bodyweight to begin; add light dumbbells (${wt(5,u)}–${wt(10,u)} each) once you're balanced.` },
+  legpress:    { gear:["Leg press machine","Weight plates"], weight:u=>"Legs are strong, but start moderate to protect your knees and back, then build up." },
+  calf:        { gear:["A step or ledge","(optional) a dumbbell or calf machine"], weight:u=>"Bodyweight for high reps; add load once 15–20 reps feel easy." },
+  ohp:         { gear:["Barbell","Weight plates","(optional) a rack"], weight:u=>`Start with the empty ${barW(u)} bar — the press is humbling. Add small ${wt(2.5,u)} jumps.` },
+  latraise:    { gear:["Two light dumbbells"], weight:u=>`Very light — about ${wt(2.5,u)}–${wt(7.5,u)} per hand. Going heavy ruins this one.` },
+  curl:        { gear:["Dumbbells or an EZ / straight bar","Weight plates"], weight:u=>`Around ${wt(5,u)}–${wt(12,u)} per dumbbell (or a light bar) to start — keep your elbows pinned.` },
+  dip:         { gear:["Parallel bars or a dip station","(optional) a dip belt & plates"], weight:u=>"Bodyweight. Use an assisted-dip machine or band if needed; add a weighted belt when strong." },
+  hammer:      { gear:["Two dumbbells"], weight:u=>`Similar to your curls — roughly ${wt(5,u)}–${wt(12,u)} per hand.` },
+  plank:       { gear:["(optional) a mat"], weight:u=>"None — just hold your bodyweight. Rest a plate on your back to progress." },
+  crunch:      { gear:["(optional) a mat"], weight:u=>"Bodyweight. Hold a light plate on your chest to make it harder." },
+  twist:       { gear:["(optional) a weight plate or dumbbell"], weight:u=>`Bodyweight to start; add a ${wt(2.5,u)}–${wt(10,u)} plate once controlled.` },
+  legraise:    { gear:["A pull-up bar","(optional) ab straps"], weight:u=>"Bodyweight. Bend your knees to make it easier; add ankle weights to progress." },
+  burpee:      { gear:["Floor space"], weight:u=>"None — bodyweight only." },
+  jumpingjack: { gear:["Floor space"], weight:u=>"None — bodyweight only." },
+  mountain:    { gear:["(optional) a mat"], weight:u=>"None — bodyweight only." },
+  run:         { gear:["Running shoes","(optional) a watch or phone to track pace"], weight:u=>"No weights — just a good pair of shoes." },
 };
-const gearFor = id => GEAR_INFO[id] || { gear:[], weight:"" };
+const gearFor = id => GEAR_INFO[id] || { gear:[], weight:()=>"" };
 // most recent logged result for an exercise, scanning newest-first history
 function lastLogged(history, exId){
   for(const h of (history||[])){
@@ -611,9 +615,11 @@ function App(){
   const [logDetail, setLogDetail] = useState(null);// open logged-workout detail
   const [gearWorkout, setGearWorkout] = useState(null); // open gear sheet for a workout
   const [toast, setToast] = useState(null);
-  const [settings, setSettings] = usePersist("settings", { restDays:[], remindTime:"18:00", notify:false });
+  const [settings, setSettings] = usePersist("settings", { restDays:[], remindTime:"18:00", notify:false, unit:"kg" });
   const [theme, setTheme] = usePersist("theme", "dark");
   useEffect(()=>{ document.documentElement.setAttribute("data-theme", theme); }, [theme]);
+  const unit = settings.unit || "kg";
+  const setUnit = (u)=> setSettings(s=>({ ...s, unit:u }));
 
   const notify = useCallback((msg)=>{ setToast(msg); }, []);
   useEffect(()=>{ if(!toast) return; const t=setTimeout(()=>setToast(null),1900); return ()=>clearTimeout(t); },[toast]);
@@ -683,17 +689,17 @@ function App(){
       </nav>
 
       {session &&
-        <SessionSheet session={session} onClose={()=>setSession(null)} openGear={setGearWorkout}
+        <SessionSheet session={session} onClose={()=>setSession(null)} openGear={setGearWorkout} unit={unit}
           onFinish={(entry)=>{ logWorkout(entry); setSession(null); notify("Workout logged"); }} />}
 
       {dexId &&
-        <DexDetail ex={exById(dexId)} onClose={()=>setDexId(null)} history={history}
+        <DexDetail ex={exById(dexId)} onClose={()=>setDexId(null)} history={history} unit={unit} setUnit={setUnit}
           onAdd={addToMyWorkouts}
           onLog={(ex)=>{ logWorkout({ name:ex.name, durationSec:0, kind:"quick", items:[] }); setDexId(null); notify("Logged "+ex.name); }} />}
 
       {logDetail && <LoggedDetailSheet h={logDetail} onClose={()=>setLogDetail(null)}/>}
 
-      {gearWorkout && <GearSheet workout={gearWorkout} history={history} onClose={()=>setGearWorkout(null)}/>}
+      {gearWorkout && <GearSheet workout={gearWorkout} history={history} unit={unit} setUnit={setUnit} onClose={()=>setGearWorkout(null)}/>}
 
       {toast && <div className="toast">{toast}</div>}
     </div>
@@ -1106,7 +1112,7 @@ function SessionSheet({session, onClose, onFinish, openGear}){
                 <div style={{marginLeft:"auto",fontSize:13,color:"var(--muted)",fontWeight:700}}>{it.target}</div>
               </button>
               <input value={results[i]||""} onChange={e=>setResults(r=>({...r,[i]:e.target.value}))}
-                placeholder="Sets / reps / weight — e.g. 60 kg × 10, 10, 8"
+                placeholder={unit==="lb" ? "Sets / reps / weight — e.g. 135 lb × 10, 10, 8" : "Sets / reps / weight — e.g. 60 kg × 10, 10, 8"}
                 style={{width:"100%",background:"var(--bg2)",border:"1px solid var(--line)",borderRadius:10,
                   padding:"10px 12px",color:"var(--text)",fontSize:13,marginTop:6}}/>
             </div>
@@ -1330,7 +1336,7 @@ function DexScreen({openDetail}){
   );
 }
 
-function DexDetail({ex, onClose, onAdd, onLog, history}){
+function DexDetail({ex, onClose, onAdd, onLog, history, unit, setUnit}){
   if(!ex) return null;
   const col = GROUPS[ex.group];
   const gearInfo = gearFor(ex.id);
@@ -1378,9 +1384,12 @@ function DexDetail({ex, onClose, onAdd, onLog, history}){
               {gearInfo.gear.map((g,i)=><span key={i} className="pill" style={{background:"var(--surface2)"}}>{g}</span>)}
             </div>}
 
-          <div className="sectlabel">What weight you need</div>
+          <div className="row" style={{justifyContent:"space-between",alignItems:"center",margin:"22px 0 10px"}}>
+            <div className="sectlabel" style={{margin:0}}>What weight you need</div>
+            <UnitToggle unit={unit} setUnit={setUnit}/>
+          </div>
           <div className="card">
-            <div style={{fontSize:14,lineHeight:1.5,color:"var(--text)"}}>{gearInfo.weight || "Bodyweight — no equipment required."}</div>
+            <div style={{fontSize:14,lineHeight:1.5,color:"var(--text)"}}>{gearInfo.weight(unit)}</div>
             {last && <div style={{fontSize:13.5,color:"var(--accent-ink)",fontWeight:700,marginTop:10}}>You last did · {last.result}</div>}
           </div>
 
@@ -1612,8 +1621,20 @@ function GoalCard({g, onToggle, onDelete}){
   );
 }
 
+// small kg / lb segmented switch
+function UnitToggle({unit, setUnit}){
+  return (
+    <div style={{display:"inline-flex",background:"var(--surface2)",border:"1px solid var(--line)",borderRadius:10,padding:3,gap:3}}>
+      {["kg","lb"].map(u=>(
+        <button key={u} onClick={()=>setUnit(u)} style={{padding:"6px 15px",borderRadius:8,fontWeight:800,fontSize:13,
+          background:unit===u?"var(--accent)":"transparent", color:unit===u?"#0A0E13":"var(--muted)"}}>{u}</button>
+      ))}
+    </div>
+  );
+}
+
 // ═══ GEAR SHEET (what gear & weight a workout needs) ═════════════════════════
-function GearSheet({workout, history, onClose}){
+function GearSheet({workout, history, unit, setUnit, onClose}){
   const items = workout.items||[];
   const gearList = [];
   items.forEach(it=>{ (gearFor(it.ex).gear||[]).forEach(g=>{ if(!gearList.includes(g)) gearList.push(g); }); });
@@ -1641,7 +1662,11 @@ function GearSheet({workout, history, onClose}){
           );
         })}
 
-        {items.length>0 && <div className="sectlabel">What weight per exercise</div>}
+        {items.length>0 &&
+          <div className="row" style={{justifyContent:"space-between",alignItems:"center",margin:"22px 0 10px"}}>
+            <div className="sectlabel" style={{margin:0}}>What weight per exercise</div>
+            <UnitToggle unit={unit} setUnit={setUnit}/>
+          </div>}
         {items.map((it,i)=>{
           const ex = exById(it.ex);
           const nm = ex? ex.name : (it.name||"Exercise");
@@ -1654,7 +1679,7 @@ function GearSheet({workout, history, onClose}){
               <div style={{flex:1,minWidth:0}}>
                 <div className="nm" style={{fontSize:15}}>{nm}
                   <span style={{color:"var(--muted)",fontWeight:600,fontSize:12.5}}>{ex?"  ·  "+ex.equip:""}</span></div>
-                {info.weight && <div className="meta" style={{marginTop:3,lineHeight:1.45}}>{info.weight}</div>}
+                <div className="meta" style={{marginTop:3,lineHeight:1.45}}>{info.weight(unit)}</div>
                 {last && <div style={{fontSize:13,color:"var(--accent-ink)",fontWeight:700,marginTop:4}}>You last did · {last.result}</div>}
               </div>
             </div>
