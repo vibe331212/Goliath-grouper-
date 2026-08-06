@@ -1,0 +1,1257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<title>Work It Out</title>
+<style>
+  :root{
+    --bg:#0A0E13; --bg2:#0D1219; --surface:#141B26; --surface2:#1B2432; --line:#26303F;
+    --text:#EAF0F7; --muted:#8A96A8; --faint:#5B6675;
+    --accent:#C7F94D; --accent-dim:#8FB537; --accent2:#FF6B35;
+    --chest:#FF6B6B; --back:#4ECDC4; --legs:#A78BFA; --shoulders:#FFD166;
+    --arms:#F97316; --core:#22D3EE; --cardio:#34D399;
+    --radius:16px; --nav-h:66px;
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);}
+  body{min-height:100vh;}
+  #root{max-width:520px;margin:0 auto;min-height:100vh;position:relative;background:var(--bg);
+    box-shadow:0 0 80px rgba(0,0,0,.5);}
+  #loading{color:var(--accent);text-align:center;padding-top:44vh;font-size:16px;letter-spacing:.08em;
+    text-transform:uppercase;font-weight:700;}
+  button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit;}
+  input,select,textarea{font-family:inherit;}
+  ::-webkit-scrollbar{width:0;height:0;}
+  h1,h2,h3,h4,p{margin:0;}
+  .app{padding:0 0 calc(var(--nav-h) + 18px);animation:fade .3s ease;}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  @keyframes pop{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:none}}
+
+  /* ── Header ─────────────────────────────────────────── */
+  .screen{padding:20px 18px 8px;}
+  .kicker{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent-dim);font-weight:800;}
+  .title{font-size:27px;font-weight:800;letter-spacing:-.02em;margin-top:3px;}
+  .subtitle{color:var(--muted);font-size:14px;margin-top:4px;}
+  .sectlabel{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);
+    font-weight:800;margin:22px 0 10px;}
+
+  /* ── Cards / generic ────────────────────────────────── */
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px;}
+  .row{display:flex;align-items:center;gap:12px;}
+  .btn{background:var(--accent);color:#0A0E13;font-weight:800;border-radius:13px;padding:14px 18px;
+    font-size:15px;letter-spacing:.01em;display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    transition:transform .08s ease, filter .15s;}
+  .btn:active{transform:scale(.97);}
+  .btn.block{width:100%;}
+  .btn.ghost{background:var(--surface2);color:var(--text);border:1px solid var(--line);}
+  .btn.warn{background:#2a1a1a;color:#ff9b8a;border:1px solid #43241f;}
+  .btn.sm{padding:9px 13px;font-size:13px;border-radius:10px;}
+  .chip{padding:8px 14px;border-radius:999px;background:var(--surface2);border:1px solid var(--line);
+    font-size:13px;font-weight:700;color:var(--muted);white-space:nowrap;transition:.15s;}
+  .chip.on{background:var(--accent);color:#0A0E13;border-color:var(--accent);}
+  .pill{font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;padding:4px 9px;
+    border-radius:999px;background:var(--surface2);color:var(--muted);}
+  .divider{height:1px;background:var(--line);margin:14px 0;}
+
+  /* ── Stats grid ─────────────────────────────────────── */
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-top:16px;}
+  .stat{background:linear-gradient(160deg,var(--surface),var(--bg2));border:1px solid var(--line);
+    border-radius:var(--radius);padding:15px 16px;}
+  .stat .num{font-size:30px;font-weight:800;letter-spacing:-.03em;line-height:1;}
+  .stat .lbl{font-size:12px;color:var(--muted);margin-top:7px;font-weight:600;}
+  .stat .unit{font-size:14px;color:var(--faint);font-weight:700;margin-left:3px;}
+
+  /* ── Week chart ─────────────────────────────────────── */
+  .weekbars{display:flex;justify-content:space-between;align-items:flex-end;gap:7px;height:80px;margin-top:6px;}
+  .weekbar{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;justify-content:flex-end;}
+  .weekbar .bar{width:100%;background:var(--surface2);border-radius:6px 6px 4px 4px;min-height:5px;transition:height .4s;}
+  .weekbar .bar.has{background:linear-gradient(180deg,var(--accent),var(--accent-dim));}
+  .weekbar .d{font-size:10px;color:var(--faint);font-weight:700;}
+
+  /* ── History / list items ───────────────────────────── */
+  .item{display:flex;align-items:center;gap:13px;background:var(--surface);border:1px solid var(--line);
+    border-radius:14px;padding:13px 14px;margin-bottom:9px;}
+  .item .dot{width:38px;height:38px;border-radius:11px;flex-shrink:0;display:flex;align-items:center;
+    justify-content:center;font-weight:800;font-size:15px;color:#0A0E13;}
+  .item .nm{font-weight:700;font-size:15px;}
+  .item .meta{font-size:12.5px;color:var(--muted);margin-top:2px;}
+  .item .right{margin-left:auto;text-align:right;}
+  .iconbtn{width:34px;height:34px;border-radius:10px;background:var(--surface2);border:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+
+  .empty{text-align:center;padding:34px 20px;color:var(--muted);}
+  .empty .big{font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px;}
+
+  /* ── Dex grid ───────────────────────────────────────── */
+  .chips{display:flex;gap:8px;overflow-x:auto;padding:4px 0 6px;margin:0 -2px;}
+  .dexgrid{display:grid;grid-template-columns:1fr 1fr;gap:11px;}
+  .dexcard{background:var(--surface);border:1px solid var(--line);border-radius:15px;padding:14px;
+    text-align:left;position:relative;overflow:hidden;transition:transform .08s;}
+  .dexcard:active{transform:scale(.97);}
+  .dexcard .glow{position:absolute;top:-30px;right:-30px;width:80px;height:80px;border-radius:50%;
+    filter:blur(26px);opacity:.5;}
+  .dexcard .gname{font-weight:800;font-size:15.5px;letter-spacing:-.01em;position:relative;}
+  .dexcard .gsub{font-size:12px;color:var(--muted);margin-top:3px;position:relative;}
+  .dexcard .num{position:absolute;top:11px;right:13px;font-size:11px;font-weight:800;color:var(--faint);}
+  .dots{display:flex;gap:3px;margin-top:11px;}
+  .dots .d{width:15px;height:5px;border-radius:3px;background:var(--surface2);}
+
+  /* ── Dex detail ─────────────────────────────────────── */
+  .detail-hero{padding:22px 18px 18px;border-radius:0 0 24px 24px;position:relative;overflow:hidden;}
+  .detail-hero .gtag{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.1em;
+    text-transform:uppercase;padding:5px 11px;border-radius:999px;background:rgba(0,0,0,.28);}
+  .detail-hero h1{font-size:28px;font-weight:800;margin-top:12px;letter-spacing:-.02em;color:#0A0E13;}
+  .steps{counter-reset:s;}
+  .step{display:flex;gap:13px;margin-bottom:13px;}
+  .step .n{counter-increment:s;flex-shrink:0;width:27px;height:27px;border-radius:9px;background:var(--surface2);
+    border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;
+    color:var(--accent);}
+  .step .n::before{content:counter(s);}
+  .step p{font-size:14.5px;line-height:1.5;color:#d5deea;}
+  .record{background:linear-gradient(150deg,#231a12,#1a130d);border:1px solid #3a2a1a;border-radius:15px;padding:16px;}
+  .record .rl{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2);font-weight:800;}
+  .record .rv{font-size:16px;font-weight:800;margin-top:7px;line-height:1.35;}
+  .record .rh{font-size:13px;color:var(--muted);margin-top:5px;}
+  .musclechips{display:flex;flex-wrap:wrap;gap:7px;margin-top:4px;}
+
+  /* ── Timer ──────────────────────────────────────────── */
+  .timerface{text-align:center;padding:26px 0 14px;}
+  .bigtime{font-size:66px;font-weight:800;letter-spacing:-.03em;font-variant-numeric:tabular-nums;line-height:1;}
+  .phase{font-size:14px;letter-spacing:.2em;text-transform:uppercase;font-weight:800;margin-bottom:10px;}
+  .tmode{display:flex;background:var(--surface2);border:1px solid var(--line);border-radius:12px;padding:4px;gap:4px;}
+  .tmode button{flex:1;padding:10px;border-radius:9px;font-weight:800;font-size:13.5px;color:var(--muted);}
+  .tmode button.on{background:var(--accent);color:#0A0E13;}
+  .cfgrow{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--line);}
+  .cfgrow:last-child{border-bottom:none;}
+  .stepper{display:flex;align-items:center;gap:0;background:var(--surface2);border:1px solid var(--line);border-radius:11px;}
+  .stepper button{width:40px;height:40px;font-size:22px;font-weight:700;color:var(--accent);}
+  .stepper .v{min-width:52px;text-align:center;font-weight:800;font-size:16px;font-variant-numeric:tabular-nums;}
+
+  /* ── Forms ──────────────────────────────────────────── */
+  .field{margin-bottom:13px;}
+  .field label{display:block;font-size:12px;font-weight:700;color:var(--muted);margin-bottom:6px;letter-spacing:.02em;}
+  .field input,.field select,.field textarea{width:100%;background:var(--bg2);border:1px solid var(--line);
+    border-radius:11px;padding:13px 14px;color:var(--text);font-size:15px;outline:none;}
+  .field input:focus,.field textarea:focus,.field select:focus{border-color:var(--accent-dim);}
+  .field textarea{resize:vertical;min-height:64px;}
+
+  /* ── Nav ────────────────────────────────────────────── */
+  .nav{position:fixed;left:0;right:0;bottom:0;height:var(--nav-h);z-index:40;max-width:520px;margin:0 auto;
+    background:rgba(12,17,24,.92);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+    border-top:1px solid var(--line);display:flex;padding-bottom:env(safe-area-inset-bottom);}
+  .navbtn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--faint);}
+  .navbtn.on{color:var(--accent);}
+  .navbtn span{font-size:10px;font-weight:700;letter-spacing:.02em;}
+
+  /* ── Modal / session ────────────────────────────────── */
+  .overlay{position:fixed;inset:0;z-index:60;background:rgba(6,9,13,.78);backdrop-filter:blur(6px);
+    display:flex;align-items:flex-end;justify-content:center;animation:fade .2s;}
+  .sheet{width:100%;max-width:520px;background:var(--bg2);border-radius:22px 22px 0 0;border:1px solid var(--line);
+    border-bottom:none;padding:20px 18px calc(24px + env(safe-area-inset-bottom));max-height:92vh;overflow-y:auto;
+    animation:up .28s cubic-bezier(.2,.9,.25,1);}
+  @keyframes up{from{transform:translateY(100%)}to{transform:none}}
+  .grab{width:38px;height:4px;border-radius:99px;background:var(--line);margin:0 auto 16px;}
+  .check{display:flex;align-items:center;gap:12px;padding:12px 13px;border:1px solid var(--line);border-radius:12px;
+    margin-bottom:8px;background:var(--surface);}
+  .check .box{width:24px;height:24px;border-radius:7px;border:2px solid var(--faint);flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;transition:.15s;}
+  .check.done .box{background:var(--accent);border-color:var(--accent);}
+  .check.done .lbl{color:var(--faint);text-decoration:line-through;}
+  .check .lbl{font-weight:600;font-size:14.5px;}
+
+  /* ── Music ──────────────────────────────────────────── */
+  .musichero{border-radius:20px;padding:22px;background:linear-gradient(135deg,#fb2c53,#ff5e3a);position:relative;overflow:hidden;}
+  .musichero h2{font-size:22px;font-weight:800;color:#fff;letter-spacing:-.02em;}
+  .musichero p{color:rgba(255,255,255,.9);font-size:13.5px;margin-top:6px;line-height:1.5;}
+  .plgrid{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-top:12px;}
+  .plcard{border-radius:15px;padding:15px;text-align:left;min-height:104px;display:flex;flex-direction:column;
+    justify-content:flex-end;position:relative;overflow:hidden;transition:transform .08s;}
+  .plcard:active{transform:scale(.97);}
+  .plcard h4{font-size:15px;font-weight:800;color:#fff;position:relative;}
+  .plcard p{font-size:11.5px;color:rgba(255,255,255,.85);margin-top:3px;position:relative;}
+  .embedwrap{border-radius:14px;overflow:hidden;border:1px solid var(--line);background:var(--surface);margin-top:12px;}
+  .embedwrap iframe{width:100%;height:175px;border:none;display:block;}
+  a.link{color:var(--accent);text-decoration:none;font-weight:700;}
+
+  .toast{position:fixed;bottom:calc(var(--nav-h) + 16px);left:50%;transform:translateX(-50%);z-index:80;
+    background:var(--accent);color:#0A0E13;font-weight:800;font-size:14px;padding:11px 20px;border-radius:999px;
+    box-shadow:0 8px 30px rgba(0,0,0,.4);animation:pop .2s;white-space:nowrap;}
+</style>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+<div id="root"><div id="loading">Work It Out</div></div>
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useRef, useCallback, useMemo } = React;
+
+// ─── STORAGE ────────────────────────────────────────────────────────────────
+const NS = "wio.v1.";
+function load(key, fallback){
+  try{ const v = localStorage.getItem(NS+key); return v==null ? fallback : JSON.parse(v); }
+  catch(e){ return fallback; }
+}
+function save(key, val){ try{ localStorage.setItem(NS+key, JSON.stringify(val)); }catch(e){} }
+function usePersist(key, initial){
+  const [v, setV] = useState(()=>load(key, initial));
+  useEffect(()=>{ save(key, v); }, [key, v]);
+  return [v, setV];
+}
+
+// ─── MUSCLE GROUPS ──────────────────────────────────────────────────────────
+const GROUPS = {
+  Chest:"var(--chest)", Back:"var(--back)", Legs:"var(--legs)", Shoulders:"var(--shoulders)",
+  Arms:"var(--arms)", Core:"var(--core)", Cardio:"var(--cardio)"
+};
+const GROUP_ORDER = ["Chest","Back","Legs","Shoulders","Arms","Core","Cardio"];
+
+// ─── EXERCISE DATABASE (the MuscleDex) ──────────────────────────────────────
+// difficulty 1–5. Records verified where an official record exists; where none is
+// standardized, an honest elite benchmark is given.
+const EXERCISES = [
+  { id:"pushup", name:"Push-Up", group:"Chest", equip:"Bodyweight", diff:1,
+    muscles:["Chest","Triceps","Front Deltoids","Core"],
+    about:"The push-up is the original bodyweight pressing movement. It builds the chest, triceps and shoulders while forcing your core to hold a rigid plank. It scales endlessly — from knees to one-arm to explosive clap variations.",
+    how:["Start in a high plank: hands slightly wider than shoulders, body in one straight line from head to heels.",
+      "Brace your core and squeeze your glutes so your hips don't sag.",
+      "Bend the elbows and lower until your chest is a fist's height from the floor. Keep elbows tracking at roughly 45°.",
+      "Drive through your palms to press back up to full lockout.",
+      "Breathe in on the way down, out on the way up."],
+    record:{ v:"3,249 push-ups in one hour", h:"Daniel Scali (Australia), 2023 — Guinness World Record." } },
+
+  { id:"bench", name:"Bench Press", group:"Chest", equip:"Barbell", diff:3,
+    muscles:["Chest","Triceps","Front Deltoids"],
+    about:"The barbell bench press is the benchmark of upper-body pressing strength and one of the three powerlifting lifts. Done well it develops the whole chest, front shoulders and triceps.",
+    how:["Lie on the bench with eyes under the bar, feet flat and planted.",
+      "Pull your shoulder blades down and together; keep a slight natural arch in your lower back.",
+      "Grip a little wider than shoulder width and unrack to straight arms over your shoulders.",
+      "Lower the bar under control to mid-chest, elbows tucked to about 45°.",
+      "Press up and slightly back toward the rack until arms lock out. Always use a spotter or safety pins for heavy sets."],
+    record:{ v:"335 kg / 738.5 lb raw bench press", h:"Kirill Sarychev (Russia), 2015 — heaviest raw (no bench shirt)." } },
+
+  { id:"dbfly", name:"Dumbbell Fly", group:"Chest", equip:"Dumbbells", diff:2,
+    muscles:["Chest","Front Deltoids"],
+    about:"An isolation move that stretches and contracts the chest through a wide arc. Because leverage is brutal at the bottom, use lighter weight and focus on the squeeze, not the load.",
+    how:["Lie on a flat bench holding a dumbbell in each hand, pressed above your chest, palms facing each other.",
+      "Keep a soft, fixed bend in the elbows for the whole set.",
+      "Open your arms out to the sides in a wide arc, feeling a deep stretch across the chest.",
+      "Stop when your upper arms are roughly level with the bench.",
+      "Squeeze the chest to bring the dumbbells back together over your chest."],
+    record:{ v:"No standardized world record", h:"Elite benchmark: strong lifters fly cleanly with 40+ kg (90 lb) dumbbells per hand." } },
+
+  { id:"pullup", name:"Pull-Up", group:"Back", equip:"Bodyweight / Bar", diff:3,
+    muscles:["Lats","Biceps","Rear Deltoids","Forearms"],
+    about:"The pull-up is the king of upper-body pulling. Hanging from a bar and lifting your entire bodyweight builds a wide back, strong biceps and a bulletproof grip.",
+    how:["Grip the bar a little wider than shoulders, palms facing away. Hang at full stretch.",
+      "Set your shoulders by pulling the blades down and back before you bend the arms.",
+      "Drive your elbows down toward your ribs and pull until your chin clears the bar.",
+      "Avoid kipping or swinging — keep the movement strict.",
+      "Lower all the way down under control to a full dead hang, then repeat."],
+    record:{ v:"~12,400 pull-ups in 24 hours", h:"Guinness category broken repeatedly; recent marks exceed 12,000 (e.g. X. Dillard, 2026)." } },
+
+  { id:"deadlift", name:"Deadlift", group:"Back", equip:"Barbell", diff:4,
+    muscles:["Glutes","Hamstrings","Lower Back","Lats","Traps","Core"],
+    about:"Lifting a loaded bar from the floor to a standing lockout, the deadlift trains nearly every muscle on the back of your body. It is the ultimate test of raw, full-body strength.",
+    how:["Stand with mid-foot under the bar, shins about an inch away.",
+      "Hinge and grip just outside your knees. Drop your hips, chest up, back flat and neutral.",
+      "Take the slack out of the bar, then push the floor away with your legs.",
+      "Keep the bar dragging up close to your body; stand tall by driving your hips forward.",
+      "Lock out with glutes squeezed, then reverse the path to set it down. Never round your lower back."],
+    record:{ v:"510 kg / 1,124 lb deadlift", h:"Hafþór Björnsson (Iceland), World Deadlift Championships, Sept 2025." } },
+
+  { id:"row", name:"Bent-Over Row", group:"Back", equip:"Barbell", diff:3,
+    muscles:["Lats","Mid-Back","Rear Deltoids","Biceps"],
+    about:"A horizontal pulling staple that thickens the mid-back and lats while training the hinge position under load. Great for building the postural muscles pressing movements neglect.",
+    how:["Stand holding a barbell, hands just outside your knees.",
+      "Hinge at the hips until your torso is roughly 45° or lower, back flat, knees soft.",
+      "Let the bar hang at arms' length, then pull it toward your lower ribs / belly button.",
+      "Squeeze your shoulder blades together at the top.",
+      "Lower under control without letting your torso rise up. Keep the core braced throughout."],
+    record:{ v:"No standardized world record", h:"Elite benchmark: strongmen perform heavy Pendlay-style rows well above 200 kg (440 lb)." } },
+
+  { id:"latpull", name:"Lat Pulldown", group:"Back", equip:"Cable Machine", diff:2,
+    muscles:["Lats","Biceps","Rear Deltoids"],
+    about:"A machine-based vertical pull that mimics the pull-up while letting you dial the resistance. Ideal for building the lats before you can do full bodyweight pull-ups.",
+    how:["Set the thigh pad and grab the bar wider than shoulder width, palms forward.",
+      "Sit tall, chest up, with a slight lean back.",
+      "Pull the bar down to your upper chest by driving your elbows down and back.",
+      "Squeeze the lats at the bottom; don't shrug the shoulders up.",
+      "Let the bar rise slowly to full stretch overhead, keeping tension. Don't use momentum."],
+    record:{ v:"No standardized world record", h:"A machine accessory lift — progress is judged by controlled reps and full range, not a single record." } },
+
+  { id:"squat", name:"Squat", group:"Legs", equip:"Bodyweight / Barbell", diff:2,
+    muscles:["Quadriceps","Glutes","Hamstrings","Core"],
+    about:"The squat is the foundation of lower-body strength. Whether bodyweight or loaded with a barbell, it trains the quads, glutes and core through a deep, athletic range of motion.",
+    how:["Stand with feet shoulder-width, toes slightly turned out.",
+      "Brace your core and keep your chest proud.",
+      "Push your hips back and bend your knees to sit down between your legs.",
+      "Descend until your thighs are at least parallel, knees tracking over your toes.",
+      "Drive through your whole foot to stand back up tall, squeezing your glutes at the top."],
+    record:{ v:"4,708 bodyweight squats in one hour", h:"Paddy Doyle (UK), 2007. Heaviest raw barbell squat: ~490 kg / 1,080 lb (Ray Williams)." } },
+
+  { id:"lunge", name:"Lunge", group:"Legs", equip:"Bodyweight / Dumbbells", diff:2,
+    muscles:["Quadriceps","Glutes","Hamstrings","Calves"],
+    about:"A single-leg exercise that builds balance, fixes side-to-side strength imbalances and hammers the glutes and quads. Endlessly loadable and joint-friendly.",
+    how:["Stand tall, feet hip-width. Add dumbbells at your sides for load.",
+      "Step one foot forward into a long stride.",
+      "Lower straight down until both knees are bent about 90°; the back knee hovers just off the floor.",
+      "Keep your front knee over your ankle and torso upright.",
+      "Push through the front heel to return to standing, then alternate legs."],
+    record:{ v:"Farthest continuous lunging: several kilometres", h:"Charity lunge feats span multiple km; the walking lunge has no single strict-weight record." } },
+
+  { id:"legpress", name:"Leg Press", group:"Legs", equip:"Machine", diff:2,
+    muscles:["Quadriceps","Glutes","Hamstrings"],
+    about:"A machine that lets you load the legs heavily with a supported back, making it a safer way to push big quad and glute volume than free-weight squats.",
+    how:["Sit in the machine with your back and head flat against the pad.",
+      "Place feet shoulder-width on the platform, roughly mid-height.",
+      "Release the safeties and lower the platform by bending the knees toward your chest.",
+      "Stop before your lower back rounds off the seat (about 90° at the knee).",
+      "Press the platform up powerfully without locking the knees hard at the top."],
+    record:{ v:"No standardized world record", h:"Leg-press loads are machine-specific; reported gym lifts exceed 1,000 kg but aren't officially comparable." } },
+
+  { id:"calf", name:"Calf Raise", group:"Legs", equip:"Bodyweight / Machine", diff:1,
+    muscles:["Calves"],
+    about:"An isolation movement for the calves — the stubborn muscles of the lower leg. A big range of motion and a hard squeeze at the top matter more than heavy weight.",
+    how:["Stand with the balls of your feet on an edge or step, heels hanging off.",
+      "Hold a support for balance; add weight once bodyweight is easy.",
+      "Lower your heels below the step for a deep stretch.",
+      "Press up onto your toes as high as possible, squeezing the calves.",
+      "Pause at the top, then lower slowly. Control beats bouncing."],
+    record:{ v:"No standardized world record", h:"Elite benchmark: on a machine, strong lifters load standing calf raises well beyond bodyweight for reps." } },
+
+  { id:"ohp", name:"Overhead Press", group:"Shoulders", equip:"Barbell", diff:3,
+    muscles:["Front Deltoids","Side Deltoids","Triceps","Core"],
+    about:"Pressing a bar from your shoulders to overhead, the strict press builds powerful shoulders and a rock-solid core that has to stabilize the whole way up.",
+    how:["Set a bar at collarbone height in a rack; grip just outside shoulders.",
+      "Unrack and stand tall, forearms vertical, elbows slightly in front of the bar.",
+      "Brace your core and glutes; move your head back slightly to clear a path.",
+      "Press the bar straight up until arms lock out overhead, then shrug slightly.",
+      "Lower under control back to the front of your shoulders. Don't lean back excessively."],
+    record:{ v:"~230 kg / 507 lb overhead (log)", h:"Strongman log press records; the strict military press record is lower and varies by federation." } },
+
+  { id:"latraise", name:"Lateral Raise", group:"Shoulders", equip:"Dumbbells", diff:1,
+    muscles:["Side Deltoids"],
+    about:"The go-to isolation move for building wider, capped shoulders. It targets the side deltoid, which most compound presses under-train. Light weight, strict form.",
+    how:["Stand holding a dumbbell in each hand at your sides, slight bend in the elbows.",
+      "Keep your torso still — no swinging or leaning.",
+      "Raise the dumbbells out to the sides until your arms are about level with your shoulders.",
+      "Lead with your elbows, not your hands; imagine pouring water at the top.",
+      "Lower slowly under control. Resist the urge to use momentum."],
+    record:{ v:"No standardized world record", h:"An isolation lift judged by strict form; even elite lifters rarely raise more than 20–30 kg per hand cleanly." } },
+
+  { id:"curl", name:"Bicep Curl", group:"Arms", equip:"Dumbbells / Barbell", diff:1,
+    muscles:["Biceps","Forearms"],
+    about:"The classic arm-builder. Curling a weight from a straight arm to a full contraction isolates the biceps and, with a barbell, lets you overload them heavily.",
+    how:["Stand tall holding the weight with palms facing forward, arms extended.",
+      "Keep your elbows pinned to your sides.",
+      "Curl the weight up by bending only at the elbow, squeezing the biceps.",
+      "Don't swing your torso or let your elbows drift forward.",
+      "Lower all the way to a full stretch under control before the next rep."],
+    record:{ v:"Heaviest strict barbell curl: ~113 kg / 249 lb", h:"Standing strict-curl feats sit in this range; several Guinness curl-count categories also exist." } },
+
+  { id:"dip", name:"Tricep Dip", group:"Arms", equip:"Bodyweight / Bars", diff:3,
+    muscles:["Triceps","Chest","Front Deltoids"],
+    about:"Dips lower and raise your whole bodyweight between two bars, overloading the triceps and lower chest. An upright torso targets the arms; leaning forward hits more chest.",
+    how:["Grip parallel bars and press up to straight arms, supporting your bodyweight.",
+      "Keep your torso fairly upright to bias the triceps.",
+      "Bend your elbows to lower until they reach about 90°.",
+      "Keep elbows tucked in rather than flaring wide.",
+      "Press back up to full lockout, squeezing the triceps. Add a belt for weight when strong."],
+    record:{ v:"Thousands of dips in one hour", h:"Guinness parallel-bar dip records run into the thousands per hour for elite calisthenics athletes." } },
+
+  { id:"hammer", name:"Hammer Curl", group:"Arms", equip:"Dumbbells", diff:1,
+    muscles:["Biceps","Brachialis","Forearms"],
+    about:"A curl variation with palms facing each other. The neutral grip shifts work onto the brachialis and forearms, adding thickness and width to the whole arm.",
+    how:["Hold a dumbbell in each hand, palms facing your body (thumbs up).",
+      "Keep elbows tight to your sides.",
+      "Curl the weights up without rotating your wrists — palms stay facing in.",
+      "Squeeze at the top, then lower slowly to full extension.",
+      "You can curl both together or alternate arms."],
+    record:{ v:"No standardized world record", h:"A hypertrophy accessory lift judged by controlled reps rather than a single max attempt." } },
+
+  { id:"plank", name:"Plank", group:"Core", equip:"Bodyweight", diff:1,
+    muscles:["Core","Abs","Lower Back","Shoulders"],
+    about:"An isometric hold that trains the entire core to resist collapse. Simple, equipment-free, and one of the safest ways to build deep abdominal and lower-back endurance.",
+    how:["Set your forearms on the floor, elbows directly under your shoulders.",
+      "Extend your legs back, resting on your toes.",
+      "Form one straight line from head to heels — no sagging hips, no piked butt.",
+      "Squeeze your glutes and brace your abs as if about to take a punch.",
+      "Breathe steadily and hold. Stop the moment your form breaks."],
+    record:{ v:"9 hr 38 min 47 sec plank hold", h:"Josef Šálek (Czech Republic), 2023 — longest abdominal plank (male)." } },
+
+  { id:"crunch", name:"Crunch", group:"Core", equip:"Bodyweight", diff:1,
+    muscles:["Abs"],
+    about:"A short-range abdominal movement that isolates the rectus abdominis (the 'six-pack' muscle) by curling the ribcage toward the pelvis. Quality of contraction beats quantity.",
+    how:["Lie on your back, knees bent, feet flat on the floor.",
+      "Rest your hands lightly by your ears or across your chest — don't pull your neck.",
+      "Curl your shoulders off the floor by contracting your abs, not by yanking your head.",
+      "Rise until your shoulder blades clear the floor.",
+      "Lower slowly under control. Keep constant tension on the abs."],
+    record:{ v:"Thousands of sit-ups in an hour", h:"Guinness sit-up/crunch endurance records run into the thousands per hour." } },
+
+  { id:"twist", name:"Russian Twist", group:"Core", equip:"Bodyweight / Plate", diff:2,
+    muscles:["Obliques","Abs","Core"],
+    about:"A rotational core exercise that carves the obliques on the sides of your waist. Add a plate or dumbbell to make it a serious anti-rotation and rotation strength builder.",
+    how:["Sit on the floor, knees bent, heels down or lifted for more challenge.",
+      "Lean back to about 45°, keeping your back flat and chest up.",
+      "Hold your hands together or a weight at your chest.",
+      "Rotate your torso to tap toward the floor on one side, then the other.",
+      "Move from the waist, controlling the rotation — don't just swing your arms."],
+    record:{ v:"No standardized world record", h:"An oblique conditioning move measured by reps and load rather than a single record." } },
+
+  { id:"legraise", name:"Hanging Leg Raise", group:"Core", equip:"Pull-Up Bar", diff:3,
+    muscles:["Lower Abs","Hip Flexors","Core","Forearms"],
+    about:"Hanging from a bar and lifting your legs is one of the toughest lower-ab movements. It also builds serious grip and shoulder stability while you fight to stay still.",
+    how:["Hang from a pull-up bar with an overhand grip, body straight.",
+      "Set your shoulders down and away from your ears.",
+      "Without swinging, raise your legs up in front of you.",
+      "For the full version, bring straight legs to horizontal or higher (toes toward the bar).",
+      "Lower slowly under control. Bend the knees to make it easier."],
+    record:{ v:"No standardized world record", h:"Elite calisthenics athletes perform strict toes-to-bar for high reps or with added ankle weight." } },
+
+  { id:"burpee", name:"Burpee", group:"Cardio", equip:"Bodyweight", diff:3,
+    muscles:["Full Body","Chest","Legs","Core","Cardio"],
+    about:"A full-body conditioning classic combining a squat, plank, push-up and jump. Brutally effective for burning calories and building work capacity with zero equipment.",
+    how:["From standing, drop into a squat and place your hands on the floor.",
+      "Kick your feet back into a plank position.",
+      "Perform a push-up (optional, for the full version).",
+      "Jump your feet back up toward your hands.",
+      "Explode straight up into a jump with arms overhead, then repeat."],
+    record:{ v:"10,000+ burpees in a single session", h:"Endurance burpee feats exceed 10,000 in 24 hours; Guinness lists hourly and daily categories." } },
+
+  { id:"jumpingjack", name:"Jumping Jack", group:"Cardio", equip:"Bodyweight", diff:1,
+    muscles:["Full Body","Shoulders","Legs","Cardio"],
+    about:"A simple, rhythmic warm-up and cardio staple. Jumping jacks raise your heart rate, mobilize the shoulders and hips, and need nothing but a bit of floor space.",
+    how:["Stand tall with feet together and arms at your sides.",
+      "Jump your feet out wide while sweeping your arms overhead.",
+      "Jump back to feet-together with arms down in one smooth beat.",
+      "Land softly through the balls of your feet, knees slightly bent.",
+      "Keep a steady, springy rhythm."],
+    record:{ v:"Most jumping jacks in one hour: thousands", h:"Guinness lists one-minute and one-hour jumping-jack categories with marks in the thousands." } },
+
+  { id:"mountain", name:"Mountain Climber", group:"Cardio", equip:"Bodyweight", diff:2,
+    muscles:["Core","Shoulders","Legs","Cardio"],
+    about:"A plank-based cardio move where you drive your knees toward your chest at speed. It spikes your heart rate while training core stability and shoulder endurance at once.",
+    how:["Start in a high plank, hands under shoulders, body in a straight line.",
+      "Brace your core and keep your hips low and level.",
+      "Drive one knee toward your chest.",
+      "Quickly switch legs, driving the other knee in as the first returns.",
+      "Keep a fast but controlled running rhythm without bouncing the hips."],
+    record:{ v:"No single strict world record", h:"A conditioning drill measured by pace and duration rather than an official record." } },
+
+  { id:"run", name:"Running", group:"Cardio", equip:"None", diff:2,
+    muscles:["Legs","Glutes","Core","Heart & Lungs"],
+    about:"The most accessible cardio there is. Running builds aerobic endurance, strengthens the heart and legs, and burns serious calories — from an easy jog to all-out sprints.",
+    how:["Start with a 5-minute brisk walk or light jog to warm up.",
+      "Run tall: eyes forward, shoulders relaxed, slight forward lean from the ankles.",
+      "Aim for a quick, light cadence and land under your hips, not out in front.",
+      "Breathe rhythmically; keep an easy pace where you could still talk.",
+      "Build distance or speed gradually week to week, and cool down with a walk."],
+    record:{ v:"Marathon: 2:00:35 · Mile: 3:43.13", h:"Marathon — Kelvin Kiptum (Kenya), 2023. Mile — Hicham El Guerrouj (Morocco), 1999." } },
+];
+const exById = id => EXERCISES.find(e=>e.id===id);
+
+// ─── DEFAULT WORKOUTS ───────────────────────────────────────────────────────
+const DEFAULT_WORKOUTS = [
+  { id:"w_full", name:"Full Body Blast", cat:"Full Body",
+    items:[{ex:"squat",target:"3 x 12"},{ex:"pushup",target:"3 x 15"},{ex:"row",target:"3 x 10"},
+      {ex:"plank",target:"3 x 45s"},{ex:"burpee",target:"3 x 10"}] },
+  { id:"w_push", name:"Push Day", cat:"Upper Body",
+    items:[{ex:"bench",target:"4 x 8"},{ex:"ohp",target:"3 x 10"},{ex:"dip",target:"3 x 12"},
+      {ex:"latraise",target:"3 x 15"}] },
+  { id:"w_leg", name:"Leg Day", cat:"Lower Body",
+    items:[{ex:"squat",target:"4 x 8"},{ex:"lunge",target:"3 x 12"},{ex:"legpress",target:"3 x 12"},
+      {ex:"calf",target:"4 x 20"}] },
+  { id:"w_core", name:"Core Crusher", cat:"Core",
+    items:[{ex:"plank",target:"3 x 60s"},{ex:"crunch",target:"3 x 20"},{ex:"twist",target:"3 x 30"},
+      {ex:"legraise",target:"3 x 12"}] },
+];
+
+// ─── ICONS ──────────────────────────────────────────────────────────────────
+function Icon({name, size=22, color="currentColor", fill="none", stroke=2}){
+  const p = {
+    home:"M3 10.5 12 3l9 7.5M5.5 9.2V20a1 1 0 0 0 1 1H10v-5.5h4V21h3.5a1 1 0 0 0 1-1V9.2",
+    dumbbell:"M6.5 6.5 17.5 17.5M4 8l1-1M5 9 3.5 7.5M8 11 11 8M13 16l3-3M19 16l1 1M18.5 15.5 20 17M16 15l1 1",
+    timer:"M12 8v5l3 2M12 3h0M9 3h6M12 21a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z",
+    grid:"M4 5h6v6H4zM14 5h6v6h-6zM4 15h6v4H4zM14 15h6v4h-6z",
+    music:"M9 18V6l10-2v11M9 18a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0Zm10-3a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0Z",
+    plus:"M12 5v14M5 12h14", trash:"M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13M10 11v6M14 11v6",
+    play:"M6 4l14 8-14 8z", check:"M5 12l5 5 9-11", x:"M6 6l12 12M18 6 6 18",
+    chevright:"M9 6l6 6-6 6", back:"M15 6l-6 6 6 6", edit:"M4 20h4l10-10-4-4L4 16v4zM14 6l4 4",
+    flame:"M12 3c1 3-2 4-2 7a4 4 0 0 0 8 0c0-1-.5-2-1-3 2 1 3 4 3 6a8 8 0 1 1-16 0c0-4 4-6 4-10 1 1 3 2 4 0Z",
+    clock:"M12 7v5l3 2M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z",
+  }[name] || "";
+  const filled = name==="play";
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={filled?color:"none"}
+      stroke={filled?"none":color} strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round">
+      <path d={p}/>
+    </svg>
+  );
+}
+
+// ─── HELPERS ────────────────────────────────────────────────────────────────
+const uid = () => Math.random().toString(36).slice(2,9);
+const todayKey = d => { const x = d? new Date(d):new Date(); return x.getFullYear()+"-"+(x.getMonth()+1)+"-"+x.getDate(); };
+function fmtClock(sec){
+  const s = Math.max(0, Math.floor(sec));
+  const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), ss = s%60;
+  const pad = n => String(n).padStart(2,"0");
+  return h>0 ? `${h}:${pad(m)}:${pad(ss)}` : `${pad(m)}:${pad(ss)}`;
+}
+function fmtDur(sec){
+  const m = Math.round(sec/60);
+  if(m<1) return `${Math.round(sec)}s`;
+  if(m<60) return `${m} min`;
+  return `${Math.floor(m/60)}h ${m%60}m`;
+}
+function relDate(ts){
+  const d = new Date(ts), now = new Date();
+  const dk = todayKey(ts);
+  if(dk===todayKey(now)) return "Today";
+  const y = new Date(now); y.setDate(y.getDate()-1);
+  if(dk===todayKey(y)) return "Yesterday";
+  return d.toLocaleDateString(undefined,{month:"short",day:"numeric"});
+}
+function computeStreak(history){
+  if(!history.length) return 0;
+  const days = new Set(history.map(h=>todayKey(h.date)));
+  let streak = 0; const cur = new Date();
+  // allow streak to count if worked out today OR yesterday (grace)
+  if(!days.has(todayKey(cur))){ cur.setDate(cur.getDate()-1); if(!days.has(todayKey(cur))) return 0; }
+  while(days.has(todayKey(cur))){ streak++; cur.setDate(cur.getDate()-1); }
+  return streak;
+}
+
+// ─── AUDIO (interval beeps) ─────────────────────────────────────────────────
+let _actx = null;
+function beep(freq=880, dur=0.12, type="sine", vol=0.25){
+  try{
+    _actx = _actx || new (window.AudioContext||window.webkitAudioContext)();
+    if(_actx.state==="suspended") _actx.resume();
+    const o = _actx.createOscillator(), g = _actx.createGain();
+    o.type=type; o.frequency.value=freq; o.connect(g); g.connect(_actx.destination);
+    g.gain.setValueAtTime(vol, _actx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, _actx.currentTime+dur);
+    o.start(); o.stop(_actx.currentTime+dur);
+  }catch(e){}
+}
+
+// ═══ ROOT APP ════════════════════════════════════════════════════════════════
+function App(){
+  const [tab, setTab] = useState("home");
+  const [history, setHistory] = usePersist("history", []);
+  const [workouts, setWorkouts] = usePersist("workouts", DEFAULT_WORKOUTS);
+  const [session, setSession] = useState(null);   // active workout session
+  const [dexId, setDexId] = useState(null);        // open exercise detail
+  const [toast, setToast] = useState(null);
+
+  const notify = useCallback((msg)=>{ setToast(msg); }, []);
+  useEffect(()=>{ if(!toast) return; const t=setTimeout(()=>setToast(null),1900); return ()=>clearTimeout(t); },[toast]);
+
+  const logWorkout = useCallback((entry)=>{
+    setHistory(h=>[{ id:uid(), date:Date.now(), ...entry }, ...h]);
+  }, [setHistory]);
+
+  const startSession = useCallback((w)=> setSession({ workout:w, startedAt:Date.now() }), []);
+
+  const addToMyWorkouts = useCallback((ex)=>{
+    setWorkouts(ws=>{
+      const nm = ex.name;
+      const w = { id:uid(), name:nm, cat:ex.group, items:[{ex:ex.id, target:"3 x 12"}] };
+      return [w, ...ws];
+    });
+    notify("Added to My Workouts");
+  }, [setWorkouts, notify]);
+
+  const nav = [
+    { id:"home", label:"Home", icon:"home" },
+    { id:"workouts", label:"Workouts", icon:"dumbbell" },
+    { id:"timer", label:"Timer", icon:"timer" },
+    { id:"dex", label:"MuscleDex", icon:"grid" },
+    { id:"music", label:"Music", icon:"music" },
+  ];
+
+  return (
+    <div>
+      <div className="app" key={tab}>
+        {tab==="home" && <HomeScreen history={history} setHistory={setHistory} setTab={setTab} startSession={startSession} workouts={workouts}/>}
+        {tab==="workouts" && <WorkoutsScreen workouts={workouts} setWorkouts={setWorkouts} startSession={startSession} notify={notify}/>}
+        {tab==="timer" && <TimerScreen/>}
+        {tab==="dex" && <DexScreen openDetail={setDexId}/>}
+        {tab==="music" && <MusicScreen/>}
+      </div>
+
+      <nav className="nav">
+        {nav.map(n=>(
+          <button key={n.id} className={"navbtn"+(tab===n.id?" on":"")} onClick={()=>setTab(n.id)}>
+            <Icon name={n.icon} size={22}/>
+            <span>{n.label}</span>
+          </button>
+        ))}
+      </nav>
+
+      {session &&
+        <SessionSheet session={session} onClose={()=>setSession(null)}
+          onFinish={(entry)=>{ logWorkout(entry); setSession(null); notify("Workout logged"); }} />}
+
+      {dexId &&
+        <DexDetail ex={exById(dexId)} onClose={()=>setDexId(null)}
+          onAdd={addToMyWorkouts}
+          onLog={(ex)=>{ logWorkout({ name:ex.name, durationSec:0, kind:"quick", items:[] }); setDexId(null); notify("Logged "+ex.name); }} />}
+
+      {toast && <div className="toast">{toast}</div>}
+    </div>
+  );
+}
+
+// ═══ HOME ════════════════════════════════════════════════════════════════════
+function HomeScreen({history, setHistory, setTab, startSession, workouts}){
+  const streak = useMemo(()=>computeStreak(history),[history]);
+  const totalTime = useMemo(()=>history.reduce((a,h)=>a+(h.durationSec||0),0),[history]);
+
+  // last 7 days bar data
+  const week = useMemo(()=>{
+    const arr = [];
+    for(let i=6;i>=0;i--){
+      const d = new Date(); d.setDate(d.getDate()-i);
+      const k = todayKey(d);
+      const count = history.filter(h=>todayKey(h.date)===k).length;
+      arr.push({ label:["S","M","T","W","T","F","S"][d.getDay()], count });
+    }
+    return arr;
+  },[history]);
+  const maxC = Math.max(1, ...week.map(w=>w.count));
+  const weekCount = week.reduce((a,w)=>a+w.count,0);
+
+  const greeting = (()=>{ const h=new Date().getHours(); return h<12?"Good morning":h<18?"Good afternoon":"Good evening"; })();
+
+  return (
+    <div>
+      <div className="screen">
+        <div className="kicker">Work It Out</div>
+        <div className="title">{greeting}</div>
+        <div className="subtitle">{history.length? "Let's keep the streak alive." : "Log your first workout to get started."}</div>
+
+        <div className="stats">
+          <div className="stat">
+            <div className="num">{streak}<span className="unit">{streak===1?"day":"days"}</span></div>
+            <div className="lbl row" style={{gap:6}}><Icon name="flame" size={14} color="var(--accent2)"/> Current streak</div>
+          </div>
+          <div className="stat">
+            <div className="num">{history.length}</div>
+            <div className="lbl">Total workouts</div>
+          </div>
+          <div className="stat">
+            <div className="num">{weekCount}</div>
+            <div className="lbl">This week</div>
+          </div>
+          <div className="stat">
+            <div className="num" style={{fontSize:totalTime>=3600?26:30}}>{totalTime>0?fmtDur(totalTime):"0"}</div>
+            <div className="lbl">Total time</div>
+          </div>
+        </div>
+
+        <div className="card" style={{marginTop:16}}>
+          <div className="row" style={{justifyContent:"space-between"}}>
+            <div style={{fontWeight:800,fontSize:15}}>Last 7 days</div>
+            <div className="pill">{week.reduce((a,w)=>a+w.count,0)} sessions</div>
+          </div>
+          <div className="weekbars">
+            {week.map((w,i)=>(
+              <div className="weekbar" key={i}>
+                <div className={"bar"+(w.count>0?" has":"")} style={{height:(w.count/maxC*100)+"%"}}/>
+                <div className="d">{w.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <button className="btn block" style={{marginTop:16}} onClick={()=>setTab("workouts")}>
+          <Icon name="play" size={16} color="#0A0E13"/> Start a workout
+        </button>
+
+        <div className="sectlabel">Recent activity</div>
+      </div>
+
+      <div style={{padding:"0 18px"}}>
+        {history.length===0 &&
+          <div className="empty">
+            <div className="big">No workouts yet</div>
+            Pick a workout or explore the MuscleDex to begin. Everything you log shows up here.
+          </div>}
+        {history.slice(0,12).map(h=>{
+          const ex = h.items && h.items[0] ? exById(h.items[0].ex) : null;
+          const col = ex ? GROUPS[ex.group] : "var(--accent)";
+          return (
+            <div className="item" key={h.id}>
+              <div className="dot" style={{background:col}}>
+                {(h.name||"?").slice(0,1).toUpperCase()}
+              </div>
+              <div style={{minWidth:0,flex:1}}>
+                <div className="nm">{h.name}</div>
+                <div className="meta">{relDate(h.date)}{h.kind==="quick"?" · quick log":""}{h.items&&h.items.length?` · ${h.items.length} exercises`:""}</div>
+              </div>
+              <div className="right">
+                {h.durationSec>0 && <div style={{fontWeight:800,fontVariantNumeric:"tabular-nums"}}>{fmtClock(h.durationSec)}</div>}
+                <button className="iconbtn" style={{marginTop:6}} onClick={()=>setHistory(list=>list.filter(x=>x.id!==h.id))}>
+                  <Icon name="trash" size={15} color="var(--faint)"/>
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ═══ WORKOUTS ════════════════════════════════════════════════════════════════
+function WorkoutsScreen({workouts, setWorkouts, startSession, notify}){
+  const [adding, setAdding] = useState(false);
+
+  const remove = (id)=> setWorkouts(ws=>ws.filter(w=>w.id!==id));
+
+  return (
+    <div>
+      <div className="screen">
+        <div className="kicker">My Workouts</div>
+        <div className="title">Your routines</div>
+        <div className="subtitle">Start a session or build your own workout.</div>
+      </div>
+
+      <div style={{padding:"6px 18px 0"}}>
+        <button className="btn block ghost" onClick={()=>setAdding(true)} style={{marginBottom:16}}>
+          <Icon name="plus" size={17}/> Add a workout
+        </button>
+
+        {workouts.length===0 &&
+          <div className="empty"><div className="big">No workouts saved</div>Add one above, or add exercises from the MuscleDex.</div>}
+
+        {workouts.map(w=>(
+          <div className="card" key={w.id} style={{marginBottom:12}}>
+            <div className="row" style={{justifyContent:"space-between",alignItems:"flex-start"}}>
+              <div style={{minWidth:0}}>
+                <div style={{fontWeight:800,fontSize:17,letterSpacing:"-.01em"}}>{w.name}</div>
+                <div className="pill" style={{marginTop:7,display:"inline-block"}}>{w.cat||"Workout"}</div>
+              </div>
+              <button className="iconbtn" onClick={()=>remove(w.id)}><Icon name="trash" size={15} color="var(--faint)"/></button>
+            </div>
+
+            <div style={{marginTop:13}}>
+              {(w.items||[]).map((it,i)=>{
+                const ex = exById(it.ex);
+                const nm = ex? ex.name : (it.name||"Exercise");
+                const col = ex? GROUPS[ex.group] : "var(--muted)";
+                return (
+                  <div key={i} className="row" style={{padding:"7px 0",borderTop:i?"1px solid var(--line)":"none"}}>
+                    <div style={{width:8,height:8,borderRadius:99,background:col,flexShrink:0}}/>
+                    <div style={{fontSize:14,fontWeight:600}}>{nm}</div>
+                    <div style={{marginLeft:"auto",fontSize:13,color:"var(--muted)",fontWeight:700}}>{it.target||""}</div>
+                  </div>
+                );
+              })}
+              {(!w.items || w.items.length===0) && <div style={{color:"var(--muted)",fontSize:13.5}}>No exercises yet.</div>}
+            </div>
+
+            <button className="btn block" style={{marginTop:14}} onClick={()=>startSession(w)}>
+              <Icon name="play" size={15} color="#0A0E13"/> Start workout
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {adding && <AddWorkoutSheet onClose={()=>setAdding(false)}
+        onSave={(w)=>{ setWorkouts(ws=>[w,...ws]); setAdding(false); notify("Workout added"); }}/>}
+    </div>
+  );
+}
+
+function AddWorkoutSheet({onClose, onSave}){
+  const [name, setName] = useState("");
+  const [cat, setCat] = useState("Full Body");
+  const [picked, setPicked] = useState([]); // {ex, target}
+  const [q, setQ] = useState("");
+
+  const toggle = (id)=> setPicked(p=> p.find(x=>x.ex===id) ? p.filter(x=>x.ex!==id) : [...p,{ex:id,target:"3 x 12"}]);
+  const setTarget = (id,t)=> setPicked(p=>p.map(x=>x.ex===id?{...x,target:t}:x));
+
+  const list = EXERCISES.filter(e=> !q || e.name.toLowerCase().includes(q.toLowerCase()) || e.group.toLowerCase().includes(q.toLowerCase()));
+
+  const save = ()=>{
+    const nm = name.trim() || "My Workout";
+    onSave({ id:uid(), name:nm, cat, items:picked });
+  };
+
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="sheet" onClick={e=>e.stopPropagation()}>
+        <div className="grab"/>
+        <div className="row" style={{justifyContent:"space-between",marginBottom:14}}>
+          <div style={{fontWeight:800,fontSize:19}}>New workout</div>
+          <button className="iconbtn" onClick={onClose}><Icon name="x" size={16}/></button>
+        </div>
+
+        <div className="field">
+          <label>Name</label>
+          <input value={name} onChange={e=>setName(e.target.value)} placeholder="e.g. Monday Upper Body"/>
+        </div>
+        <div className="field">
+          <label>Category</label>
+          <select value={cat} onChange={e=>setCat(e.target.value)}>
+            {["Full Body","Upper Body","Lower Body","Core","Cardio","Custom"].map(c=><option key={c}>{c}</option>)}
+          </select>
+        </div>
+
+        <div className="field">
+          <label>Add exercises {picked.length>0 && `(${picked.length} selected)`}</label>
+          <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search exercises..."/>
+        </div>
+
+        <div style={{maxHeight:"38vh",overflowY:"auto",margin:"0 -2px"}}>
+          {list.map(e=>{
+            const on = picked.find(x=>x.ex===e.id);
+            return (
+              <div key={e.id}>
+                <button className={"check"+(on?" done":"")} style={{width:"100%"}} onClick={()=>toggle(e.id)}>
+                  <div className="box">{on && <Icon name="check" size={15} color="#0A0E13"/>}</div>
+                  <div style={{width:8,height:8,borderRadius:99,background:GROUPS[e.group]}}/>
+                  <div className="lbl" style={{textDecoration:"none",color:"var(--text)"}}>{e.name}</div>
+                  <div style={{marginLeft:"auto",fontSize:11.5,color:"var(--muted)",fontWeight:700}}>{e.group}</div>
+                </button>
+                {on &&
+                  <input value={on.target} onChange={ev=>setTarget(e.id,ev.target.value)}
+                    style={{width:"100%",background:"var(--bg2)",border:"1px solid var(--line)",borderRadius:10,
+                      padding:"9px 12px",color:"var(--text)",fontSize:13.5,margin:"0 0 8px",marginTop:-2}}
+                    placeholder="Target e.g. 3 x 12 or 45s"/>}
+              </div>
+            );
+          })}
+        </div>
+
+        <button className="btn block" style={{marginTop:14}} onClick={save}>Save workout</button>
+      </div>
+    </div>
+  );
+}
+
+// ═══ SESSION SHEET (run + log a workout) ═════════════════════════════════════
+function SessionSheet({session, onClose, onFinish}){
+  const w = session.workout;
+  const [elapsed, setElapsed] = useState(0);
+  const [running, setRunning] = useState(true);
+  const [done, setDone] = useState({});
+  const [notes, setNotes] = useState("");
+  const startRef = useRef(Date.now());
+  const baseRef = useRef(0);
+
+  useEffect(()=>{
+    if(!running) return;
+    startRef.current = Date.now();
+    const id = setInterval(()=> setElapsed(baseRef.current + (Date.now()-startRef.current)/1000), 200);
+    return ()=>{ baseRef.current = baseRef.current + (Date.now()-startRef.current)/1000; clearInterval(id); };
+  },[running]);
+
+  const items = w.items||[];
+  const finish = ()=>{
+    onFinish({ name:w.name, durationSec:Math.round(elapsed), items, notes:notes.trim(),
+      completed:Object.keys(done).length });
+  };
+
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="sheet" onClick={e=>e.stopPropagation()}>
+        <div className="grab"/>
+        <div className="row" style={{justifyContent:"space-between"}}>
+          <div>
+            <div className="kicker">In progress</div>
+            <div style={{fontWeight:800,fontSize:21,marginTop:2}}>{w.name}</div>
+          </div>
+          <button className="iconbtn" onClick={onClose}><Icon name="x" size={16}/></button>
+        </div>
+
+        <div style={{textAlign:"center",padding:"18px 0 8px"}}>
+          <div className="bigtime" style={{fontSize:52}}>{fmtClock(elapsed)}</div>
+          <div className="row" style={{justifyContent:"center",gap:10,marginTop:14}}>
+            <button className="btn ghost sm" onClick={()=>setRunning(r=>!r)}>{running?"Pause":"Resume"}</button>
+            <button className="btn ghost sm" onClick={()=>{ baseRef.current=0; setElapsed(0); startRef.current=Date.now(); }}>Reset</button>
+          </div>
+        </div>
+
+        {items.length>0 && <div className="sectlabel" style={{marginTop:6}}>Exercises · tap to check off</div>}
+        {items.map((it,i)=>{
+          const ex = exById(it.ex);
+          const nm = ex? ex.name : (it.name||"Exercise");
+          const on = done[i];
+          return (
+            <button key={i} className={"check"+(on?" done":"")} style={{width:"100%"}}
+              onClick={()=>setDone(d=>({...d,[i]:!d[i]}))}>
+              <div className="box">{on && <Icon name="check" size={15} color="#0A0E13"/>}</div>
+              <div className="lbl">{nm}</div>
+              <div style={{marginLeft:"auto",fontSize:13,color:"var(--muted)",fontWeight:700}}>{it.target}</div>
+            </button>
+          );
+        })}
+
+        <div className="field" style={{marginTop:14}}>
+          <label>Notes (optional)</label>
+          <textarea value={notes} onChange={e=>setNotes(e.target.value)} placeholder="How did it go? Weights, reps, how you felt..."/>
+        </div>
+
+        <button className="btn block" onClick={finish}><Icon name="check" size={16} color="#0A0E13"/> Finish & log</button>
+      </div>
+    </div>
+  );
+}
+
+// ═══ TIMER ═══════════════════════════════════════════════════════════════════
+function TimerScreen(){
+  const [mode, setMode] = useState("stopwatch");
+  return (
+    <div className="screen">
+      <div className="kicker">Timer</div>
+      <div className="title">Track your time</div>
+      <div className="subtitle">Time a session or run interval training.</div>
+
+      <div className="tmode" style={{marginTop:16}}>
+        <button className={mode==="stopwatch"?"on":""} onClick={()=>setMode("stopwatch")}>Stopwatch</button>
+        <button className={mode==="interval"?"on":""} onClick={()=>setMode("interval")}>Intervals</button>
+      </div>
+
+      {mode==="stopwatch" ? <Stopwatch/> : <IntervalTimer/>}
+    </div>
+  );
+}
+
+function Stopwatch(){
+  const [elapsed, setElapsed] = useState(0);
+  const [running, setRunning] = useState(false);
+  const [laps, setLaps] = useState([]);
+  const startRef = useRef(0), baseRef = useRef(0);
+
+  useEffect(()=>{
+    if(!running) return;
+    startRef.current = Date.now();
+    const id = setInterval(()=> setElapsed(baseRef.current + (Date.now()-startRef.current)/1000), 60);
+    return ()=>{ baseRef.current += (Date.now()-startRef.current)/1000; clearInterval(id); };
+  },[running]);
+
+  const reset = ()=>{ setRunning(false); baseRef.current=0; setElapsed(0); setLaps([]); };
+  const lap = ()=> setLaps(l=>[elapsed, ...l]);
+
+  return (
+    <div>
+      <div className="card" style={{marginTop:16}}>
+        <div className="timerface">
+          <div className="bigtime">{fmtClock(elapsed)}</div>
+        </div>
+        <div className="row" style={{gap:10}}>
+          <button className="btn block" onClick={()=>{ beep(660,.08); setRunning(r=>!r); }}>
+            {running? "Pause" : "Start"}
+          </button>
+          {running
+            ? <button className="btn ghost" style={{minWidth:96}} onClick={lap}>Lap</button>
+            : <button className="btn ghost" style={{minWidth:96}} onClick={reset}>Reset</button>}
+        </div>
+      </div>
+      {laps.length>0 &&
+        <div style={{marginTop:14}}>
+          {laps.map((l,i)=>(
+            <div className="row" key={i} style={{justifyContent:"space-between",padding:"11px 4px",borderBottom:"1px solid var(--line)"}}>
+              <span style={{color:"var(--muted)",fontWeight:700}}>Lap {laps.length-i}</span>
+              <span style={{fontWeight:800,fontVariantNumeric:"tabular-nums"}}>{fmtClock(l)}</span>
+            </div>
+          ))}
+        </div>}
+    </div>
+  );
+}
+
+function IntervalTimer(){
+  const [work, setWork] = usePersist("iv_work", 40);
+  const [rest, setRest] = usePersist("iv_rest", 20);
+  const [rounds, setRounds] = usePersist("iv_rounds", 8);
+
+  const [active, setActive] = useState(false);
+  const [phase, setPhase] = useState("work");   // work | rest | done
+  const [round, setRound] = useState(1);
+  const [left, setLeft] = useState(work);
+  const tick = useRef(null);
+
+  const startAll = ()=>{ beep(880,.1); setActive(true); setPhase("work"); setRound(1); setLeft(work); };
+  const stopAll = ()=>{ setActive(false); setPhase("work"); setRound(1); setLeft(work); };
+
+  useEffect(()=>{
+    if(!active) return;
+    tick.current = setInterval(()=>{
+      setLeft(prev=>{
+        if(prev>1) { if(prev<=4) beep(1200,.05,"square",.15); return prev-1; }
+        // phase transition
+        if(phase==="work"){
+          beep(440,.18,"sawtooth"); setPhase("rest"); return rest;
+        } else {
+          if(round>=rounds){ beep(1320,.3); setActive(false); setPhase("done"); return 0; }
+          beep(880,.18); setRound(r=>r+1); setPhase("work"); return work;
+        }
+      });
+    },1000);
+    return ()=>clearInterval(tick.current);
+  },[active, phase, round, work, rest, rounds]);
+
+  const phaseColor = phase==="work"?"var(--accent)":phase==="rest"?"var(--core)":"var(--accent2)";
+  const total = phase==="work"?work:rest;
+  const pct = phase==="done"?100:((total-left)/total*100);
+
+  if(active || phase==="done"){
+    return (
+      <div className="card" style={{marginTop:16}}>
+        <div className="timerface">
+          <div className="phase" style={{color:phaseColor}}>
+            {phase==="done"?"Complete":phase==="work"?"Work":"Rest"}
+          </div>
+          <div className="bigtime" style={{color:phaseColor}}>
+            {phase==="done"? <Icon name="check" size={58} color={phaseColor} stroke={2.5}/> : fmtClock(left)}
+          </div>
+          <div style={{color:"var(--muted)",fontWeight:700,marginTop:10}}>
+            {phase==="done"? `${rounds} rounds finished` : `Round ${round} of ${rounds}`}
+          </div>
+        </div>
+        <div style={{height:6,background:"var(--surface2)",borderRadius:99,overflow:"hidden",margin:"4px 0 16px"}}>
+          <div style={{height:"100%",width:pct+"%",background:phaseColor,transition:"width 1s linear"}}/>
+        </div>
+        {phase==="done"
+          ? <button className="btn block" onClick={()=>{ setPhase("work"); setLeft(work); }}>Done</button>
+          : <button className="btn block warn" onClick={stopAll}>Stop</button>}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="card" style={{marginTop:16}}>
+        <Stepper label="Work" unit="sec" value={work} setValue={setWork} min={5} step={5}/>
+        <Stepper label="Rest" unit="sec" value={rest} setValue={setRest} min={0} step={5}/>
+        <Stepper label="Rounds" unit="" value={rounds} setValue={setRounds} min={1} step={1}/>
+      </div>
+      <div className="card" style={{marginTop:12,textAlign:"center",color:"var(--muted)",fontSize:13.5}}>
+        Total workout: <b style={{color:"var(--text)"}}>{fmtClock((work+rest)*rounds)}</b>
+        <span style={{color:"var(--faint)"}}> · {rounds} rounds</span>
+      </div>
+      <button className="btn block" style={{marginTop:16}} onClick={startAll}>
+        <Icon name="play" size={16} color="#0A0E13"/> Start intervals
+      </button>
+    </div>
+  );
+}
+
+function Stepper({label, unit, value, setValue, min=0, step=1}){
+  return (
+    <div className="cfgrow">
+      <div style={{fontWeight:700,fontSize:15}}>{label}</div>
+      <div className="stepper">
+        <button onClick={()=>setValue(v=>Math.max(min, v-step))}>−</button>
+        <div className="v">{value}{unit && <span style={{fontSize:12,color:"var(--muted)"}}> {unit}</span>}</div>
+        <button onClick={()=>setValue(v=>v+step)}>+</button>
+      </div>
+    </div>
+  );
+}
+
+// ═══ MUSCLEDEX ═══════════════════════════════════════════════════════════════
+function DexScreen({openDetail}){
+  const [filter, setFilter] = useState("All");
+  const [q, setQ] = useState("");
+  const cats = ["All", ...GROUP_ORDER];
+  const list = EXERCISES.filter(e=>
+    (filter==="All"||e.group===filter) &&
+    (!q || e.name.toLowerCase().includes(q.toLowerCase())));
+
+  return (
+    <div>
+      <div className="screen">
+        <div className="kicker">MuscleDex</div>
+        <div className="title">Exercise library</div>
+        <div className="subtitle">Tap any exercise to learn how to do it, read about it, and see its world record.</div>
+
+        <div className="field" style={{marginTop:14,marginBottom:6}}>
+          <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search exercises..."/>
+        </div>
+        <div className="chips">
+          {cats.map(c=>(
+            <button key={c} className={"chip"+(filter===c?" on":"")} onClick={()=>setFilter(c)}>
+              {c}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{padding:"4px 18px 0"}}>
+        <div className="dexgrid">
+          {list.map((e,i)=>(
+            <button className="dexcard" key={e.id} onClick={()=>openDetail(e.id)}>
+              <div className="glow" style={{background:GROUPS[e.group]}}/>
+              <div className="num">#{String(EXERCISES.indexOf(e)+1).padStart(2,"0")}</div>
+              <div className="gname">{e.name}</div>
+              <div className="gsub">{e.group} · {e.equip}</div>
+              <div className="dots">
+                {[1,2,3,4,5].map(d=>(
+                  <div key={d} className="d" style={{background:d<=e.diff?GROUPS[e.group]:"var(--surface2)"}}/>
+                ))}
+              </div>
+            </button>
+          ))}
+        </div>
+        {list.length===0 && <div className="empty">No exercises match your search.</div>}
+      </div>
+    </div>
+  );
+}
+
+function DexDetail({ex, onClose, onAdd, onLog}){
+  if(!ex) return null;
+  const col = GROUPS[ex.group];
+  return (
+    <div className="overlay" onClick={onClose} style={{alignItems:"stretch"}}>
+      <div className="sheet" onClick={e=>e.stopPropagation()}
+        style={{maxHeight:"96vh",padding:0,borderRadius:"22px 22px 0 0"}}>
+        <div className="detail-hero" style={{background:`linear-gradient(150deg, ${col}, ${col})`}}>
+          <div className="row" style={{justifyContent:"space-between"}}>
+            <span className="gtag" style={{color:"#0A0E13"}}>{ex.group} · {ex.equip}</span>
+            <button className="iconbtn" style={{background:"rgba(0,0,0,.25)",border:"none"}} onClick={onClose}>
+              <Icon name="x" size={16} color="#0A0E13"/>
+            </button>
+          </div>
+          <h1>{ex.name}</h1>
+          <div className="row" style={{gap:5,marginTop:10}}>
+            <span style={{fontSize:12,fontWeight:800,color:"rgba(10,14,19,.7)"}}>Difficulty</span>
+            {[1,2,3,4,5].map(d=>(
+              <div key={d} style={{width:16,height:6,borderRadius:3,
+                background:d<=ex.diff?"#0A0E13":"rgba(10,14,19,.28)"}}/>
+            ))}
+          </div>
+        </div>
+
+        <div style={{padding:"18px",overflowY:"auto"}}>
+          <div className="sectlabel" style={{marginTop:0}}>About</div>
+          <p style={{fontSize:14.5,lineHeight:1.6,color:"#cdd6e2"}}>{ex.about}</p>
+
+          <div className="sectlabel">Muscles worked</div>
+          <div className="musclechips">
+            {ex.muscles.map(m=><span key={m} className="pill" style={{background:"var(--surface2)"}}>{m}</span>)}
+          </div>
+
+          <div className="sectlabel">How to do it</div>
+          <div className="steps">
+            {ex.how.map((s,i)=>(
+              <div className="step" key={i}><div className="n"/><p>{s}</p></div>
+            ))}
+          </div>
+
+          <div className="sectlabel">World record</div>
+          <div className="record">
+            <div className="rl">Record</div>
+            <div className="rv">{ex.record.v}</div>
+            <div className="rh">{ex.record.h}</div>
+          </div>
+
+          <div className="row" style={{gap:10,marginTop:18}}>
+            <button className="btn block ghost" onClick={()=>onAdd(ex)}><Icon name="plus" size={16}/> Add to workouts</button>
+            <button className="btn block" onClick={()=>onLog(ex)}><Icon name="check" size={16} color="#0A0E13"/> Log now</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══ MUSIC (Apple Music) ═════════════════════════════════════════════════════
+const PLAYLISTS = [
+  { name:"Beast Mode", desc:"Heavy lifting energy", term:"beast mode workout", grad:"linear-gradient(145deg,#ff416c,#ff4b2b)" },
+  { name:"Cardio Pump", desc:"High-BPM running", term:"cardio workout running", grad:"linear-gradient(145deg,#f7971e,#ffd200)" },
+  { name:"HIIT Sprint", desc:"Interval intensity", term:"hiit workout", grad:"linear-gradient(145deg,#8e2de2,#4a00e0)" },
+  { name:"Pump Up Hip-Hop", desc:"Gym rap classics", term:"pump up hip hop workout", grad:"linear-gradient(145deg,#11998e,#38ef7d)" },
+  { name:"Rock Workout", desc:"Guitar-driven power", term:"rock workout", grad:"linear-gradient(145deg,#232526,#414345)" },
+  { name:"Cool Down", desc:"Stretch & recover", term:"cool down stretch", grad:"linear-gradient(145deg,#2193b0,#6dd5ed)" },
+];
+
+function toEmbed(url){
+  // convert a shared Apple Music link to its embeddable player URL
+  const u = url.trim();
+  if(!u) return null;
+  if(u.includes("embed.music.apple.com")) return u;
+  if(u.includes("music.apple.com")) return u.replace("music.apple.com","embed.music.apple.com");
+  return null;
+}
+
+function MusicScreen(){
+  const [url, setUrl] = usePersist("music_url", "");
+  const [draft, setDraft] = useState(url);
+  const embed = toEmbed(url);
+  const openSearch = (term)=> window.open("https://music.apple.com/us/search?term="+encodeURIComponent(term), "_blank");
+
+  return (
+    <div className="screen">
+      <div className="kicker">Music</div>
+      <div className="title">Workout soundtrack</div>
+      <div className="subtitle">Power your session with Apple Music.</div>
+
+      <div className="musichero" style={{marginTop:16}}>
+        <div className="glow" style={{position:"absolute",top:-20,right:-20,width:120,height:120,borderRadius:"50%",background:"rgba(255,255,255,.25)",filter:"blur(30px)"}}/>
+        <h2>Apple Music</h2>
+        <p>Open a curated workout playlist, or paste any Apple Music playlist, album or song link to play it right here.</p>
+        <button className="btn" style={{marginTop:14,background:"#0A0E13",color:"#fff"}}
+          onClick={()=>window.open("https://music.apple.com/us/browse","_blank")}>
+          <Icon name="music" size={16} color="#fff"/> Open Apple Music
+        </button>
+      </div>
+
+      <div className="sectlabel">Curated playlists</div>
+      <div className="plgrid">
+        {PLAYLISTS.map(p=>(
+          <button className="plcard" key={p.name} style={{background:p.grad}} onClick={()=>openSearch(p.term)}>
+            <div style={{position:"absolute",top:11,right:12}}><Icon name="play" size={15} color="rgba(255,255,255,.9)"/></div>
+            <h4>{p.name}</h4>
+            <p>{p.desc}</p>
+          </button>
+        ))}
+      </div>
+
+      <div className="sectlabel">Play a playlist here</div>
+      <div className="card">
+        <div className="field" style={{marginBottom:10}}>
+          <label>Paste an Apple Music link</label>
+          <input value={draft} onChange={e=>setDraft(e.target.value)}
+            placeholder="https://music.apple.com/..."/>
+        </div>
+        <div className="row" style={{gap:10}}>
+          <button className="btn block" onClick={()=>setUrl(draft)}>Load player</button>
+          {url && <button className="btn ghost" style={{minWidth:90}} onClick={()=>{ setUrl(""); setDraft(""); }}>Clear</button>}
+        </div>
+
+        {embed &&
+          <div className="embedwrap">
+            <iframe allow="autoplay *; encrypted-media *;" sandbox="allow-forms allow-popups allow-same-origin allow-scripts"
+              src={embed} title="Apple Music player"/>
+          </div>}
+        {url && !embed &&
+          <div style={{color:"var(--accent2)",fontSize:13,marginTop:10,fontWeight:600}}>
+            That doesn't look like an Apple Music link. Copy the share link from music.apple.com.
+          </div>}
+        {!url &&
+          <div style={{color:"var(--muted)",fontSize:12.5,marginTop:10,lineHeight:1.5}}>
+            Tip: in Apple Music, tap a playlist &rarr; Share &rarr; Copy Link, then paste it above. Previews play for
+            everyone; full tracks play if you're signed in to Apple Music in this browser.
+          </div>}
+      </div>
+    </div>
+  );
+}
+
+// ─── MOUNT ───────────────────────────────────────────────────────────────────
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
