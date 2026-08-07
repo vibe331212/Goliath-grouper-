@@ -142,6 +142,8 @@
   .stepper{display:flex;align-items:center;gap:0;background:var(--surface2);border:1px solid var(--line);border-radius:11px;}
   .stepper button{width:40px;height:40px;font-size:22px;font-weight:700;color:var(--accent-ink);}
   .stepper .v{min-width:52px;text-align:center;font-weight:800;font-size:16px;font-variant-numeric:tabular-nums;}
+  .stepper.sm button{width:34px;height:38px;font-size:19px;}
+  .stepper.sm .v{min-width:40px;font-size:15px;}
 
   /* ── Forms ──────────────────────────────────────────── */
   .field{margin-bottom:13px;}
@@ -1556,8 +1558,8 @@ function IntervalTimer({finishSound, setFinishSound}){
   return (
     <div>
       <div className="card" style={{marginTop:16}}>
-        <Stepper label="Work" unit="sec" value={work} setValue={setWork} min={5} step={5}/>
-        <Stepper label="Rest" unit="sec" value={rest} setValue={setRest} min={0} step={5}/>
+        <TimeStepper label="Work" seconds={work} setSeconds={setWork} minTotal={5}/>
+        <TimeStepper label="Rest" seconds={rest} setSeconds={setRest} minTotal={0}/>
         <Stepper label="Rounds" unit="" value={rounds} setValue={setRounds} min={1} step={1}/>
       </div>
       <div className="card" style={{marginTop:12,textAlign:"center",color:"var(--muted)",fontSize:13.5}}>
@@ -1570,6 +1572,29 @@ function IntervalTimer({finishSound, setFinishSound}){
       <button className="btn block" style={{marginTop:16}} onClick={startAll}>
         <Icon name="play" size={16} color="#0A0E13"/> Start intervals
       </button>
+    </div>
+  );
+}
+
+// minutes + seconds stepper, stored/returned as total seconds
+function TimeStepper({label, seconds, setSeconds, minTotal=0}){
+  const m = Math.floor(seconds/60), s = seconds%60;
+  const set = (nm, ns)=> setSeconds(Math.max(minTotal, nm*60 + ns));
+  return (
+    <div className="cfgrow">
+      <div style={{fontWeight:700,fontSize:15}}>{label}</div>
+      <div className="row" style={{gap:8}}>
+        <div className="stepper sm">
+          <button onClick={()=>set(Math.max(0, m-1), s)}>−</button>
+          <div className="v">{m}<span style={{fontSize:11,color:"var(--muted)"}}> m</span></div>
+          <button onClick={()=>set(Math.min(60, m+1), s)}>+</button>
+        </div>
+        <div className="stepper sm">
+          <button onClick={()=>set(m, Math.max(0, s-5))}>−</button>
+          <div className="v">{String(s).padStart(2,"0")}<span style={{fontSize:11,color:"var(--muted)"}}> s</span></div>
+          <button onClick={()=>set(m, s>=55? 55 : s+5)}>+</button>
+        </div>
+      </div>
     </div>
   );
 }
