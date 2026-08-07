@@ -664,24 +664,6 @@ function App(){
   const notify = useCallback((msg)=>{ setToast(msg); }, []);
   useEffect(()=>{ if(!toast) return; const t=setTimeout(()=>setToast(null),1900); return ()=>clearTimeout(t); },[toast]);
 
-  // Daily workout reminder: fires a browser notification at the chosen time while the app is open,
-  // skipping rest days and any day already logged.
-  useEffect(()=>{
-    if(!settings.notify || typeof Notification==="undefined" || Notification.permission!=="granted") return;
-    const now = new Date();
-    if((settings.restDays||[]).includes(now.getDay())) return;
-    if(history.some(h=>todayKey(h.date)===todayKey(now))) return;
-    const [hh,mm] = (settings.remindTime||"18:00").split(":").map(Number);
-    const target = new Date(); target.setHours(hh||18, mm||0, 0, 0);
-    const ms = target.getTime() - now.getTime();
-    if(ms<=0) return;
-    const id = setTimeout(()=>{
-      const done = load("history",[]).some(h=>todayKey(h.date)===todayKey(new Date()));
-      if(!done){ try{ new Notification("Work It Out", { body:"Time for your workout — let's move." }); }catch(e){} }
-    }, Math.min(ms, 2147483647));
-    return ()=>clearTimeout(id);
-  },[settings, history]);
-
   const logWorkout = useCallback((entry)=>{
     setHistory(h=>[{ id:uid(), date:Date.now(), ...entry }, ...h]);
   }, [setHistory]);
@@ -887,14 +869,6 @@ function RemindersSheet({settings, setSettings, notify, onClose}){
     const r = v.restDays||[];
     return { ...v, restDays: r.includes(i)? r.filter(x=>x!==i) : [...r, i] };
   });
-  const toggleNotify = async ()=>{
-    if(typeof Notification==="undefined"){ notify("Notifications not supported here"); return; }
-    if(s.notify){ setSettings(v=>({...v, notify:false})); notify("Reminders off"); return; }
-    let perm = Notification.permission;
-    if(perm!=="granted"){ try{ perm = await Notification.requestPermission(); }catch(e){} }
-    if(perm==="granted"){ setSettings(v=>({...v, notify:true})); notify("Reminders on"); }
-    else notify("Allow notifications in your browser first");
-  };
   return (
     <div className="overlay" onClick={onClose}>
       <div className="sheet" onClick={e=>e.stopPropagation()}>
@@ -904,7 +878,7 @@ function RemindersSheet({settings, setSettings, notify, onClose}){
           <button className="iconbtn" onClick={onClose}><Icon name="x" size={16}/></button>
         </div>
         <p style={{color:"var(--muted)",fontSize:13.5,lineHeight:1.5,marginBottom:2}}>
-          Set your rest days and a daily nudge to train.
+          Set your rest days — Home reminds you to train or take it easy.
         </p>
 
         <div className="sectlabel">Rest days</div>
@@ -922,26 +896,7 @@ function RemindersSheet({settings, setSettings, notify, onClose}){
           {rest.length? "Rest days: "+rest.slice().sort().map(i=>dayFull[i]).join(", ") : "No rest days set — tap a day above."}
         </div>
 
-        <div className="sectlabel">Daily workout reminder</div>
-        <div className="cfgrow">
-          <div style={{fontWeight:700,fontSize:15}}>Remind me at</div>
-          <input type="time" value={s.remindTime||"18:00"}
-            onChange={e=>setSettings(v=>({...v, remindTime:e.target.value}))}
-            style={{background:"var(--bg2)",border:"1px solid var(--line)",borderRadius:10,padding:"9px 12px",
-              color:"var(--text)",fontSize:15,fontWeight:700}}/>
-        </div>
-        <div className="cfgrow">
-          <div>
-            <div style={{fontWeight:700,fontSize:15}}>Notifications</div>
-            <div style={{fontSize:12.5,color:s.notify?"var(--accent-dim)":"var(--muted)",marginTop:2}}>{s.notify?"On":"Off"}</div>
-          </div>
-          <button className={"btn sm"+(s.notify?" warn":"")} onClick={toggleNotify}>{s.notify?"Turn off":"Turn on"}</button>
-        </div>
-        <div style={{fontSize:12,color:"var(--faint)",marginTop:12,lineHeight:1.5}}>
-          Reminders appear as a browser notification and fire while Work It Out is open. You won't be nudged on a rest day or after you've already logged a workout.
-        </div>
-
-        <button className="btn block" style={{marginTop:18}} onClick={onClose}>Done</button>
+        <button className="btn block" style={{marginTop:22}} onClick={onClose}>Done</button>
       </div>
     </div>
   );
