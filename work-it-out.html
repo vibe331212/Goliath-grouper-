@@ -1496,10 +1496,20 @@ function IntervalTimer({finishSound, setFinishSound}){
   const soundRef = useRef(finishSound);          // latest chosen sound, read at completion
   useEffect(()=>{ soundRef.current = finishSound; }, [finishSound]);
 
-  const startAll = ()=>{ beep(880,.1); setActive(true); setPhase("work"); setRound(1); setLeft(work); };
-  const stopAll = ()=>{ setActive(false); setPhase("work"); setRound(1); setLeft(work); };
-  // from the "Rest up next" hold, begin the rest countdown
-  const startRest = ()=>{ beep(660,.08); setPhase("rest"); setLeft(rest); setActive(true); };
+  // finish sound keeps pinging on a loop until you tap a button
+  const ringRef = useRef(null);
+  const stopRinging = ()=>{ if(ringRef.current){ clearInterval(ringRef.current); ringRef.current=null; } };
+  const startRinging = ()=>{
+    stopRinging();
+    soundById(soundRef.current).play();
+    ringRef.current = setInterval(()=> soundById(soundRef.current).play(), 1400);
+  };
+  useEffect(()=> ()=> stopRinging(), []);   // silence if you leave the timer
+
+  const startAll = ()=>{ stopRinging(); beep(880,.1); setActive(true); setPhase("work"); setRound(1); setLeft(work); };
+  const stopAll = ()=>{ stopRinging(); setActive(false); setPhase("work"); setRound(1); setLeft(work); };
+  // from the "Rest up next" hold, begin the rest countdown (also silences the ping)
+  const startRest = ()=>{ stopRinging(); beep(660,.08); setPhase("rest"); setLeft(rest); setActive(true); };
 
   useEffect(()=>{
     if(!active) return;
@@ -1508,10 +1518,9 @@ function IntervalTimer({finishSound, setFinishSound}){
         if(prev>1) { if(prev<=4) beep(1200,.05,"square",.15); return prev-1; }
         // reached zero → transition
         if(phase==="work"){
-          soundById(soundRef.current).play();            // finish sound at the end of every round
-          if(round>=rounds){ setActive(false); setPhase("done"); return 0; }
-          if(rest>0){ setActive(false); setPhase("restReady"); return 0; } // hold — tap to start rest
-          setRound(r=>r+1); setPhase("work"); return work; // no rest set → straight to next round
+          if(round>=rounds){ startRinging(); setActive(false); setPhase("done"); return 0; }   // keep pinging until Stop
+          if(rest>0){ startRinging(); setActive(false); setPhase("restReady"); return 0; }      // ping until you start rest
+          soundById(soundRef.current).play(); setRound(r=>r+1); setPhase("work"); return work;  // no rest → one ping, next round
         } else { // finishing a rest → next round's work
           beep(880,.18); setRound(r=>r+1); setPhase("work"); return work;
         }
@@ -1544,13 +1553,15 @@ function IntervalTimer({finishSound, setFinishSound}){
           <div style={{height:"100%",width:pct+"%",background:phaseColor,transition:"width 1s linear"}}/>
         </div>
         {phase==="done"
-          ? <button className="btn block" onClick={()=>{ setPhase("work"); setLeft(work); }}>Done</button>
+          ? <button className="btn block" onClick={()=>{ stopRinging(); setPhase("work"); setLeft(work); }}>Stop sound</button>
           : phase==="restReady"
           ? <div className="row" style={{gap:10}}>
               <button className="btn block" onClick={startRest}><Icon name="play" size={15} color="#0A0E13"/> Start rest</button>
               <button className="btn ghost" style={{minWidth:92}} onClick={stopAll}>End</button>
             </div>
           : <button className="btn block warn" onClick={stopAll}>Stop</button>}
+        {(phase==="done"||phase==="restReady") &&
+          <div style={{textAlign:"center",fontSize:12,color:"var(--faint)",marginTop:10}}>Sound keeps pinging until you tap above</div>}
       </div>
     );
   }
