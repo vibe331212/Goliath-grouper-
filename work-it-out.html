@@ -1411,11 +1411,11 @@ function TimerScreen({finishSound, setFinishSound}){
     <div className="screen">
       <div className="kicker">Timer</div>
       <div className="title">Track your time</div>
-      <div className="subtitle">Time a session or run interval training.</div>
+      <div className="subtitle">Time a session or build a custom timer.</div>
 
       <div className="tmode" style={{marginTop:16}}>
         <button className={mode==="stopwatch"?"on":""} onClick={()=>setMode("stopwatch")}>Stopwatch</button>
-        <button className={mode==="interval"?"on":""} onClick={()=>setMode("interval")}>Intervals</button>
+        <button className={mode==="interval"?"on":""} onClick={()=>setMode("interval")}>Custom Timer</button>
       </div>
 
       {mode==="stopwatch" ? <Stopwatch/> : <IntervalTimer finishSound={finishSound} setFinishSound={setFinishSound}/>}
@@ -1591,7 +1591,7 @@ function IntervalTimer({finishSound, setFinishSound}){
       <SoundPicker value={finishSound} onChange={setFinishSound}/>
 
       <button className="btn block" style={{marginTop:16}} onClick={startAll}>
-        <Icon name="play" size={16} color="#0A0E13"/> Start intervals
+        <Icon name="play" size={16} color="#0A0E13"/> Start timer
       </button>
     </div>
   );
