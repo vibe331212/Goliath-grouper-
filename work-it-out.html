@@ -906,6 +906,16 @@ const SOUNDS = [
   { id:"triple",  name:"Triple Beep", play(){ [0,.2,.4].forEach(t=>tone(1046.5,t,.12,"square",.24)); } },
   { id:"digital", name:"Digital",     play(){ [1568,1568,2093].forEach((f,i)=>tone(f,i*.12,.1,"square",.2)); } },
   { id:"alarm",   name:"Alarm",       play(){ for(let i=0;i<4;i++){ tone(1200,i*.26,.13,"sawtooth",.22); tone(880,i*.26+.13,.13,"sawtooth",.22); } } },
+  { id:"boxbell", name:"Boxing Bell", play(){ [0,.32].forEach(t=>{ tone(1180,t,.55,"triangle",.32); tone(1772,t,.5,"sine",.12); }); } },
+  { id:"airhorn", name:"Air Horn",    play(){ [0,.34].forEach(t=>{ tone(233,t,.3,"sawtooth",.22); tone(311,t,.3,"sawtooth",.18); tone(349,t,.3,"square",.1); }); } },
+  { id:"fanfare", name:"Fanfare",     play(){ [523.25,523.25,523.25,698.46].forEach((f,i)=>tone(f, i<3? i*.13 : .4, i===3?.6:.12, "sawtooth",.2)); } },
+  { id:"arcade",  name:"Arcade",      play(){ [659.25,880,1174.7,1760].forEach((f,i)=>tone(f,i*.07,.12,"square",.18)); } },
+  { id:"gong",    name:"Gong",        play(){ tone(146.83,0,1.7,"sine",.34); tone(220,0,1.4,"sine",.14); tone(392,0,1.0,"triangle",.07); } },
+  { id:"whistle", name:"Whistle",     play(){ tone(2093,0,.16,"sine",.24); tone(2093,.2,.14,"sine",.24); tone(2349,.36,.3,"sine",.24); } },
+  { id:"laser",   name:"Laser",       play(){ [1900,1500,1150,850,600,420].forEach((f,i)=>tone(f,i*.035,.06,"sawtooth",.18)); } },
+  { id:"siren",   name:"Siren",       play(){ [600,780,960,780,600,780,960,780].forEach((f,i)=>tone(f,i*.13,.15,"sine",.2)); } },
+  { id:"victory", name:"Victory",     play(){ [523.25,659.25,783.99,1046.5,1046.5].forEach((f,i)=>tone(f, i<4? i*.12 : .52, i===4?.6:.14, "square",.2)); } },
+  { id:"sonar",   name:"Sonar",       play(){ tone(880,0,.45,"sine",.3); tone(880,.5,.9,"sine",.12); } },
   { id:"none",    name:"Silent",      play(){} },
 ];
 const soundById = id => SOUNDS.find(s=>s.id===id) || SOUNDS[0];
