@@ -1549,7 +1549,7 @@ function IntervalTimer({finishSound, setFinishSound}){
       <div className="card" style={{marginTop:16}}>
         <div className="timerface">
           <div className="phase" style={{color:phaseColor}}>{label}</div>
-          <div className="bigtime" style={{color:phaseColor}}>
+          <div className="bigtime" style={{color:phaseColor, fontSize:(phase!=="done" && (phase==="restReady"?rest:left)>=3600)?46:undefined}}>
             {phase==="done"? <Icon name="check" size={58} color={phaseColor} stroke={2.5}/>
               : phase==="restReady"? fmtClock(rest) : fmtClock(left)}
           </div>
@@ -1597,24 +1597,26 @@ function IntervalTimer({finishSound, setFinishSound}){
   );
 }
 
-// minutes + seconds stepper, stored/returned as total seconds
+// hours + minutes + seconds stepper, stored/returned as total seconds
 function TimeStepper({label, seconds, setSeconds, minTotal=0}){
-  const m = Math.floor(seconds/60), s = seconds%60;
-  const set = (nm, ns)=> setSeconds(Math.max(minTotal, nm*60 + ns));
+  const h = Math.floor(seconds/3600);
+  const m = Math.floor((seconds%3600)/60);
+  const s = seconds%60;
+  const set = (nh, nm, ns)=> setSeconds(Math.max(minTotal, nh*3600 + nm*60 + ns));
+  const mini = (val, unit, dec, inc)=> (
+    <div className="stepper sm" style={{flex:1,justifyContent:"space-between"}}>
+      <button onClick={dec}>−</button>
+      <div className="v">{val}<span style={{fontSize:11,color:"var(--muted)"}}> {unit}</span></div>
+      <button onClick={inc}>+</button>
+    </div>
+  );
   return (
-    <div className="cfgrow">
+    <div className="cfgrow" style={{flexDirection:"column",alignItems:"stretch",gap:10}}>
       <div style={{fontWeight:700,fontSize:15}}>{label}</div>
       <div className="row" style={{gap:8}}>
-        <div className="stepper sm">
-          <button onClick={()=>set(Math.max(0, m-1), s)}>−</button>
-          <div className="v">{m}<span style={{fontSize:11,color:"var(--muted)"}}> m</span></div>
-          <button onClick={()=>set(Math.min(60, m+1), s)}>+</button>
-        </div>
-        <div className="stepper sm">
-          <button onClick={()=>set(m, Math.max(0, s-5))}>−</button>
-          <div className="v">{String(s).padStart(2,"0")}<span style={{fontSize:11,color:"var(--muted)"}}> s</span></div>
-          <button onClick={()=>set(m, s>=55? 55 : s+5)}>+</button>
-        </div>
+        {mini(h, "h", ()=>set(Math.max(0,h-1), m, s), ()=>set(Math.min(9,h+1), m, s))}
+        {mini(m, "m", ()=>set(h, Math.max(0,m-1), s), ()=>set(h, Math.min(59,m+1), s))}
+        {mini(String(s).padStart(2,"0"), "s", ()=>set(h, m, Math.max(0,s-5)), ()=>set(h, m, s>=55?55:s+5))}
       </div>
     </div>
   );
