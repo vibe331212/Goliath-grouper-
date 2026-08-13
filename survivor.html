@@ -95,6 +95,8 @@
   #minimap { position:fixed; right:14px; top:14px; z-index:11; border-radius:10px; border:1px solid rgba(255,255,255,.18);
     background:rgba(6,10,20,.6); }
   #cambtn { position:fixed; right:16px; top:150px; z-index:12; pointer-events:auto; }
+  #runbtn { position:fixed; right:16px; top:192px; z-index:12; pointer-events:auto; }
+  #runbtn.on { background:#e6a417; color:#1a1200; }
   #hud .clickable { pointer-events:auto; }
 
   #startHint { position:fixed; left:50%; top:66%; transform:translateX(-50%); z-index:12; text-align:center;
@@ -151,7 +153,7 @@
   <div class="title" style="font-size:28px;">How to Play</div>
   <div class="card muted" style="font-size:14px; line-height:1.7;">
     <p><b>Goal:</b> be the last survivor out of 24. The storm shrinks and forces everyone together. Bots fight each other too, so hang back and let them wear each other down.</p>
-    <p><b>Move:</b> <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>. <b>Look / aim:</b> move the mouse (click once to lock the mouse for full free-look). On touch: left side to move, drag the right side to look.</p>
+    <p><b>Move:</b> <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>. <b>Sprint:</b> hold <kbd>Shift</kbd> (or the Sprint button on touch) to run fast. <b>Look / aim:</b> move the mouse (click once to lock the mouse for full free-look). On touch: left side to move, drag the right side to look.</p>
     <p><b>Shoot:</b> <kbd>Left Click</kbd> or <kbd>Space</kbd>. <b>Reload:</b> <kbd>R</kbd>. <b>Swap weapon:</b> <kbd>Q</kbd> / <kbd>1</kbd> <kbd>2</kbd>.</p>
     <p><b>Camera:</b> press <kbd>V</kbd> (or the on-screen button) to switch between first-person and third-person.</p>
     <p><b>Trade guns:</b> walk over a gun on the ground to pick it up. Rarer guns (green &lt; blue &lt; purple &lt; gold) do more damage.</p>
@@ -241,6 +243,7 @@
   </div>
   <canvas id="minimap" width="130" height="130"></canvas>
   <button id="cambtn" class="btn gray clickable" style="padding:8px 12px; font-size:13px;" onclick="toggleCam()">View: 3rd</button>
+  <button id="runbtn" class="btn gray clickable" style="padding:8px 12px; font-size:13px;">Sprint</button>
 </div>
 <div id="crosshair"></div>
 <div id="target-info"><div id="ti-name"></div><div class="tbar"><i id="ti-bar"></i></div></div>
@@ -460,7 +463,7 @@ function gunLabel(g){ return RARITY[g.rarity].name+' '+g.name; }
 // ---------- entity ----------
 function makeEntity(x,z,isPlayer,name,skin){
   return { x,z, yaw:rand(0,Math.PI*2), pitch:0, isPlayer, name,
-    hp:100, maxHp:100, shield:0, maxShield:100, speed:isPlayer?7.2:6.1,
+    hp:100, maxHp:100, shield:0, maxShield:100, speed:isPlayer?7.6:6.1,
     radius:0.6, alive:true, skin, slot:0, guns:[ makeGun('pistol','common'), null ],
     cool:0, reloading:0, pickupLock:0, kills:0, placement:0,
     hitsTaken:0, lastHit:null, group:null, bbCanvas:null, bbTex:null, bbSprite:null, bbDirty:true,
@@ -598,14 +601,14 @@ function startMatch(){
 function showStartHint(){ let h=document.getElementById('startHint');
   if(!h){ h=document.createElement('div'); h.id='startHint'; document.body.appendChild(h); }
   h.style.display='block'; h.style.opacity='1';
-  h.innerHTML='Click to lock the mouse and free-look &middot; WASD move &middot; V changes view';
+  h.innerHTML='Click to lock the mouse and free-look &middot; WASD move &middot; Shift to sprint &middot; V changes view';
   clearTimeout(showStartHint._t); showStartHint._t=setTimeout(()=>{ h.style.opacity='0'; setTimeout(()=>{h.style.display='none';},600); },4200);
 }
 
 /* ==========================================================================
    INPUT
    ========================================================================== */
-const keys={}; let mouse={down:false, nx:0, ny:0, over:false}; let locked=false;
+const keys={}; let mouse={down:false, nx:0, ny:0, over:false}; let locked=false; let sprintHeld=false;
 window.addEventListener('keydown',e=>{
   if(['arrowup','arrowdown','arrowleft','arrowright',' ','tab'].includes(e.key.toLowerCase())) e.preventDefault();
   keys[e.key.toLowerCase()]=true;
@@ -633,6 +636,14 @@ if(renderer){
 function requestLock(){ try{ const el=canvasEl(); if(el.requestPointerLock) el.requestPointerLock(); }catch(e){} }
 function exitPointerLock(){ try{ if(document.pointerLockElement) document.exitPointerLock(); }catch(e){} }
 document.addEventListener('pointerlockchange',()=>{ locked=(document.pointerLockElement===canvasEl()); });
+
+// sprint button (touch + mouse-hold)
+(function(){ const rb=document.getElementById('runbtn'); if(!rb) return;
+  const on=e=>{ e.preventDefault(); sprintHeld=true; rb.classList.add('on'); };
+  const off=e=>{ sprintHeld=false; rb.classList.remove('on'); };
+  rb.addEventListener('pointerdown',on); rb.addEventListener('pointerup',off);
+  rb.addEventListener('pointerleave',off); rb.addEventListener('pointercancel',off);
+})();
 
 // touch controls
 let joy={active:false,id:-1,ox:0,oy:0,dx:0,dy:0}, look={active:false,id:-1,lx:0,ly:0}, fireT={active:false,id:-1};
@@ -865,7 +876,8 @@ function updatePlayer(p,dt){
   if(joy.active){ fwd+=-joy.dy; str+=joy.dx; }
   const fx=Math.sin(p.yaw), fz=Math.cos(p.yaw), rx=Math.cos(p.yaw), rz=-Math.sin(p.yaw);
   let mx=fx*fwd+rx*str, mz=fz*fwd+rz*str; const m=Math.hypot(mx,mz); if(m>1){ mx/=m; mz/=m; }
-  p.x+=mx*p.speed*dt; p.z+=mz*p.speed*dt;
+  const sp=(keys['shift']||sprintHeld)?1.8:1;
+  p.x+=mx*p.speed*sp*dt; p.z+=mz*p.speed*sp*dt;
   // fire
   if(mouse.down||keys[' ']||fireT.active) playerShoot();
 }
