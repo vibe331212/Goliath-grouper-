@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
-<title>The Survivor</title>
+<title>The Amoo App</title>
 <style>
   * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   html,body { margin:0; padding:0; height:100%; background:#0a0f1c; overflow:hidden;
@@ -101,6 +101,11 @@
   #runbtn { position:fixed; left:16px; bottom:98px; } #runbtn.on { background:#e6a417; color:#1a1200; }
   #cambtn { position:fixed; right:16px; top:150px; }
   #zoombtn { position:fixed; right:16px; top:192px; } #zoombtn.on { background:#4dd0e1; color:#04222a; }
+  #turnL, #turnR { position:fixed; top:50%; transform:translateY(-50%); z-index:12; width:60px; height:64px;
+    border-radius:14px; background:rgba(8,13,24,.6); border:1px solid rgba(255,255,255,.2); color:#fff;
+    font-size:14px; font-weight:800; cursor:pointer; }
+  #turnL { left:12px; } #turnR { right:12px; }
+  #turnL.on, #turnR.on { background:rgba(46,125,255,.75); }
   #firebtn, #jumpbtn, #reloadbtn, #runbtn, #cambtn, #zoombtn { z-index:12; }
   #jumpbtn, #reloadbtn, #runbtn, #cambtn, #zoombtn { padding:9px 13px; font-size:13px; }
 
@@ -129,7 +134,7 @@
 
 <!-- ============ MAIN MENU ============ -->
 <div id="menu" class="screen on">
-  <div class="title">THE SURVIVOR</div>
+  <div class="title">THE AMOO APP</div>
   <div class="subtitle">3D Battle Royale</div>
   <div class="card">
     <div class="row spread">
@@ -168,7 +173,7 @@
   <div class="card muted" style="font-size:14px; line-height:1.7;">
     <p><b>Goal:</b> be the last survivor out of 24. The storm shrinks and forces everyone together. Bots fight each other too.</p>
     <p><b>Move:</b> <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>. <b>Sprint:</b> hold <kbd>Shift</kbd>. <b>Jump:</b> <kbd>Space</kbd>.</p>
-    <p><b>Look / aim:</b> move the mouse (click once to lock it for full free-look). <b>On touch:</b> drag anywhere on the right side of the screen to look around, and use the move stick on the left. If you cannot move, drag your left thumb on the lower-left of the screen.</p>
+    <p><b>Look / aim:</b> move the mouse (click once to lock it for full free-look), or hold the <b>Turn Left</b> / <b>Turn Right</b> buttons on the sides of the screen to turn that way. <b>On touch:</b> drag the left side to move and drag the right side to look. Every action also has an on-screen button, so you never have to use the keyboard if you don't want to.</p>
     <p><b>Shoot:</b> <kbd>Left Click</kbd> or the Fire button. <b>Zoom / scope:</b> hold <kbd>Right Click</kbd> or the Zoom button (best with the Sniper). <b>Reload:</b> <kbd>R</kbd>.</p>
     <p><b>Inventory:</b> you carry up to 5 guns. Switch with <kbd>1</kbd>-<kbd>5</kbd>, <kbd>Q</kbd>, the mouse wheel, or tap a slot. Walk over a gun to pick it up; if your inventory is full it trades for the gun in your hand.</p>
     <p><b>Ammo:</b> each gun has a magazine and a reserve. Reload pulls from your reserve. Grab yellow Ammo boxes, then press <kbd>B</kbd> to top up the gun you are holding.</p>
@@ -265,6 +270,8 @@
   <button id="runbtn" class="btn gray clickable">Sprint</button>
   <button id="cambtn" class="btn gray clickable" onclick="toggleCam()">View: 3rd</button>
   <button id="zoombtn" class="btn gray clickable">Zoom</button>
+  <button id="turnL" class="clickable">Turn<br>Left</button>
+  <button id="turnR" class="clickable">Turn<br>Right</button>
   <canvas id="minimap" width="130" height="130"></canvas>
 </div>
 <div id="crosshair"></div>
@@ -555,7 +562,8 @@ function showStartHint(){ let h=document.getElementById('startHint'); if(!h){ h=
 /* ==========================================================================
    INPUT
    ========================================================================== */
-const keys={}; let mouse={down:false, nx:0, ny:0, over:false}; let locked=false; let sprintHeld=false;
+const keys={}; let mouse={down:false, nx:0, ny:0, over:false}; let locked=false; let sprintHeld=false; let turnBtn=0;
+const TURN_RATE=2.6;
 window.addEventListener('keydown',e=>{
   if(['arrowup','arrowdown','arrowleft','arrowright',' ','tab'].includes(e.key.toLowerCase())) e.preventDefault();
   const k=e.key.toLowerCase(); keys[k]=true;
@@ -610,6 +618,8 @@ function tapBtn(id,fn){ const el=document.getElementById(id); if(!el) return; el
 holdBtn('firebtn',()=>{ ac(); fireHeld=true; },()=>{ fireHeld=false; });
 holdBtn('runbtn',()=>{ sprintHeld=true; document.getElementById('runbtn').classList.add('on'); },()=>{ sprintHeld=false; document.getElementById('runbtn').classList.remove('on'); });
 holdBtn('zoombtn',()=>{ zooming=true; document.getElementById('zoombtn').classList.add('on'); },()=>{ zooming=false; document.getElementById('zoombtn').classList.remove('on'); });
+holdBtn('turnL',()=>{ turnBtn=-1; document.getElementById('turnL').classList.add('on'); },()=>{ turnBtn=0; document.getElementById('turnL').classList.remove('on'); });
+holdBtn('turnR',()=>{ turnBtn=1; document.getElementById('turnR').classList.add('on'); },()=>{ turnBtn=0; document.getElementById('turnR').classList.remove('on'); });
 tapBtn('jumpbtn',()=>{ if(world&&!world.over) tryJump(world.player); });
 tapBtn('reloadbtn',()=>{ if(world&&!world.over) startReload(world.player); });
 tapBtn('cons-health',useHealth); tapBtn('cons-shield',useShield); tapBtn('cons-ammo',useAmmo);
@@ -750,7 +760,8 @@ function updateBot(b,dt){ const z=world.zone, ai=b.ai; ai.think-=dt; const outsi
    PLAYER UPDATE
    ========================================================================== */
 function updatePlayer(p,dt){
-  if(!locked && mouse.over){ p.yaw+=mouse.nx*2.2*dt; p.pitch=clamp(-mouse.ny*0.9,-1.1,1.1); }
+  if(turnBtn!==0) p.yaw+=turnBtn*TURN_RATE*dt;               // on-screen Turn Left / Turn Right buttons
+  if(!locked && mouse.over && turnBtn===0){ p.yaw+=mouse.nx*2.2*dt; p.pitch=clamp(-mouse.ny*0.9,-1.1,1.1); }
   let fwd=0,str=0;
   if(keys['w']||keys['arrowup']) fwd+=1; if(keys['s']||keys['arrowdown']) fwd-=1;
   if(keys['d']||keys['arrowright']) str+=1; if(keys['a']||keys['arrowleft']) str-=1;
