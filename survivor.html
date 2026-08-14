@@ -480,7 +480,7 @@ function gunLabel(g){ return RARITY[g.rarity].name+' '+g.name; }
 // ---------- entity ----------
 function makeEntity(x,z,isPlayer,name,skin){
   return { x,z, y:0, vy:0, yaw:rand(0,Math.PI*2), pitch:0, isPlayer, name,
-    hp:100, maxHp:100, shield:0, maxShield:100, speed:isPlayer?7.6:6.1, radius:0.6, alive:true, skin, slot:0,
+    hp:100, maxHp:100, shield:0, maxShield:100, speed:isPlayer?7.6:4.9, radius:0.6, alive:true, skin, slot:0,
     guns: isPlayer ? [makeGun('pistol','common'),null,null,null,null] : [randomGun()],
     items:{health:0,shield:0,ammo:0},
     cool:0, reloading:0, pickupLock:0, kills:0, placement:0, hitsTaken:0, lastHit:null,
@@ -504,10 +504,38 @@ function drawBillboard(ent){ const c=ent.bbCanvas, x=c.getContext('2d'); x.clear
   ent.bbTex.needsUpdate=true; ent.bbDirty=false; }
 
 // ---------- entity mesh ----------
+const SKIN_TONES=['#f2cda0','#e6b183','#d29b6e','#b3764c','#8d5a3c'];
 function buildEntityMesh(ent){ const g=new T.Group();
-  const body=new T.Mesh(new T.CylinderGeometry(0.5,0.55,1.4,10), new T.MeshLambertMaterial({color:new T.Color(ent.skin.body)})); body.position.y=0.95; g.add(body);
-  const head=new T.Mesh(new T.SphereGeometry(0.36,12,10), new T.MeshLambertMaterial({color:new T.Color(ent.skin.accent)})); head.position.y=HEAD_Y; g.add(head);
-  const gun=new T.Mesh(new T.BoxGeometry(0.14,0.14,0.8), new T.MeshLambertMaterial({color:0x222831})); gun.position.set(0.32,1.1,0.45); g.add(gun);
+  const cloth=new T.Color(ent.skin.body);
+  const pants=cloth.clone().multiplyScalar(0.5);
+  const hairCol=new T.Color(ent.skin.accent);
+  const tone=new T.Color(ent.skin.tone||(ent.skin.tone=choose(SKIN_TONES)));
+  const mat=c=>new T.MeshLambertMaterial({color:(c instanceof T.Color)?c:new T.Color(c)});
+  const box=(w,h,d,c,x,y,z)=>{ const m=new T.Mesh(new T.BoxGeometry(w,h,d),mat(c)); m.position.set(x,y,z); g.add(m); return m; };
+  // legs (pants) + shoes
+  box(0.22,0.82,0.24, pants,-0.15,0.41,0); box(0.22,0.82,0.24, pants,0.15,0.41,0);
+  box(0.27,0.14,0.34, 0x24242c,-0.15,0.07,0.04); box(0.27,0.14,0.34, 0x24242c,0.15,0.07,0.04);
+  // torso (shirt) + belt
+  box(0.58,0.64,0.34, cloth,0,1.16,0);
+  box(0.6,0.1,0.36, pants,0,0.86,0);
+  // arms (sleeves) + hands
+  box(0.17,0.5,0.2, cloth,-0.38,1.2,0); box(0.17,0.5,0.2, cloth,0.38,1.16,0.06);
+  box(0.16,0.17,0.17, tone,-0.38,0.9,0.02); box(0.16,0.17,0.2, tone,0.38,0.92,0.24);
+  // neck + head
+  box(0.17,0.12,0.17, tone,0,1.5,0);
+  const head=new T.Mesh(new T.SphereGeometry(0.27,16,12),mat(tone)); head.position.set(0,1.78,0); head.scale.set(1,1.12,0.98); g.add(head);
+  // hair cap (accent colour of the skin)
+  const hair=new T.Mesh(new T.SphereGeometry(0.3,16,10,0,Math.PI*2,0,Math.PI*0.56),mat(hairCol)); hair.position.set(0,1.8,-0.01); g.add(hair);
+  box(0.34,0.09,0.05, hairCol,0,1.66,-0.24); // back hair fringe
+  // eyes + brows + mouth on the front (+z)
+  const dark=mat(0x20242e);
+  const le=new T.Mesh(new T.SphereGeometry(0.045,8,6),dark); le.position.set(-0.1,1.8,0.24); g.add(le);
+  const re=new T.Mesh(new T.SphereGeometry(0.045,8,6),dark); re.position.set(0.1,1.8,0.24); g.add(re);
+  box(0.14,0.02,0.02, hairCol,-0.1,1.87,0.24); box(0.14,0.02,0.02, hairCol,0.1,1.87,0.24); // brows
+  box(0.12,0.03,0.02, 0x7a3b34,0,1.69,0.25); // mouth
+  // gun held in the right hand, pointing forward (+z)
+  const gm=mat(0x2a2f38);
+  box(0.11,0.11,0.66, gm,0.34,0.98,0.5); box(0.1,0.2,0.12, gm,0.34,0.84,0.24); // barrel + grip
   ent.group=g; scene.add(g); buildBillboard(ent); }
 function syncEntityMesh(ent){ const g=ent.group; if(!g) return; g.position.set(ent.x,ent.y,ent.z); g.rotation.y=ent.yaw; if(ent.bbDirty) drawBillboard(ent); }
 
@@ -744,9 +772,11 @@ function floatPickText(ent,txt,color){ if(!ent.isPlayer) return; const el=docume
    ========================================================================== */
 function nearestEnemy(ent,maxD){ let best=null,bd=maxD*maxD; for(const o of world.all){ if(o===ent||!o.alive) continue; const d=dist2(ent.x,ent.z,o.x,o.z); if(d<bd){ bd=d; best=o; } } return best; }
 function botFire(b,target){ const g=b.guns[b.slot]; if(!g||b.cool>0||b.reloading>0) return; if(g.ammo<=0){ startReload(b); return; }
-  g.ammo--; b.cool=g.fireRate; const d=dist(b.x,b.z,target.x,target.z); const pHit=clamp(0.72 - d/g.range*0.42,0.12,0.66);
-  pushTracer(b.x,EYE,b.z, target.x+rand(-1,1), CHEST+rand(-0.6,0.6), target.z+rand(-1,1));
-  if(Math.random()<pHit){ const head=Math.random()<0.14; applyDamage(target,g.dmg,b,gunLabel(g),head); } if(g.ammo<=0) startReload(b); }
+  // bots are deliberately easy: they fire slowly, miss often, and hit softer
+  g.ammo--; b.cool=g.fireRate*1.6 + rand(0.1,0.4); const d=dist(b.x,b.z,target.x,target.z);
+  const pHit=clamp(0.40 - d/g.range*0.34, 0.05, 0.38);
+  pushTracer(b.x,EYE,b.z, target.x+rand(-1.6,1.6), CHEST+rand(-0.9,0.9), target.z+rand(-1.6,1.6));
+  if(Math.random()<pHit){ const head=Math.random()<0.05; applyDamage(target,g.dmg*0.7,b,gunLabel(g),head); } if(g.ammo<=0) startReload(b); }
 function updateBot(b,dt){ const z=world.zone, ai=b.ai; ai.think-=dt; const outside=dist(b.x,b.z,z.cx,z.cz)>z.r-6;
   if(ai.think<=0){ ai.think=rand(0.25,0.55); ai.target=nearestEnemy(b,60);
     if(b.hp<45 && world.pickups.length){ let bp=null,bd=1e9; for(const p of world.pickups){ if(p.kind==='ammo') continue; const d=dist2(b.x,b.z,p.x,p.z); if(d<bd){bd=d;bp=p;} } if(bp&&bd<60*60){ ai.state='heal'; ai.tx=bp.x; ai.tz=bp.z; } else ai.state=ai.target?'fight':'roam'; }
