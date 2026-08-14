@@ -106,8 +106,6 @@
     font-size:14px; font-weight:800; cursor:pointer; }
   #turnL { left:12px; } #turnR { right:12px; }
   #turnL.on, #turnR.on { background:rgba(46,125,255,.75); }
-  #fwdbtn { position:fixed; left:104px; bottom:150px; z-index:12; padding:9px 13px; font-size:13px; }
-  #backbtn { position:fixed; left:104px; bottom:92px; z-index:12; padding:9px 13px; font-size:13px; }
   #firebtn, #jumpbtn, #reloadbtn, #runbtn, #cambtn, #zoombtn { z-index:12; }
   #jumpbtn, #reloadbtn, #runbtn, #cambtn, #zoombtn { padding:9px 13px; font-size:13px; }
 
@@ -130,6 +128,9 @@
   #toast.on { opacity:1; transform:translateX(-50%) translateY(-6px); }
 
   #dropmap { border-radius:16px; border:1px solid rgba(255,255,255,.12); background:#0a0f1c; max-width:92vw; cursor:crosshair; }
+  #joybase, #joyknob { position:fixed; border-radius:50%; pointer-events:none; display:none; z-index:11; }
+  #joybase { width:124px; height:124px; margin:-62px 0 0 -62px; background:rgba(255,255,255,.07); border:2px solid rgba(255,255,255,.3); }
+  #joyknob { width:56px; height:56px; margin:-28px 0 0 -28px; background:rgba(110,170,255,.45); border:2px solid rgba(255,255,255,.6); }
 </style>
 </head>
 <body>
@@ -175,7 +176,8 @@
   <div class="card muted" style="font-size:14px; line-height:1.7;">
     <p><b>Goal:</b> be the last survivor out of 24. The storm shrinks and forces everyone together. Bots fight each other too.</p>
     <p><b>Move:</b> <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>. <b>Sprint:</b> hold <kbd>Shift</kbd>. <b>Jump:</b> <kbd>Space</kbd>.</p>
-    <p><b>Look / aim:</b> move the mouse (click once to lock it for full free-look), or hold the <b>Look Left</b> / <b>Look Right</b> buttons on the sides of the screen. <b>On touch:</b> drag left to look left and drag right to look right; use the <b>Forward</b> / <b>Back</b> buttons (or the move stick) to walk. Every action has an on-screen button, so you never have to use the keyboard if you don't want to.</p>
+    <p><b>On phone (twin-stick):</b> drag your left thumb anywhere on the <b>left half</b> to move &mdash; push up to go forward, push the stick all the way to sprint. Drag your right thumb on the <b>right half</b> to look everywhere. You can also hold the <b>Look Left</b> / <b>Look Right</b> buttons on the edges. All the other actions (fire, jump, reload, weapons, heals) are buttons too, so you never need the keyboard.</p>
+    <p><b>On computer:</b> move the mouse to look (click once to lock it for full free-look), <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to move.</p>
     <p><b>Shoot:</b> <kbd>Left Click</kbd> or the Fire button. <b>Zoom / scope:</b> hold <kbd>Right Click</kbd> or the Zoom button (best with the Sniper). <b>Reload:</b> <kbd>R</kbd>.</p>
     <p><b>Inventory:</b> you carry up to 5 guns. Switch with <kbd>1</kbd>-<kbd>5</kbd>, <kbd>Q</kbd>, the mouse wheel, or tap a slot. Walk over a gun to pick it up; if your inventory is full it trades for the gun in your hand.</p>
     <p><b>Ammo:</b> each gun has a magazine and a reserve. Reload pulls from your reserve. Grab yellow Ammo boxes, then press <kbd>B</kbd> to top up the gun you are holding.</p>
@@ -274,11 +276,10 @@
   <button id="zoombtn" class="btn gray clickable">Zoom</button>
   <button id="turnL" class="clickable">Look<br>Left</button>
   <button id="turnR" class="clickable">Look<br>Right</button>
-  <button id="fwdbtn" class="btn gray clickable">Forward</button>
-  <button id="backbtn" class="btn gray clickable">Back</button>
   <canvas id="minimap" width="130" height="130"></canvas>
 </div>
 <div id="crosshair"></div>
+<div id="joybase"></div><div id="joyknob"></div>
 <div id="target-info"><div id="ti-name"></div><div class="tbar"><i id="ti-bar"></i></div></div>
 <div id="killfeed"></div>
 <div id="toast"></div>
@@ -398,7 +399,7 @@ function evaluateWeek(){ const now=currentWeekId(); if(save.week===now) return n
 const SCREENS=['menu','howto','shop','league','drop','results'];
 function showScreen(name){ SCREENS.forEach(s=>document.getElementById(s).classList.toggle('on', s===name));
   document.getElementById('hud').classList.remove('on'); document.getElementById('crosshair').classList.remove('on');
-  running=false; exitPointerLock();
+  running=false; exitPointerLock(); if(typeof hideJoy==='function') hideJoy();
   if(name==='menu') refreshMenu(); if(name==='shop') renderShop(); if(name==='league') renderLeague(); }
 function hideAllScreens(){ SCREENS.forEach(s=>document.getElementById(s).classList.remove('on')); }
 function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('on');
@@ -588,7 +589,7 @@ function startMatch(){ if(!dropPoint||!glOK){ if(!glOK) toast('3D not supported 
 }
 function showStartHint(){ let h=document.getElementById('startHint'); if(!h){ h=document.createElement('div'); h.id='startHint'; document.body.appendChild(h); }
   h.style.display='block'; h.style.opacity='1';
-  h.innerHTML='Click to lock the mouse and free-look &middot; WASD move &middot; Shift sprint &middot; Space jump &middot; V changes view. On touch, drag the right side to look.';
+  h.innerHTML='On phone: drag the LEFT side to move, drag the RIGHT side to look. On computer: click to lock the mouse, WASD move, Shift sprint, Space jump, V changes view.';
   clearTimeout(showStartHint._t); showStartHint._t=setTimeout(()=>{ h.style.opacity='0'; setTimeout(()=>{h.style.display='none';},600); },5200); }
 
 /* ==========================================================================
@@ -624,22 +625,29 @@ function requestLock(){ try{ const el=canvasEl(); if(el.requestPointerLock) el.r
 function exitPointerLock(){ try{ if(document.pointerLockElement) document.exitPointerLock(); }catch(e){} }
 document.addEventListener('pointerlockchange',()=>{ locked=(document.pointerLockElement===canvasEl()); });
 
-// touch: left 45% = move joystick, elsewhere = drag-to-look
+// TWIN-STICK TOUCH: drag the LEFT half to move, drag the RIGHT half to look everywhere.
 let joy={active:false,id:-1,ox:0,oy:0,dx:0,dy:0}, look={active:false,id:-1,lx:0,ly:0};
+const JOY_MAX=58;
+function showJoy(){ const bs=document.getElementById('joybase'), kn=document.getElementById('joyknob');
+  if(bs){ bs.style.display='block'; bs.style.left=joy.ox+'px'; bs.style.top=joy.oy+'px'; }
+  if(kn){ kn.style.display='block'; kn.style.left=joy.ox+'px'; kn.style.top=joy.oy+'px'; } }
+function moveJoyKnob(){ const kn=document.getElementById('joyknob'); if(kn){ kn.style.left=(joy.ox+joy.dx*JOY_MAX)+'px'; kn.style.top=(joy.oy+joy.dy*JOY_MAX)+'px'; } }
+function hideJoy(){ const bs=document.getElementById('joybase'), kn=document.getElementById('joyknob'); if(bs) bs.style.display='none'; if(kn) kn.style.display='none'; }
 if(renderer){ const cv=renderer.domElement;
   cv.addEventListener('touchstart',e=>{ ac();
     for(const t of e.changedTouches){
-      if(t.clientX<window.innerWidth*0.45 && !joy.active){ joy.active=true; joy.id=t.identifier; joy.ox=t.clientX; joy.oy=t.clientY; joy.dx=0; joy.dy=0; }
+      if(t.clientX<window.innerWidth*0.5 && !joy.active){ joy.active=true; joy.id=t.identifier; joy.ox=t.clientX; joy.oy=t.clientY; joy.dx=0; joy.dy=0; showJoy(); }
       else if(!look.active){ look.active=true; look.id=t.identifier; look.lx=t.clientX; look.ly=t.clientY; }
     } e.preventDefault(); },{passive:false});
   cv.addEventListener('touchmove',e=>{
     for(const t of e.changedTouches){
-      if(joy.active&&t.identifier===joy.id){ let dx=t.clientX-joy.ox,dy=t.clientY-joy.oy; const m=Math.hypot(dx,dy),mx=55; if(m>mx){dx=dx/m*mx;dy=dy/m*mx;} joy.dx=dx/mx; joy.dy=dy/mx; }
+      if(joy.active&&t.identifier===joy.id){ let dx=t.clientX-joy.ox,dy=t.clientY-joy.oy; const m=Math.hypot(dx,dy); if(m>JOY_MAX){dx=dx/m*JOY_MAX;dy=dy/m*JOY_MAX;} joy.dx=dx/JOY_MAX; joy.dy=dy/JOY_MAX; moveJoyKnob(); }
       if(look.active&&t.identifier===look.id){ const p=world&&world.player; if(p&&p.alive){ const s=zooming?0.0028:0.005;
         p.yaw-=(t.clientX-look.lx)*s; p.pitch=clamp(p.pitch+(t.clientY-look.ly)*s,-1.2,1.2); } look.lx=t.clientX; look.ly=t.clientY; }
     } e.preventDefault(); },{passive:false});
   cv.addEventListener('touchend',e=>{ for(const t of e.changedTouches){
-    if(t.identifier===joy.id){ joy.active=false; joy.dx=0; joy.dy=0; } if(t.identifier===look.id){ look.active=false; } } e.preventDefault(); },{passive:false});
+    if(t.identifier===joy.id){ joy.active=false; joy.dx=0; joy.dy=0; hideJoy(); } if(t.identifier===look.id){ look.active=false; } } e.preventDefault(); },{passive:false});
+  cv.addEventListener('touchcancel',e=>{ if(joy.active){ joy.active=false; joy.dx=0; joy.dy=0; hideJoy(); } look.active=false; },{passive:false});
 }
 
 // action buttons (touch + mouse hold)
@@ -652,8 +660,6 @@ holdBtn('runbtn',()=>{ sprintHeld=true; document.getElementById('runbtn').classL
 holdBtn('zoombtn',()=>{ zooming=true; document.getElementById('zoombtn').classList.add('on'); },()=>{ zooming=false; document.getElementById('zoombtn').classList.remove('on'); });
 holdBtn('turnL',()=>{ turnBtn=1; document.getElementById('turnL').classList.add('on'); },()=>{ turnBtn=0; document.getElementById('turnL').classList.remove('on'); });   // Look Left (yaw+ = look left)
 holdBtn('turnR',()=>{ turnBtn=-1; document.getElementById('turnR').classList.add('on'); },()=>{ turnBtn=0; document.getElementById('turnR').classList.remove('on'); });
-holdBtn('fwdbtn',()=>{ moveBtn=1; },()=>{ moveBtn=0; });
-holdBtn('backbtn',()=>{ moveBtn=-1; },()=>{ moveBtn=0; });
 tapBtn('jumpbtn',()=>{ if(world&&!world.over) tryJump(world.player); });
 tapBtn('reloadbtn',()=>{ if(world&&!world.over) startReload(world.player); });
 tapBtn('cons-health',useHealth); tapBtn('cons-shield',useShield); tapBtn('cons-ammo',useAmmo);
@@ -805,7 +811,7 @@ function updatePlayer(p,dt){
   if(joy.active){ fwd+=-joy.dy; str+=joy.dx; }
   const fx=Math.sin(p.yaw), fz=Math.cos(p.yaw), rx=-Math.cos(p.yaw), rz=Math.sin(p.yaw);
   let mx=fx*fwd+rx*str, mz=fz*fwd+rz*str; const m=Math.hypot(mx,mz); if(m>1){ mx/=m; mz/=m; }
-  const sp=(keys['shift']||sprintHeld)?1.8:1;
+  const sp=(keys['shift']||sprintHeld||(joy.active&&Math.hypot(joy.dx,joy.dy)>0.9))?1.8:1;
   p.x+=mx*p.speed*sp*dt; p.z+=mz*p.speed*sp*dt;
   // gravity / jump
   p.vy-=GRAV*dt; p.y+=p.vy*dt; if(p.y<0){ p.y=0; p.vy=0; }
