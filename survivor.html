@@ -80,9 +80,9 @@
   /* bottom-center inventory */
   #wtext { position:fixed; left:50%; bottom:64px; transform:translateX(-50%); font-size:14px; text-shadow:0 1px 3px #000; white-space:nowrap; }
   #wtext #wname { font-weight:800; } #wtext #wammo { opacity:.85; margin-left:8px; font-variant-numeric:tabular-nums; }
-  #weaponbar { position:fixed; left:50%; bottom:16px; transform:translateX(-50%); display:flex; gap:6px; }
-  .wslot { width:74px; height:40px; border-radius:9px; background:rgba(8,13,24,.7); border:2px solid rgba(255,255,255,.15);
-    font-size:11px; line-height:1.15; color:#dfe6f2; padding:4px 5px; cursor:pointer; text-align:left; overflow:hidden; }
+  #weaponbar { position:fixed; left:50%; bottom:16px; transform:translateX(-50%); display:flex; gap:5px; flex-wrap:wrap; justify-content:center; max-width:96vw; }
+  .wslot { width:62px; height:38px; border-radius:9px; background:rgba(8,13,24,.7); border:2px solid rgba(255,255,255,.15);
+    font-size:10px; line-height:1.1; color:#dfe6f2; padding:3px 4px; cursor:pointer; text-align:left; overflow:hidden; }
   .wslot.on { box-shadow:0 0 0 2px #ffd54f inset; background:rgba(30,40,64,.85); }
   .wslot b { display:inline-block; background:rgba(255,255,255,.14); border-radius:4px; padding:0 4px; margin-bottom:2px; font-size:10px; }
 
@@ -90,7 +90,7 @@
   .cons { display:flex; align-items:center; gap:6px; background:rgba(8,13,24,.7); border:1px solid rgba(255,255,255,.14);
     border-radius:10px; padding:6px 10px; color:#dfe6f2; font-size:12px; cursor:pointer; }
   .cons b { font-size:16px; } .cons.hl b { color:#ffd54f; }
-  .cons.health b { color:#5ec46a; } .cons.shield b { color:#4dd0e1; } .cons.ammo b { color:#ffd54f; }
+  .cons.health b { color:#5ec46a; } .cons.shield b { color:#4dd0e1; } .cons.ammo b { color:#ffd54f; } .cons.nade b { color:#8fd06a; }
 
   /* action buttons */
   #firebtn { position:fixed; right:26px; bottom:150px; width:92px; height:92px; border-radius:50%; border:none;
@@ -179,7 +179,8 @@
     <p><b>On phone (twin-stick):</b> drag your left thumb anywhere on the <b>left half</b> to move &mdash; push up to go forward, push the stick all the way to sprint. Drag your right thumb on the <b>right half</b> to look everywhere. You can also hold the <b>Look Left</b> / <b>Look Right</b> buttons on the edges. All the other actions (fire, jump, reload, weapons, heals) are buttons too, so you never need the keyboard.</p>
     <p><b>On computer:</b> move the mouse to look (click once to lock it for full free-look), <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to move.</p>
     <p><b>Shoot:</b> <kbd>Left Click</kbd> or the Fire button. <b>Zoom / scope:</b> hold <kbd>Right Click</kbd> or the Zoom button (best with the Sniper). <b>Reload:</b> <kbd>R</kbd>.</p>
-    <p><b>Inventory:</b> you carry up to 5 guns. Switch with <kbd>1</kbd>-<kbd>5</kbd>, <kbd>Q</kbd>, the mouse wheel, or tap a slot. Walk over a gun to pick it up; if your inventory is full it trades for the gun in your hand.</p>
+    <p><b>Inventory:</b> you carry up to 7 guns. Switch with <kbd>1</kbd>-<kbd>7</kbd>, <kbd>Q</kbd>, the mouse wheel, or tap a slot. Walk over a gun to pick it up; if your inventory is full it trades for the gun in your hand. There are 9 gun types (pistol, revolver, SMG, rifle, assault rifle, LMG, shotgun, marksman, sniper) and every item on the ground looks like what it is.</p>
+    <p><b>Grenades:</b> pick up grenades and press <kbd>G</kbd> (or the Grenade chip) to throw one where you are looking. It bounces, then explodes for big area damage.</p>
     <p><b>Ammo:</b> each gun has a magazine and a reserve. Reload pulls from your reserve. Grab yellow Ammo boxes, then press <kbd>B</kbd> to top up the gun you are holding.</p>
     <p><b>Health &amp; shields:</b> walk over green Health and blue Shield boxes to store them, then press <kbd>H</kbd> (health) or <kbd>J</kbd> (shield) to use one. Tap the chips on touch.</p>
     <p><b>Headshots:</b> aim at the head for double damage. Rarer guns (green &lt; blue &lt; purple &lt; gold) do more damage.</p>
@@ -264,6 +265,7 @@
     <button class="cons health clickable" id="cons-health"><b id="c-health">0</b><span>Health<br><kbd>H</kbd></span></button>
     <button class="cons shield clickable" id="cons-shield"><b id="c-shield">0</b><span>Shield<br><kbd>J</kbd></span></button>
     <button class="cons ammo clickable" id="cons-ammo"><b id="c-ammo">0</b><span>Ammo<br><kbd>B</kbd></span></button>
+    <button class="cons nade clickable" id="cons-grenade"><b id="c-grenade">0</b><span>Grenade<br><kbd>G</kbd></span></button>
   </div>
   <div id="wtext"><span id="wname">Pistol</span><span id="wammo">12 / 36</span></div>
   <div id="weaponbar"></div>
@@ -335,14 +337,18 @@ function rollRarity(){ let r=rand(0,RARITY_WEIGHTS.reduce((a,b)=>a+b,0)),s=0;
   for(let i=0;i<RARITY_ORDER.length;i++){ s+=RARITY_WEIGHTS[i]; if(r<=s) return RARITY_ORDER[i]; } return 'common'; }
 
 const GUNS = {
-  pistol:  { name:'Pistol',  dmg:17, fireRate:0.34, mag:12, reload:0.9, spread:0.020, range:55,  pellets:1 },
-  smg:     { name:'SMG',     dmg:11, fireRate:0.09, mag:28, reload:1.3, spread:0.045, range:45,  pellets:1 },
-  rifle:   { name:'Rifle',   dmg:23, fireRate:0.16, mag:24, reload:1.5, spread:0.014, range:70,  pellets:1 },
-  shotgun: { name:'Shotgun', dmg:8,  fireRate:0.8,  mag:6,  reload:1.7, spread:0.10,  range:26,  pellets:8 },
-  sniper:  { name:'Sniper',  dmg:66, fireRate:1.25, mag:5,  reload:2.0, spread:0.004, range:120, pellets:1 },
+  pistol:  { name:'Pistol',   dmg:17, fireRate:0.34, mag:12, reload:0.9, spread:0.020, range:55,  pellets:1 },
+  revolver:{ name:'Revolver', dmg:34, fireRate:0.5,  mag:6,  reload:1.2, spread:0.016, range:58,  pellets:1 },
+  smg:     { name:'SMG',      dmg:11, fireRate:0.09, mag:28, reload:1.3, spread:0.045, range:45,  pellets:1 },
+  rifle:   { name:'Rifle',    dmg:23, fireRate:0.16, mag:24, reload:1.5, spread:0.014, range:70,  pellets:1 },
+  ar:      { name:'Assault Rifle', dmg:26, fireRate:0.12, mag:30, reload:1.7, spread:0.018, range:74, pellets:1 },
+  lmg:     { name:'LMG',      dmg:20, fireRate:0.08, mag:55, reload:3.0, spread:0.05,  range:66,  pellets:1 },
+  shotgun: { name:'Shotgun',  dmg:8,  fireRate:0.8,  mag:6,  reload:1.7, spread:0.10,  range:26,  pellets:8 },
+  dmr:     { name:'Marksman', dmg:45, fireRate:0.55, mag:10, reload:1.8, spread:0.008, range:95,  pellets:1 },
+  sniper:  { name:'Sniper',   dmg:66, fireRate:1.25, mag:5,  reload:2.0, spread:0.004, range:120, pellets:1 },
 };
 const GUN_KEYS=Object.keys(GUNS);
-const GUN_SLOTS=5;
+const GUN_SLOTS=7;
 const HEALTH_AMT=35, SHIELD_AMT=40;
 
 const SKINS = [
@@ -370,7 +376,7 @@ const LEAGUES = [
 ];
 const PROMOTE_LP=100, DEMOTE_LP=30;
 
-const TOTAL_PLAYERS=24;
+const TOTAL_PLAYERS=12;
 const HALF=130, EYE=1.7, CHEST=1.15, HEAD_Y=1.85, JUMP_V=7.6, GRAV=22;
 const BOT_NAMES=['Ace','Blaze','Cobra','Dash','Echo','Fang','Ghost','Havoc','Iris','Jet','Kilo','Lynx',
   'Maverick','Nova','Onyx','Pluto','Quill','Rogue','Sable','Titan','Umbra','Vortex','Wolf','Xena','York','Zephyr','Rex','Bolt','Sly','Kai','Rune','Vega'];
@@ -483,7 +489,7 @@ function makeEntity(x,z,isPlayer,name,skin){
   return { x,z, y:0, vy:0, yaw:rand(0,Math.PI*2), pitch:0, isPlayer, name,
     hp:100, maxHp:100, shield:0, maxShield:100, speed:isPlayer?7.6:4.9, radius:0.6, alive:true, skin, slot:0,
     guns: isPlayer ? [makeGun('pistol','common'),null,null,null,null] : [randomGun()],
-    items:{health:0,shield:0,ammo:0},
+    items:{health:0,shield:0,ammo:0,grenade:0},
     cool:0, reloading:0, pickupLock:0, kills:0, placement:0, hitsTaken:0, lastHit:null,
     group:null, bbCanvas:null, bbTex:null, bbSprite:null, bbDirty:true,
     ai:{ state:'roam', tx:x, tz:z, think:0, target:null, strafe:rand(-1,1) } };
@@ -558,13 +564,50 @@ function buildWorld(mp){ scene=new T.Scene(); const sky=new T.Color(mp.sky); sce
   for(let i=0;i<34;i++){ const x=rand(-HALF+8,HALF-8), z=rand(-HALF+8,HALF-8); if(pois.some(p=>dist(x,z,p.x,p.z)<16)) continue; const s=rand(2,5); addBox(x,z,s,s,rand(2,6),rockC,obstacles); }
   return obstacles; }
 
-// ---------- loot & pickups ----------
-function lootMesh(gun,x,z){ const m=new T.Mesh(new T.OctahedronGeometry(0.5), new T.MeshLambertMaterial({color:RARITY[gun.rarity].color, emissive:RARITY[gun.rarity].color, emissiveIntensity:0.35})); m.position.set(x,1.1,z); scene.add(m); return m; }
-function spawnLoot(world){ for(let i=0;i<70;i++){ const x=rand(-HALF+6,HALF-6), z=rand(-HALF+6,HALF-6), gun=randomGun(); world.loot.push({x,z,gun,mesh:lootMesh(gun,x,z),ph:rand(0,6.28)}); } }
-function spawnPickups(world){ for(let i=0;i<60;i++){ const r=Math.random(); const kind=r<0.4?'health':(r<0.7?'shield':'ammo');
-    const x=rand(-HALF+6,HALF-6), z=rand(-HALF+6,HALF-6); const col=kind==='health'?0x4bd06a:(kind==='shield'?0x4dd0e1:0xffd54f);
-    const mesh=new T.Mesh(new T.BoxGeometry(0.8,0.8,0.8), new T.MeshLambertMaterial({color:col, emissive:col, emissiveIntensity:0.25})); mesh.position.set(x,0.6,z); scene.add(mesh);
-    world.pickups.push({x,z,kind,mesh,ph:rand(0,6.28)}); } }
+// ---------- item models (so ground items look like what they are) ----------
+function lm(c){ return new T.MeshLambertMaterial({color:c, emissive:c, emissiveIntensity:0.15}); }
+function pm(geo,mat,x,y,z){ const m=new T.Mesh(geo,mat); m.position.set(x||0,y||0,z||0); return m; }
+function makeGunModel(type,rc){ const g=new T.Group();
+  const dark=0x272b33, metal=0x424956;
+  const P=(w,h,d,c,x,y,z)=>{ const m=new T.Mesh(new T.BoxGeometry(w,h,d), new T.MeshLambertMaterial({color:c, emissive:(c===rc?rc:0x000000), emissiveIntensity:(c===rc?0.35:0)})); m.position.set(x,y,z); g.add(m); return m; };
+  switch(type){
+    case 'pistol':   P(0.5,0.16,0.13, rc,0.05,0.06,0); P(0.16,0.26,0.14, dark,-0.13,-0.12,0); break;
+    case 'revolver': P(0.42,0.15,0.12, rc,0.06,0.06,0); P(0.15,0.24,0.13, dark,-0.1,-0.12,0); P(0.17,0.19,0.19, metal,-0.02,0.05,0); break;
+    case 'smg':      P(0.66,0.16,0.14, rc,0.05,0.06,0); P(0.14,0.26,0.14, dark,-0.17,-0.12,0); P(0.12,0.3,0.12, metal,0.03,-0.16,0); break;
+    case 'rifle':    P(0.95,0.15,0.13, rc,0.1,0.06,0); P(0.14,0.26,0.13, dark,-0.2,-0.12,0); P(0.12,0.28,0.12, metal,0.05,-0.15,0); P(0.28,0.13,0.12, dark,-0.42,0.05,0); break;
+    case 'ar':       P(1.02,0.15,0.13, rc,0.1,0.06,0); P(0.14,0.26,0.13, dark,-0.22,-0.12,0); P(0.13,0.3,0.12, metal,0.05,-0.16,0); P(0.3,0.13,0.12, dark,-0.46,0.05,0); break;
+    case 'lmg':      P(1.08,0.2,0.16, rc,0.1,0.06,0); P(0.16,0.28,0.15, dark,-0.22,-0.13,0); P(0.24,0.34,0.16, metal,0.05,-0.19,0); P(0.32,0.15,0.14, dark,-0.52,0.05,0); break;
+    case 'shotgun':  P(1.0,0.19,0.16, rc,0.1,0.06,0); P(0.34,0.13,0.14, dark,-0.5,0.02,0); P(0.14,0.24,0.14, dark,-0.16,-0.12,0); break;
+    case 'dmr':      P(1.1,0.14,0.12, rc,0.12,0.06,0); P(0.14,0.24,0.13, dark,-0.28,-0.11,0); P(0.34,0.12,0.12, dark,-0.55,0.05,0); P(0.24,0.09,0.09, metal,0.02,0.15,0); break;
+    case 'sniper':   P(1.3,0.13,0.12, rc,0.15,0.06,0); P(0.14,0.24,0.13, dark,-0.3,-0.11,0); P(0.36,0.12,0.12, dark,-0.58,0.05,0); P(0.3,0.1,0.1, metal,0.0,0.16,0); break;
+    default:         P(0.8,0.16,0.14, rc,0.05,0.06,0); P(0.15,0.26,0.14, dark,-0.16,-0.12,0);
+  }
+  return g; }
+function makeGrenadeModel(){ const g=new T.Group();
+  const body=new T.Mesh(new T.SphereGeometry(0.26,12,10), lm(0x3d5a34)); body.scale.set(1,1.18,1); g.add(body);
+  g.add(pm(new T.CylinderGeometry(0.1,0.1,0.12,8), new T.MeshLambertMaterial({color:0x6a6f78}),0,0.3,0));
+  g.add(pm(new T.BoxGeometry(0.04,0.2,0.09), new T.MeshLambertMaterial({color:0x9aa0a8}),0.11,0.26,0));
+  return g; }
+function makeHealthModel(){ const g=new T.Group();
+  g.add(new T.Mesh(new T.BoxGeometry(0.55,0.4,0.42), new T.MeshLambertMaterial({color:0xf1f5f8})));
+  g.add(new T.Mesh(new T.BoxGeometry(0.3,0.1,0.44), lm(0xe0524a)));
+  g.add(new T.Mesh(new T.BoxGeometry(0.1,0.3,0.44), lm(0xe0524a)));
+  return g; }
+function makeShieldModel(){ const g=new T.Group();
+  g.add(new T.Mesh(new T.CylinderGeometry(0.2,0.24,0.4,10), lm(0x2f7fd6)));
+  g.add(pm(new T.CylinderGeometry(0.08,0.11,0.14,8), new T.MeshLambertMaterial({color:0xbfe2ff}),0,0.27,0));
+  return g; }
+function makeAmmoModel(){ const g=new T.Group();
+  g.add(new T.Mesh(new T.BoxGeometry(0.5,0.32,0.4), new T.MeshLambertMaterial({color:0x7a5a30})));
+  g.add(pm(new T.BoxGeometry(0.52,0.09,0.42), new T.MeshLambertMaterial({color:0x8f6c3c}),0,0.18,0));
+  for(let i=-1;i<=1;i++) g.add(pm(new T.CylinderGeometry(0.04,0.04,0.18,6), lm(0xffd54f), i*0.13,0.3,0));
+  return g; }
+function lootMesh(gun,x,z){ const m=makeGunModel(gun.type, RARITY[gun.rarity].color); m.position.set(x,1.0,z); m.scale.set(1.05,1.05,1.05); scene.add(m); return m; }
+function pickupMesh(kind,x,z){ const m = kind==='health'?makeHealthModel():kind==='shield'?makeShieldModel():kind==='ammo'?makeAmmoModel():makeGrenadeModel(); m.position.set(x,0.55,z); scene.add(m); return m; }
+function spawnLoot(world){ for(let i=0;i<56;i++){ const x=rand(-HALF+6,HALF-6), z=rand(-HALF+6,HALF-6), gun=randomGun(); world.loot.push({x,z,gun,mesh:lootMesh(gun,x,z),ph:rand(0,6.28)}); } }
+function spawnPickups(world){ for(let i=0;i<52;i++){ const r=Math.random(); const kind=r<0.34?'health':(r<0.58?'shield':(r<0.8?'ammo':'grenade'));
+    const x=rand(-HALF+6,HALF-6), z=rand(-HALF+6,HALF-6);
+    world.pickups.push({x,z,kind,mesh:pickupMesh(kind,x,z),ph:rand(0,6.28)}); } }
 
 /* ==========================================================================
    START MATCH
@@ -572,10 +615,11 @@ function spawnPickups(world){ for(let i=0;i<60;i++){ const r=Math.random(); cons
 function startMatch(){ if(!dropPoint||!glOK){ if(!glOK) toast('3D not supported in this browser'); return; }
   hideAllScreens(); ac(); const mp=mapById(save.map); const obstacles=buildWorld(mp);
   const player=makeEntity(dropPoint.x,dropPoint.z,true,'You',skinById(save.skin)); buildEntityMesh(player);
+  player.items.grenade=2;   // starter grenades so you can try them right away
   const bots=[]; const names=BOT_NAMES.slice(); for(let i=names.length-1;i>0;i--){ const j=rint(0,i); [names[i],names[j]]=[names[j],names[i]]; }
   for(let i=0;i<TOTAL_PLAYERS-1;i++){ let bx,bz,ok=0; do{ bx=rand(-HALF+10,HALF-10); bz=rand(-HALF+10,HALF-10); ok++; } while(dist(bx,bz,player.x,player.z)<28 && ok<40);
     const b=makeEntity(bx,bz,false,names[i%names.length],choose(SKINS)); buildEntityMesh(b); bots.push(b); }
-  world={ mp, player, bots, all:[player,...bots], obstacles, loot:[], pickups:[], tracers:[], aliveCount:TOTAL_PLAYERS, kills:0, time:0, over:false,
+  world={ mp, player, bots, all:[player,...bots], obstacles, loot:[], pickups:[], tracers:[], grenades:[], explosions:[], aliveCount:TOTAL_PLAYERS, kills:0, time:0, over:false,
     zone:{ cx:0, cz:0, r:120, nr:120, ncx:0, ncz:0, timer:14, shrinking:false, shrinkFrom:120, moveTime:8, moveT:8, fromX:0, fromZ:0 } };
   spawnLoot(world); spawnPickups(world);
   const wallGeo=new T.CylinderGeometry(1,1,14,48,1,true);
@@ -603,10 +647,10 @@ window.addEventListener('keydown',e=>{
   if(!world||world.over||!running) return;
   if(k==='r') startReload(world.player);
   if(k==='q') cycleSlot(world.player,1);
-  if(k>='1'&&k<='5') selectSlot(world.player,parseInt(k)-1);
+  if(k>='1'&&k<='7') selectSlot(world.player,parseInt(k)-1);
   if(k==='v') toggleCam();
   if(k===' ') tryJump(world.player);
-  if(k==='h') useHealth(); if(k==='j') useShield(); if(k==='b') useAmmo();
+  if(k==='h') useHealth(); if(k==='j') useShield(); if(k==='b') useAmmo(); if(k==='g') throwGrenade();
 });
 window.addEventListener('keyup',e=>{ keys[e.key.toLowerCase()]=false; });
 function canvasEl(){ return renderer?renderer.domElement:document.getElementById('glcanvas'); }
@@ -662,7 +706,7 @@ holdBtn('turnL',()=>{ turnBtn=1; document.getElementById('turnL').classList.add(
 holdBtn('turnR',()=>{ turnBtn=-1; document.getElementById('turnR').classList.add('on'); },()=>{ turnBtn=0; document.getElementById('turnR').classList.remove('on'); });
 tapBtn('jumpbtn',()=>{ if(world&&!world.over) tryJump(world.player); });
 tapBtn('reloadbtn',()=>{ if(world&&!world.over) startReload(world.player); });
-tapBtn('cons-health',useHealth); tapBtn('cons-shield',useShield); tapBtn('cons-ammo',useAmmo);
+tapBtn('cons-health',useHealth); tapBtn('cons-shield',useShield); tapBtn('cons-ammo',useAmmo); tapBtn('cons-grenade',throwGrenade);
 
 // ---------- weapon / item actions ----------
 function selectSlot(ent,i){ if(i>=0&&i<ent.guns.length&&ent.guns[i]){ ent.slot=i; ent.reloading=0; if(ent.isPlayer) SFX.pick(); } }
@@ -738,6 +782,40 @@ function addKill(killer,victim,weapon,storm,head){ const feed=document.getElemen
 function esc(s){ return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
 
 /* ==========================================================================
+   GRENADES
+   ========================================================================== */
+const GRENADE_R=6.5, GRENADE_DMG=130;
+function throwGrenade(){ const p=world&&world.player; if(!p||!p.alive||world.over) return; if(p.items.grenade<=0){ SFX.empty(); return; }
+  p.items.grenade--;
+  const cp=Math.cos(p.pitch); const dx=Math.sin(p.yaw)*cp, dy=Math.sin(p.pitch)+0.35, dz=Math.cos(p.yaw)*cp;
+  const sp=17; const mesh=makeGrenadeModel(); mesh.position.set(p.x, EYE+p.y, p.z); scene.add(mesh);
+  world.grenades.push({ x:p.x, y:EYE+p.y, z:p.z, vx:dx*sp, vy:dy*sp+2, vz:dz*sp, fuse:1.5, owner:p, mesh });
+  SFX.jump();
+}
+function updateGrenades(dt){ const arr=world.grenades;
+  for(let i=arr.length-1;i>=0;i--){ const gr=arr[i]; gr.fuse-=dt; gr.vy-=20*dt;
+    gr.x+=gr.vx*dt; gr.y+=gr.vy*dt; gr.z+=gr.vz*dt;
+    if(gr.y<0.25){ gr.y=0.25; gr.vy=-gr.vy*0.4; gr.vx*=0.6; gr.vz*=0.6; }             // bounce
+    gr.x=clamp(gr.x,-HALF+0.5,HALF-0.5); gr.z=clamp(gr.z,-HALF+0.5,HALF-0.5);
+    if(gr.mesh){ gr.mesh.position.set(gr.x,gr.y,gr.z); gr.mesh.rotation.x+=dt*8; gr.mesh.rotation.z+=dt*6; }
+    if(gr.fuse<=0){ explode(gr.x,gr.y,gr.z,gr.owner); if(gr.mesh) scene.remove(gr.mesh); arr.splice(i,1); }
+  }
+}
+function explode(x,y,z,owner){
+  for(const o of world.all){ if(!o.alive) continue; const d=Math.sqrt(dist2(x,z,o.x,o.z)+(y-(o.y+CHEST))*(y-(o.y+CHEST)));
+    if(d<GRENADE_R){ const dmg=GRENADE_DMG*(1-d/GRENADE_R); applyDamage(o,dmg,owner,'Grenade',false); } }
+  // flash
+  const m=new T.Mesh(new T.SphereGeometry(1,16,12), new T.MeshBasicMaterial({color:0xffb04d, transparent:true, opacity:0.85, depthWrite:false}));
+  m.position.set(x,Math.max(y,0.6),z); scene.add(m); world.explosions.push({mesh:m, life:0.35, max:0.35});
+  SFX.hit(); blip(70,0.3,'sawtooth',0.08);
+}
+function updateExplosions(dt){ const arr=world.explosions;
+  for(let i=arr.length-1;i>=0;i--){ const ex=arr[i]; ex.life-=dt; const t=1-ex.life/ex.max; const s=1+t*GRENADE_R;
+    ex.mesh.scale.set(s,s,s); ex.mesh.material.opacity=0.85*(1-t);
+    if(ex.life<=0){ scene.remove(ex.mesh); arr.splice(i,1); } }
+}
+
+/* ==========================================================================
    ZONE
    ========================================================================== */
 function updateZone(dt){ const z=world.zone; z.timer-=dt;
@@ -763,8 +841,7 @@ function tryPickups(ent){ if(ent.pickupLock>0) return;
       // full
       if(!ent.isPlayer){ const cur=ent.guns[ent.slot]; if(cur && l.gun.dmg<=cur.dmg) continue; }
       const old=ent.guns[ent.slot]; ent.guns[ent.slot]=l.gun; const dropped=makeGun(old.type,old.rarity); dropped.reserve=old.reserve; dropped.ammo=old.ammo;
-      l.gun=dropped; l.mesh.material.color.setHex(RARITY[dropped.rarity].color); l.mesh.material.emissive.setHex(RARITY[dropped.rarity].color);
-      l.x=ent.x+rand(1.4,2.2); l.z=ent.z+rand(1.4,2.2); l.mesh.position.set(l.x,1.1,l.z); ent.pickupLock=1.0; ent.reloading=0;
+      scene.remove(l.mesh); l.gun=dropped; l.x=ent.x+rand(1.4,2.2); l.z=ent.z+rand(1.4,2.2); l.mesh=lootMesh(dropped,l.x,l.z); ent.pickupLock=1.0; ent.reloading=0;
       if(ent.isPlayer){ SFX.pick(); floatPickText(ent,'Traded for '+gunLabel(ent.guns[ent.slot]),RARITY[ent.guns[ent.slot].rarity].css); } return;
     } }
   for(let i=0;i<world.pickups.length;i++){ const pk=world.pickups[i]; if(dist2(ent.x,ent.z,pk.x,pk.z)<1.4*1.4){
@@ -830,10 +907,11 @@ function step(dt){ world.time+=dt; const p=world.player; updateZone(dt);
     if(p.reloading>0){ p.reloading-=dt; if(p.reloading<=0) finishReload(p); } }
   for(const b of world.bots){ if(!b.alive) continue; updateBot(b,dt); resolveObstacles(b); tryPickups(b); stormDamage(b,dt);
     b.cool=Math.max(0,b.cool-dt); b.pickupLock=Math.max(0,b.pickupLock-dt);
-    if(b.reloading>0){ b.reloading-=dt; if(b.reloading<=0) finishReload(b); } } }
+    if(b.reloading>0){ b.reloading-=dt; if(b.reloading<=0) finishReload(b); } }
+  updateGrenades(dt); updateExplosions(dt); }
 function syncMeshes(){ for(const o of world.all){ if(o.alive) syncEntityMesh(o); }
-  const t=world.time; for(const l of world.loot){ l.mesh.rotation.y=t*2+l.ph; l.mesh.position.y=1.1+Math.sin(t*2+l.ph)*0.2; }
-  for(const pk of world.pickups){ pk.mesh.rotation.y=t*1.5+pk.ph; pk.mesh.position.y=0.6+Math.sin(t*2+pk.ph)*0.12; } }
+  const t=world.time; for(const l of world.loot){ l.mesh.rotation.y=t*2+l.ph; l.mesh.position.y=1.0+Math.sin(t*2+l.ph)*0.18; }
+  for(const pk of world.pickups){ pk.mesh.rotation.y=t*1.5+pk.ph; pk.mesh.position.y=0.55+Math.sin(t*2+pk.ph)*0.12; } }
 function updateTracers(dt){ const arr=world.tracers; const pos=world.tracerMesh.geometry.attributes.position; let n=0;
   for(let i=arr.length-1;i>=0;i--){ const tr=arr[i]; tr.life-=dt; if(tr.life<=0){ arr.splice(i,1); continue; }
     if(n<120){ const o=n*6; pos.array[o]=tr.ax;pos.array[o+1]=tr.ay;pos.array[o+2]=tr.az; pos.array[o+3]=tr.bx;pos.array[o+4]=tr.by;pos.array[o+5]=tr.bz; n++; } }
@@ -876,6 +954,7 @@ function renderHUD(){ const p=world.player;
   document.getElementById('c-health').textContent=p.items.health;
   document.getElementById('c-shield').textContent=p.items.shield;
   document.getElementById('c-ammo').textContent=p.items.ammo;
+  document.getElementById('c-grenade').textContent=p.items.grenade;
   drawMinimap(); updateTargetInfo();
 }
 function updateTargetInfo(){ const ti=document.getElementById('target-info'); const p=world.player; if(!p.alive){ ti.style.display='none'; return; }
