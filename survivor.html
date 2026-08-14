@@ -106,6 +106,8 @@
     font-size:14px; font-weight:800; cursor:pointer; }
   #turnL { left:12px; } #turnR { right:12px; }
   #turnL.on, #turnR.on { background:rgba(46,125,255,.75); }
+  #fwdbtn { position:fixed; left:104px; bottom:150px; z-index:12; padding:9px 13px; font-size:13px; }
+  #backbtn { position:fixed; left:104px; bottom:92px; z-index:12; padding:9px 13px; font-size:13px; }
   #firebtn, #jumpbtn, #reloadbtn, #runbtn, #cambtn, #zoombtn { z-index:12; }
   #jumpbtn, #reloadbtn, #runbtn, #cambtn, #zoombtn { padding:9px 13px; font-size:13px; }
 
@@ -173,7 +175,7 @@
   <div class="card muted" style="font-size:14px; line-height:1.7;">
     <p><b>Goal:</b> be the last survivor out of 24. The storm shrinks and forces everyone together. Bots fight each other too.</p>
     <p><b>Move:</b> <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>. <b>Sprint:</b> hold <kbd>Shift</kbd>. <b>Jump:</b> <kbd>Space</kbd>.</p>
-    <p><b>Look / aim:</b> move the mouse (click once to lock it for full free-look), or hold the <b>Turn Left</b> / <b>Turn Right</b> buttons on the sides of the screen to turn that way. <b>On touch:</b> drag the left side to move and drag the right side to look. Every action also has an on-screen button, so you never have to use the keyboard if you don't want to.</p>
+    <p><b>Look / aim:</b> move the mouse (click once to lock it for full free-look), or hold the <b>Look Left</b> / <b>Look Right</b> buttons on the sides of the screen. <b>On touch:</b> drag left to look left and drag right to look right; use the <b>Forward</b> / <b>Back</b> buttons (or the move stick) to walk. Every action has an on-screen button, so you never have to use the keyboard if you don't want to.</p>
     <p><b>Shoot:</b> <kbd>Left Click</kbd> or the Fire button. <b>Zoom / scope:</b> hold <kbd>Right Click</kbd> or the Zoom button (best with the Sniper). <b>Reload:</b> <kbd>R</kbd>.</p>
     <p><b>Inventory:</b> you carry up to 5 guns. Switch with <kbd>1</kbd>-<kbd>5</kbd>, <kbd>Q</kbd>, the mouse wheel, or tap a slot. Walk over a gun to pick it up; if your inventory is full it trades for the gun in your hand.</p>
     <p><b>Ammo:</b> each gun has a magazine and a reserve. Reload pulls from your reserve. Grab yellow Ammo boxes, then press <kbd>B</kbd> to top up the gun you are holding.</p>
@@ -270,8 +272,10 @@
   <button id="runbtn" class="btn gray clickable">Sprint</button>
   <button id="cambtn" class="btn gray clickable" onclick="toggleCam()">View: 3rd</button>
   <button id="zoombtn" class="btn gray clickable">Zoom</button>
-  <button id="turnL" class="clickable">Turn<br>Left</button>
-  <button id="turnR" class="clickable">Turn<br>Right</button>
+  <button id="turnL" class="clickable">Look<br>Left</button>
+  <button id="turnR" class="clickable">Look<br>Right</button>
+  <button id="fwdbtn" class="btn gray clickable">Forward</button>
+  <button id="backbtn" class="btn gray clickable">Back</button>
   <canvas id="minimap" width="130" height="130"></canvas>
 </div>
 <div id="crosshair"></div>
@@ -562,7 +566,7 @@ function showStartHint(){ let h=document.getElementById('startHint'); if(!h){ h=
 /* ==========================================================================
    INPUT
    ========================================================================== */
-const keys={}; let mouse={down:false, nx:0, ny:0, over:false}; let locked=false; let sprintHeld=false; let turnBtn=0;
+const keys={}; let mouse={down:false, nx:0, ny:0, over:false}; let locked=false; let sprintHeld=false; let turnBtn=0; let moveBtn=0;
 const TURN_RATE=2.6;
 window.addEventListener('keydown',e=>{
   if(['arrowup','arrowdown','arrowleft','arrowright',' ','tab'].includes(e.key.toLowerCase())) e.preventDefault();
@@ -580,7 +584,7 @@ function canvasEl(){ return renderer?renderer.domElement:document.getElementById
 
 if(renderer){ const cv=renderer.domElement;
   cv.addEventListener('mousemove',e=>{ mouse.over=true;
-    if(locked){ const p=world&&world.player; if(p&&p.alive){ const s=zooming?0.0011:0.0022; p.yaw+=e.movementX*s; p.pitch=clamp(p.pitch - e.movementY*s,-1.2,1.2); } }
+    if(locked){ const p=world&&world.player; if(p&&p.alive){ const s=zooming?0.0011:0.0022; p.yaw-=e.movementX*s; p.pitch=clamp(p.pitch - e.movementY*s,-1.2,1.2); } }
     else { mouse.nx=(e.clientX/window.innerWidth)*2-1; mouse.ny=(e.clientY/window.innerHeight)*2-1; } });
   cv.addEventListener('mouseleave',()=>{ mouse.over=false; });
   cv.addEventListener('mousedown',e=>{ ac(); if(e.button===0){ mouse.down=true; if(running&&!locked) requestLock(); } if(e.button===2){ zooming=true; } });
@@ -604,7 +608,7 @@ if(renderer){ const cv=renderer.domElement;
     for(const t of e.changedTouches){
       if(joy.active&&t.identifier===joy.id){ let dx=t.clientX-joy.ox,dy=t.clientY-joy.oy; const m=Math.hypot(dx,dy),mx=55; if(m>mx){dx=dx/m*mx;dy=dy/m*mx;} joy.dx=dx/mx; joy.dy=dy/mx; }
       if(look.active&&t.identifier===look.id){ const p=world&&world.player; if(p&&p.alive){ const s=zooming?0.0028:0.005;
-        p.yaw+=(t.clientX-look.lx)*s; p.pitch=clamp(p.pitch+(t.clientY-look.ly)*s,-1.2,1.2); } look.lx=t.clientX; look.ly=t.clientY; }
+        p.yaw-=(t.clientX-look.lx)*s; p.pitch=clamp(p.pitch+(t.clientY-look.ly)*s,-1.2,1.2); } look.lx=t.clientX; look.ly=t.clientY; }
     } e.preventDefault(); },{passive:false});
   cv.addEventListener('touchend',e=>{ for(const t of e.changedTouches){
     if(t.identifier===joy.id){ joy.active=false; joy.dx=0; joy.dy=0; } if(t.identifier===look.id){ look.active=false; } } e.preventDefault(); },{passive:false});
@@ -618,8 +622,10 @@ function tapBtn(id,fn){ const el=document.getElementById(id); if(!el) return; el
 holdBtn('firebtn',()=>{ ac(); fireHeld=true; },()=>{ fireHeld=false; });
 holdBtn('runbtn',()=>{ sprintHeld=true; document.getElementById('runbtn').classList.add('on'); },()=>{ sprintHeld=false; document.getElementById('runbtn').classList.remove('on'); });
 holdBtn('zoombtn',()=>{ zooming=true; document.getElementById('zoombtn').classList.add('on'); },()=>{ zooming=false; document.getElementById('zoombtn').classList.remove('on'); });
-holdBtn('turnL',()=>{ turnBtn=-1; document.getElementById('turnL').classList.add('on'); },()=>{ turnBtn=0; document.getElementById('turnL').classList.remove('on'); });
-holdBtn('turnR',()=>{ turnBtn=1; document.getElementById('turnR').classList.add('on'); },()=>{ turnBtn=0; document.getElementById('turnR').classList.remove('on'); });
+holdBtn('turnL',()=>{ turnBtn=1; document.getElementById('turnL').classList.add('on'); },()=>{ turnBtn=0; document.getElementById('turnL').classList.remove('on'); });   // Look Left (yaw+ = look left)
+holdBtn('turnR',()=>{ turnBtn=-1; document.getElementById('turnR').classList.add('on'); },()=>{ turnBtn=0; document.getElementById('turnR').classList.remove('on'); });
+holdBtn('fwdbtn',()=>{ moveBtn=1; },()=>{ moveBtn=0; });
+holdBtn('backbtn',()=>{ moveBtn=-1; },()=>{ moveBtn=0; });
 tapBtn('jumpbtn',()=>{ if(world&&!world.over) tryJump(world.player); });
 tapBtn('reloadbtn',()=>{ if(world&&!world.over) startReload(world.player); });
 tapBtn('cons-health',useHealth); tapBtn('cons-shield',useShield); tapBtn('cons-ammo',useAmmo);
@@ -761,12 +767,13 @@ function updateBot(b,dt){ const z=world.zone, ai=b.ai; ai.think-=dt; const outsi
    ========================================================================== */
 function updatePlayer(p,dt){
   if(turnBtn!==0) p.yaw+=turnBtn*TURN_RATE*dt;               // on-screen Turn Left / Turn Right buttons
-  if(!locked && mouse.over && turnBtn===0){ p.yaw+=mouse.nx*2.2*dt; p.pitch=clamp(-mouse.ny*0.9,-1.1,1.1); }
+  if(!locked && mouse.over && turnBtn===0){ p.yaw-=mouse.nx*2.2*dt; p.pitch=clamp(-mouse.ny*0.9,-1.1,1.1); }
   let fwd=0,str=0;
+  if(moveBtn!==0) fwd+=moveBtn;                              // on-screen Forward / Back buttons
   if(keys['w']||keys['arrowup']) fwd+=1; if(keys['s']||keys['arrowdown']) fwd-=1;
   if(keys['d']||keys['arrowright']) str+=1; if(keys['a']||keys['arrowleft']) str-=1;
   if(joy.active){ fwd+=-joy.dy; str+=joy.dx; }
-  const fx=Math.sin(p.yaw), fz=Math.cos(p.yaw), rx=Math.cos(p.yaw), rz=-Math.sin(p.yaw);
+  const fx=Math.sin(p.yaw), fz=Math.cos(p.yaw), rx=-Math.cos(p.yaw), rz=Math.sin(p.yaw);
   let mx=fx*fwd+rx*str, mz=fz*fwd+rz*str; const m=Math.hypot(mx,mz); if(m>1){ mx/=m; mz/=m; }
   const sp=(keys['shift']||sprintHeld)?1.8:1;
   p.x+=mx*p.speed*sp*dt; p.z+=mz*p.speed*sp*dt;
