@@ -1494,12 +1494,13 @@ function Stopwatch(){
 }
 
 function IntervalTimer({finishSound, setFinishSound}){
+  const [warmup, setWarmup] = usePersist("iv_warmup", 15);
   const [work, setWork] = usePersist("iv_work", 40);
   const [rest, setRest] = usePersist("iv_rest", 20);
   const [rounds, setRounds] = usePersist("iv_rounds", 8);
 
   const [active, setActive] = useState(false);
-  const [phase, setPhase] = useState("work");   // work | rest | done
+  const [phase, setPhase] = useState("work");   // warmup | work | rest | restReady | done
   const [round, setRound] = useState(1);
   const [left, setLeft] = useState(work);
   const tick = useRef(null);
@@ -1516,7 +1517,11 @@ function IntervalTimer({finishSound, setFinishSound}){
   };
   useEffect(()=> ()=> stopRinging(), []);   // silence if you leave the timer
 
-  const startAll = ()=>{ stopRinging(); beep(880,.1); setActive(true); setPhase("work"); setRound(1); setLeft(work); };
+  const startAll = ()=>{
+    stopRinging(); beep(880,.1); setActive(true); setRound(1);
+    if(warmup>0){ setPhase("warmup"); setLeft(warmup); }   // warm-up before round 1
+    else { setPhase("work"); setLeft(work); }
+  };
   const stopAll = ()=>{ stopRinging(); setActive(false); setPhase("work"); setRound(1); setLeft(work); };
   // from the "Rest up next" hold, begin the rest countdown (also silences the ping)
   const startRest = ()=>{ stopRinging(); beep(660,.08); setPhase("rest"); setLeft(rest); setActive(true); };
@@ -1527,6 +1532,7 @@ function IntervalTimer({finishSound, setFinishSound}){
       setLeft(prev=>{
         if(prev>1) { if(prev<=4) beep(1200,.05,"square",.15); return prev-1; }
         // reached zero → transition
+        if(phase==="warmup"){ beep(880,.22); setPhase("work"); return work; }   // warm-up done → round 1
         if(phase==="work"){
           if(round>=rounds){ startRinging(); setActive(false); setPhase("done"); return 0; }   // keep pinging until Stop
           if(rest>0){ startRinging(); setActive(false); setPhase("restReady"); return 0; }      // ping until you start rest
@@ -1539,12 +1545,12 @@ function IntervalTimer({finishSound, setFinishSound}){
     return ()=>clearInterval(tick.current);
   },[active, phase, round, work, rest, rounds]);
 
-  const phaseColor = phase==="work"?"var(--accent)":phase==="rest"?"var(--core)":"var(--accent2)";
-  const total = phase==="rest"?rest:work;
+  const phaseColor = phase==="work"?"var(--accent)":phase==="rest"?"var(--core)":phase==="warmup"?"var(--shoulders)":"var(--accent2)";
+  const total = phase==="rest"?rest : phase==="warmup"?warmup : work;
   const pct = phase==="restReady"?0 : phase==="done"?100 : ((total-left)/total*100);
 
   if(active || phase==="done" || phase==="restReady"){
-    const label = phase==="done"?"Complete":phase==="work"?"Work":phase==="rest"?"Rest":"Rest up next";
+    const label = phase==="done"?"Complete":phase==="work"?"Work":phase==="rest"?"Rest":phase==="warmup"?"Warm-up":"Rest up next";
     return (
       <div className="card" style={{marginTop:16}}>
         <div className="timerface">
@@ -1556,6 +1562,7 @@ function IntervalTimer({finishSound, setFinishSound}){
           <div style={{color:"var(--muted)",fontWeight:700,marginTop:10}}>
             {phase==="done"? `${rounds} rounds finished`
               : phase==="restReady"? `Round ${round} of ${rounds} done — rest is ${fmtClock(rest)}`
+              : phase==="warmup"? `Get ready — ${rounds} ${rounds===1?"round":"rounds"} coming up`
               : `Round ${round} of ${rounds}`}
           </div>
         </div>
@@ -1579,13 +1586,14 @@ function IntervalTimer({finishSound, setFinishSound}){
   return (
     <div>
       <div className="card" style={{marginTop:16}}>
+        <TimeStepper label="Warm-up" seconds={warmup} setSeconds={setWarmup} minTotal={0}/>
         <TimeStepper label="Work" seconds={work} setSeconds={setWork} minTotal={5}/>
         <TimeStepper label="Rest" seconds={rest} setSeconds={setRest} minTotal={0}/>
         <Stepper label="Rounds" unit="" value={rounds} setValue={setRounds} min={1} step={1}/>
       </div>
       <div className="card" style={{marginTop:12,textAlign:"center",color:"var(--muted)",fontSize:13.5}}>
-        Total workout: <b style={{color:"var(--text)"}}>{fmtClock((work+rest)*rounds)}</b>
-        <span style={{color:"var(--faint)"}}> · {rounds} rounds</span>
+        Total workout: <b style={{color:"var(--text)"}}>{fmtClock(warmup + (work+rest)*rounds)}</b>
+        <span style={{color:"var(--faint)"}}> · {rounds} rounds{warmup>0?` · ${fmtClock(warmup)} warm-up`:""}</span>
       </div>
 
       <SoundPicker value={finishSound} onChange={setFinishSound}/>
