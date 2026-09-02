@@ -640,7 +640,8 @@ function showStartHint(){ let h=document.getElementById('startHint'); if(!h){ h=
    INPUT
    ========================================================================== */
 const keys={}; let mouse={down:false, nx:0, ny:0, over:false}; let locked=false; let sprintHeld=false; let turnBtn=0; let moveBtn=0;
-const TURN_RATE=2.6;
+const TURN_RATE=2.6;              // on-screen Look Left/Right buttons
+const ARROW_RATE=4.8, ARROW_PITCH=3.0;   // arrow-key look (faster)
 window.addEventListener('keydown',e=>{
   if(['arrowup','arrowdown','arrowleft','arrowright',' ','tab'].includes(e.key.toLowerCase())) e.preventDefault();
   const k=e.key.toLowerCase(); keys[k]=true;
@@ -880,14 +881,15 @@ function updateBot(b,dt){ const z=world.zone, ai=b.ai; ai.think-=dt; const outsi
    ========================================================================== */
 function updatePlayer(p,dt){
   // LOOK: on-screen Look buttons + arrow keys (keyboard-only play needs no mouse)
-  let kturn=turnBtn;
-  if(keys['arrowleft']) kturn+=1;      // arrow Left  -> look left
-  if(keys['arrowright']) kturn-=1;     // arrow Right -> look right
-  if(kturn!==0) p.yaw+=kturn*TURN_RATE*dt;
+  if(turnBtn!==0) p.yaw+=turnBtn*TURN_RATE*dt;               // on-screen Look buttons
+  let akey=0;
+  if(keys['arrowleft']) akey+=1;       // arrow Left  -> look left
+  if(keys['arrowright']) akey-=1;      // arrow Right -> look right
+  if(akey!==0) p.yaw+=akey*ARROW_RATE*dt;
   let kpitch=0;
   if(keys['arrowup']) kpitch+=1;       // arrow Up   -> look up
   if(keys['arrowdown']) kpitch-=1;     // arrow Down -> look down
-  if(kpitch!==0) p.pitch=clamp(p.pitch+kpitch*1.9*dt,-1.2,1.2);
+  if(kpitch!==0) p.pitch=clamp(p.pitch+kpitch*ARROW_PITCH*dt,-1.2,1.2);
   // MOVE: W/A/S/D only (arrows are for looking now)
   let fwd=0,str=0;
   if(moveBtn!==0) fwd+=moveBtn;
