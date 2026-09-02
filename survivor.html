@@ -177,8 +177,8 @@
     <p><b>Goal:</b> be the last survivor out of 24. The storm shrinks and forces everyone together. Bots fight each other too.</p>
     <p><b>Move:</b> <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>. <b>Sprint:</b> hold <kbd>Shift</kbd>. <b>Jump:</b> <kbd>Space</kbd>.</p>
     <p><b>On phone (twin-stick):</b> drag your left thumb anywhere on the <b>left half</b> to move &mdash; push up to go forward, push the stick all the way to sprint. Drag your right thumb on the <b>right half</b> to look everywhere. You can also hold the <b>Look Left</b> / <b>Look Right</b> buttons on the edges. All the other actions (fire, jump, reload, weapons, heals) are buttons too, so you never need the keyboard.</p>
-    <p><b>On computer:</b> move the mouse to look (click once to lock it for full free-look), <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to move.</p>
-    <p><b>Shoot:</b> <kbd>Left Click</kbd> or the Fire button. <b>Zoom / scope:</b> hold <kbd>Right Click</kbd> or the Zoom button (best with the Sniper). <b>Reload:</b> <kbd>R</kbd>.</p>
+    <p><b>On computer:</b> <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to move, the <kbd>&larr;</kbd> <kbd>&rarr;</kbd> arrow keys to look left and right, and <kbd>&uarr;</kbd> <kbd>&darr;</kbd> to look up and down. You can also click once to lock the mouse and aim with it.</p>
+    <p><b>Shoot:</b> press <kbd>F</kbd> (or <kbd>Enter</kbd>), click the mouse, or use the Fire button. <b>Zoom / scope:</b> hold <kbd>Right Click</kbd> or the Zoom button (best with the Sniper). <b>Reload:</b> <kbd>R</kbd>.</p>
     <p><b>Inventory:</b> you carry up to 7 guns. Switch with <kbd>1</kbd>-<kbd>7</kbd>, <kbd>Q</kbd>, the mouse wheel, or tap a slot. Walk over a gun to pick it up; if your inventory is full it trades for the gun in your hand. There are 9 gun types (pistol, revolver, SMG, rifle, assault rifle, LMG, shotgun, marksman, sniper) and every item on the ground looks like what it is.</p>
     <p><b>Grenades:</b> pick up grenades and press <kbd>G</kbd> (or the Grenade chip) to throw one where you are looking. It bounces, then explodes for big area damage.</p>
     <p><b>Ammo:</b> each gun has a magazine and a reserve. Reload pulls from your reserve. Grab yellow Ammo boxes, then press <kbd>B</kbd> to top up the gun you are holding.</p>
@@ -633,7 +633,7 @@ function startMatch(){ if(!dropPoint||!glOK){ if(!glOK) toast('3D not supported 
 }
 function showStartHint(){ let h=document.getElementById('startHint'); if(!h){ h=document.createElement('div'); h.id='startHint'; document.body.appendChild(h); }
   h.style.display='block'; h.style.opacity='1';
-  h.innerHTML='On phone: drag the LEFT side to move, drag the RIGHT side to look. On computer: click to lock the mouse, WASD move, Shift sprint, Space jump, V changes view.';
+  h.innerHTML='On computer: WASD move, arrow keys look, F fires, Space jumps, Shift sprints, V changes view. On phone: drag the LEFT side to move, drag the RIGHT side to look, tap FIRE.';
   clearTimeout(showStartHint._t); showStartHint._t=setTimeout(()=>{ h.style.opacity='0'; setTimeout(()=>{h.style.display='none';},600); },5200); }
 
 /* ==========================================================================
@@ -879,12 +879,20 @@ function updateBot(b,dt){ const z=world.zone, ai=b.ai; ai.think-=dt; const outsi
    PLAYER UPDATE
    ========================================================================== */
 function updatePlayer(p,dt){
-  if(turnBtn!==0) p.yaw+=turnBtn*TURN_RATE*dt;               // on-screen Turn Left / Turn Right buttons
-  if(!locked && mouse.over && turnBtn===0){ p.yaw-=mouse.nx*2.2*dt; p.pitch=clamp(-mouse.ny*0.9,-1.1,1.1); }
+  // LOOK: on-screen Look buttons + arrow keys (keyboard-only play needs no mouse)
+  let kturn=turnBtn;
+  if(keys['arrowleft']) kturn+=1;      // arrow Left  -> look left
+  if(keys['arrowright']) kturn-=1;     // arrow Right -> look right
+  if(kturn!==0) p.yaw+=kturn*TURN_RATE*dt;
+  let kpitch=0;
+  if(keys['arrowup']) kpitch+=1;       // arrow Up   -> look up
+  if(keys['arrowdown']) kpitch-=1;     // arrow Down -> look down
+  if(kpitch!==0) p.pitch=clamp(p.pitch+kpitch*1.9*dt,-1.2,1.2);
+  // MOVE: W/A/S/D only (arrows are for looking now)
   let fwd=0,str=0;
-  if(moveBtn!==0) fwd+=moveBtn;                              // on-screen Forward / Back buttons
-  if(keys['w']||keys['arrowup']) fwd+=1; if(keys['s']||keys['arrowdown']) fwd-=1;
-  if(keys['d']||keys['arrowright']) str+=1; if(keys['a']||keys['arrowleft']) str-=1;
+  if(moveBtn!==0) fwd+=moveBtn;
+  if(keys['w']) fwd+=1; if(keys['s']) fwd-=1;
+  if(keys['d']) str+=1; if(keys['a']) str-=1;
   if(joy.active){ fwd+=-joy.dy; str+=joy.dx; }
   const fx=Math.sin(p.yaw), fz=Math.cos(p.yaw), rx=-Math.cos(p.yaw), rz=Math.sin(p.yaw);
   let mx=fx*fwd+rx*str, mz=fz*fwd+rz*str; const m=Math.hypot(mx,mz); if(m>1){ mx/=m; mz/=m; }
@@ -892,7 +900,8 @@ function updatePlayer(p,dt){
   p.x+=mx*p.speed*sp*dt; p.z+=mz*p.speed*sp*dt;
   // gravity / jump
   p.vy-=GRAV*dt; p.y+=p.vy*dt; if(p.y<0){ p.y=0; p.vy=0; }
-  if(mouse.down||fireHeld) playerShoot();
+  // FIRE: mouse, on-screen button, or the F / Enter keys
+  if(mouse.down||fireHeld||keys['f']||keys['enter']) playerShoot();
 }
 
 /* ==========================================================================
