@@ -919,6 +919,8 @@ const SOUNDS = [
   { id:"none",    name:"Silent",      play(){} },
 ];
 const soundById = id => SOUNDS.find(s=>s.id===id) || SOUNDS[0];
+// a distinct rising "ready… go!" cue for the end of the warm-up (never the round finish sound)
+function warmupCue(){ tone(659.25,0,.13,"square",.2); tone(880,.15,.13,"square",.2); tone(1318.5,.32,.5,"triangle",.32); }
 
 // ═══ ROOT APP ════════════════════════════════════════════════════════════════
 function App(){
@@ -1532,7 +1534,7 @@ function IntervalTimer({finishSound, setFinishSound}){
       setLeft(prev=>{
         if(prev>1) { if(prev<=4) beep(1200,.05,"square",.15); return prev-1; }
         // reached zero → transition
-        if(phase==="warmup"){ beep(880,.22); setPhase("work"); return work; }   // warm-up done → round 1
+        if(phase==="warmup"){ warmupCue(); setPhase("work"); return work; }   // warm-up done → distinct "go!" cue
         if(phase==="work"){
           if(round>=rounds){ startRinging(); setActive(false); setPhase("done"); return 0; }   // keep pinging until Stop
           if(rest>0){ startRinging(); setActive(false); setPhase("restReady"); return 0; }      // ping until you start rest
